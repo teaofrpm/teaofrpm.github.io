@@ -25,7 +25,7 @@
 <div class="profile-shell">
 
   <div class="profile-topbar">
-    <a href="chat.html" class="header-icon-btn" title="Back to chat">←</a>
+    <a href="chat.html" class="header-icon-btn" title="Back to chat" data-icon="back" data-icon-size="16"></a>
     <h2 id="profileTopTitle">Profile</h2>
     <span style="width:32px;"></span>
   </div>
@@ -35,14 +35,14 @@
     <div class="profile-head">
       <div class="pfp-wrap">
         <div class="pfp" id="pfpCircle"></div>
-        <label class="pfp-edit-btn" id="pfpEditBtn" for="pfpInput" style="display:none;">✎</label>
+        <label class="pfp-edit-btn" id="pfpEditBtn" for="pfpInput" style="display:none;" data-icon="edit" data-icon-size="13"></label>
         <input type="file" id="pfpInput" accept="image/*" style="display:none;" />
       </div>
 
       <div class="profile-names">
         <div class="profile-display-name" id="profileDisplayName"></div>
         <div class="profile-username" id="profileUsername"></div>
-        <span class="private-badge" id="privateBadge" style="display:none;">🔒 Private account</span>
+        <span class="private-badge" id="privateBadge" style="display:none;"><span data-icon="lock" data-icon-size="11"></span> Private account</span>
       </div>
 
       <div class="profile-bio" id="profileBio"></div>
@@ -99,7 +99,7 @@
     </div>
 
     <div class="locked-posts" id="lockedPosts" style="display:none;">
-      🔒 This account is private. Follow to see their posts.
+      <span data-icon="lock" data-icon-size="14"></span> This account is private. Follow to see their posts.
     </div>
 
     <div class="posts-list" id="postsList"></div>
@@ -107,9 +107,9 @@
   </div>
 
   <nav class="bottom-nav">
-    <a href="chat.html"><span class="nav-icon">💬</span>Chat</a>
-    <a href="discover.html"><span class="nav-icon">🗺</span>Discover</a>
-    <a href="profile.html" class="active"><span class="nav-icon">👤</span>Profile</a>
+    <a href="chat.html"><span class="nav-icon" data-icon="chat" data-icon-size="20"></span>Chat</a>
+    <a href="discover.html"><span class="nav-icon" data-icon="globe" data-icon-size="20"></span>Discover</a>
+    <a href="profile.html" class="active"><span class="nav-icon" data-icon="person" data-icon-size="20"></span>Profile</a>
   </nav>
 </div>
 
@@ -117,7 +117,7 @@
   <div class="follow-list-card">
     <div class="follow-list-header">
       <span id="followListTitle">Followers</span>
-      <button id="closeFollowList">✕</button>
+      <button id="closeFollowList" data-icon="close" data-icon-size="14"></button>
     </div>
     <div class="follow-list-body" id="followListBody"></div>
   </div>
