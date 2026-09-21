@@ -50,22 +50,24 @@ async function init() {
   }
 
   profileCache.set(ME.id, ME);
+  applyIconAttributes();
 
   document.getElementById("roomNameLabel").textContent = window.TEAOFRPM_CONFIG.ROOM_NAME;
   document.getElementById("headerRoomName").textContent = window.TEAOFRPM_CONFIG.ROOM_NAME;
 
-  await loadStickers();
-  await preloadProfiles();
-  await loadHistory();
+  await Promise.all([loadStickers(), preloadProfiles(), loadHistory(), loadNotifications()]);
+
   subscribeRealtime();
   subscribePresence();
   subscribeProfileUpdates();
+  subscribeNotifications();
   wireComposer();
   wireHeader();
   wireScrollTracking();
   wireLightbox();
   wireSearch();
   wireGlobalKeys();
+  wireNotifications();
   startBackgroundSync();
 
   document.addEventListener("visibilitychange", () => {
@@ -235,8 +237,7 @@ async function renderMessage(m, reactions = [], grouped = false) {
   const avatar = document.createElement("a");
   avatar.className = "avatar";
   avatar.href = author?.username ? `profile.html?u=${encodeURIComponent(author.username)}` : "#";
-  avatar.style.background = colorFromName(author?.display_name || "?");
-  avatar.textContent = initials(author?.display_name);
+  setAvatarContent(avatar, author);
   row.appendChild(avatar);
 
   const wrap = document.createElement("div");
@@ -309,11 +310,11 @@ async function renderMessage(m, reactions = [], grouped = false) {
   const actions = document.createElement("div");
   actions.className = "msg-actions";
   actions.innerHTML = `
-    <button class="react-btn" title="React">🙂+</button>
-    <button class="reply-btn" title="Reply">↩</button>
-    ${m.content ? `<button class="copy-btn" title="Copy text">⧉</button>` : ""}
-    ${isOwn && m.content ? `<button class="edit-btn" title="Edit">✎</button>` : ""}
-    ${isOwn ? `<button class="delete-btn" title="Delete">🗑</button>` : ""}
+    <button class="react-btn" title="React">${svgIcon("smilePlus", 14)}</button>
+    <button class="reply-btn" title="Reply">${svgIcon("reply", 14)}</button>
+    ${m.content ? `<button class="copy-btn" title="Copy text">${svgIcon("copy", 14)}</button>` : ""}
+    ${isOwn && m.content ? `<button class="edit-btn" title="Edit">${svgIcon("edit", 14)}</button>` : ""}
+    ${isOwn ? `<button class="delete-btn" title="Delete">${svgIcon("trash", 14)}</button>` : ""}
   `;
   bubble.appendChild(actions);
 
@@ -605,7 +606,7 @@ async function toggleVoiceRecording() {
       stream.getTracks().forEach(t => t.stop());
       clearInterval(recordingTimerInterval);
       btn.classList.remove("recording");
-      btn.textContent = "🎤";
+      btn.innerHTML = svgIcon("mic", 19);
       const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType || "audio/webm" });
       handleRecordedAudio(blob);
     };
@@ -615,7 +616,7 @@ async function toggleVoiceRecording() {
     btn.classList.add("recording");
     recordingTimerInterval = setInterval(() => {
       const secs = Math.floor((Date.now() - startedAt) / 1000);
-      btn.textContent = `⏹ ${secs}s`;
+      btn.textContent = `${secs}s`;
       if (secs >= 120) mediaRecorder.stop();
     }, 500);
   } catch (err) {
@@ -894,6 +895,7 @@ function wireGlobalKeys() {
     if (e.key !== "Escape") return;
     closeLightbox();
     document.getElementById("searchPanel").classList.remove("show");
+    document.getElementById("notifPanel").classList.remove("show");
     document.getElementById("stickerPanel").classList.remove("show");
     document.querySelectorAll(".emoji-picker").forEach(p => p.remove());
     if (window.innerWidth <= 760) document.getElementById("membersPanel").classList.remove("open");
@@ -1097,9 +1099,8 @@ function renderMemberList() {
 
     const av = document.createElement("span");
     av.className = `avatar ${isOnline ? "is-online" : ""}`;
-    av.style.background = colorFromName(p.display_name);
     av.style.width = "26px"; av.style.height = "26px"; av.style.fontSize = "10.5px";
-    av.textContent = initials(p.display_name);
+    setAvatarContent(av, p);
     row.appendChild(av);
 
     const info = document.createElement("div");
@@ -1129,6 +1130,114 @@ function wireHeader() {
     document.getElementById("membersPanel").classList.remove("open");
   });
   document.getElementById("loadMoreBtn").addEventListener("click", loadOlderMessages);
+}
+
+let notifications = [];
+
+async function loadNotifications() {
+  const { data, error } = await sb
+    .from("notifications")
+    .select("*")
+    .eq("user_id", ME.id)
+    .order("created_at", { ascending: false })
+    .limit(30);
+
+  if (error) { console.error(error); return; }
+  notifications = data || [];
+
+  const actorIds = [...new Set(notifications.map(n => n.actor_id).filter(Boolean))];
+  await Promise.all(actorIds.map(getProfile));
+
+  renderNotifications();
+}
+
+function notifText(n, actorName) {
+  switch (n.type) {
+    case "follow_request": return `<b>${actorName}</b> requested to follow you`;
+    case "follow": return `<b>${actorName}</b> started following you`;
+    case "follow_accepted": return `<b>${actorName}</b> accepted your follow request`;
+    case "like": return `<b>${actorName}</b> liked your post`;
+    case "comment": return `<b>${actorName}</b> commented on your post`;
+    default: return `<b>${actorName}</b> sent an update`;
+  }
+}
+
+function buildNotifRow(n) {
+  const actor = n.actor_id ? profileCache.get(n.actor_id) : null;
+  const actorName = actor ? escapeHTML(actor.display_name) : "Someone";
+
+  const row = document.createElement("a");
+  row.className = `notif-row ${n.read ? "" : "unread"}`;
+  row.href = actor ? `profile.html?u=${encodeURIComponent(actor.username)}` : "#";
+
+  const av = document.createElement("span");
+  av.className = "avatar";
+  av.style.width = "30px"; av.style.height = "30px"; av.style.fontSize = "11px"; av.style.flexShrink = "0";
+  setAvatarContent(av, actor);
+  row.appendChild(av);
+
+  const info = document.createElement("div");
+  info.innerHTML = `${notifText(n, actorName)}<div class="notif-time">${formatTime(n.created_at)}</div>`;
+  row.appendChild(info);
+
+  row.addEventListener("click", () => markNotifRead(n.id));
+
+  return row;
+}
+
+function renderNotifications() {
+  const unreadCount = notifications.filter(n => !n.read).length;
+  const badge = document.getElementById("notifBadge");
+  if (unreadCount > 0) {
+    badge.textContent = unreadCount > 9 ? "9+" : String(unreadCount);
+    badge.style.display = "flex";
+  } else {
+    badge.style.display = "none";
+  }
+
+  const results = document.getElementById("notifResults");
+  if (!notifications.length) {
+    results.innerHTML = `<div class="search-hint">No notifications yet.</div>`;
+    return;
+  }
+  results.innerHTML = "";
+  for (const n of notifications) results.appendChild(buildNotifRow(n));
+}
+
+async function markNotifRead(id) {
+  const n = notifications.find(x => x.id === id);
+  if (!n || n.read) return;
+  n.read = true;
+  await sb.from("notifications").update({ read: true }).eq("id", id);
+  renderNotifications();
+}
+
+async function markAllNotifsRead() {
+  const unread = notifications.filter(n => !n.read);
+  if (!unread.length) return;
+  unread.forEach(n => { n.read = true; });
+  await sb.from("notifications").update({ read: true }).eq("user_id", ME.id).eq("read", false);
+  renderNotifications();
+}
+
+function subscribeNotifications() {
+  sb.channel("public:notifications")
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${ME.id}` }, async (payload) => {
+      const n = payload.new;
+      if (n.actor_id) await getProfile(n.actor_id);
+      notifications.unshift(n);
+      renderNotifications();
+    })
+    .subscribe();
+}
+
+function wireNotifications() {
+  const toggle = document.getElementById("notifToggle");
+  const panel = document.getElementById("notifPanel");
+  toggle.addEventListener("click", () => {
+    const isOpen = panel.classList.toggle("show");
+    if (isOpen) markAllNotifsRead();
+  });
 }
 
 function wireSearch() {
@@ -1187,9 +1296,8 @@ async function runMessageSearch(term) {
 
     const av = document.createElement("div");
     av.className = "avatar";
-    av.style.background = colorFromName(author?.display_name || "?");
     av.style.width = "26px"; av.style.height = "26px"; av.style.fontSize = "10px";
-    av.textContent = initials(author?.display_name);
+    setAvatarContent(av, author);
     row.appendChild(av);
 
     const text = document.createElement("div");
