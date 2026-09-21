@@ -6,83 +6,117 @@ let pendingPfpFile = null;
 let pendingPostImageFile = null;
 let pendingPostImagePreviewUrl = null;
 
-// Reusable "hourglass" loading spinner for buttons. Stores the button's
-// original content and swaps it back in when loading finishes — works for
-// text buttons ("Save") and icon-only buttons (🗑) alike.
-const HOURGLASS_SVG = `<svg class="btn-spinner" width="15" height="15" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="vertical-align:-3px;"><path d="M6 2h12M6 22h12M6 2c0 6 4 8 6 10-2 2-6 4-6 10M18 2c0 6-4 8-6 10 2 2 6 4 6 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><animateTransform attributeName="transform" attributeType="XML" type="rotate" from="0 12 12" to="180 12 12" dur="0.8s" repeatCount="indefinite" calcMode="spline" keySplines="0.4 0 0.6 1" keyTimes="0;1"/></svg>`;
+async function init() {
+  const session = await requireSession("index.html");
+  if (!session) return;
 
-function setButtonLoading(btn, loading) {
-  if (!btn) return;
-  if (loading) {
-    if (btn.dataset.loading === "1") return;
-    btn.dataset.originalHtml = btn.innerHTML;
-    btn.innerHTML = HOURGLASS_SVG;
-    btn.disabled = true;
-    btn.dataset.loading = "1";
-  } else {
-    if (btn.dataset.loading !== "1") return;
-    btn.innerHTML = btn.dataset.originalHtml ?? btn.innerHTML;
-    delete btn.dataset.originalHtml;
-    delete btn.dataset.loading;
-    btn.disabled = false;
+  ME = await getMyProfile();
+  if (!ME) return;
+
+  applyIconAttributes();
+
+  if (ME.banned) {
+    toast("This account has been banned.");
+    await sb.auth.signOut();
+    window.location.href = "index.html";
+    return;
   }
+  if (!ME.is_verified) {
+    window.location.href = "verify.html";
+    return;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const targetUsername = (params.get("u") || ME.username).toLowerCase();
+
+  viewedUser = targetUsername === ME.username ? ME : await getProfileByUsername(targetUsername);
+  if (!viewedUser) {
+    document.getElementById("profileScroll").innerHTML =
+      `<div class="locked-posts">User not found.</div>`;
+    document.getElementById("loadingOverlay").classList.add("hide");
+    return;
+  }
+
+  isOwnProfile = viewedUser.id === ME.id;
+  document.getElementById("profileTopTitle").textContent = isOwnProfile ? "Your profile" : `@${viewedUser.username}`;
+
+  await loadFollowState();
+  renderProfileHeader();
+  await renderStats();
+  renderActions();
+  wireEditProfile();
+  wireNewPost();
+  wirePfpUpload();
+  wireFollowListModal();
+  await loadPosts();
+  await loadFollowRequests();
+
+  document.getElementById("loadingOverlay").classList.add("hide");
 }
 
-async function init() {
-  try {
-    const session = await requireSession("index.html");
-    if (!session) return;
+async function loadFollowRequests() {
+  if (!isOwnProfile) return;
 
-    ME = await getMyProfile();
-    if (!ME) {
-      document.getElementById("profileScroll").innerHTML = `<div class="locked-posts">Profile not found in database.</div>`;
-      return;
-    }
+  const { data, error } = await sb
+    .from("follows").select("*")
+    .eq("following_id", ME.id).eq("status", "pending")
+    .order("created_at", { ascending: false });
 
-    if (ME.banned) {
-      toast("This account has been banned.");
-      await sb.auth.signOut();
-      window.location.href = "index.html";
-      return;
-    }
-    if (!ME.is_verified) {
-      window.location.href = "verify.html";
-      return;
-    }
+  if (error || !data || !data.length) return;
 
-    const params = new URLSearchParams(window.location.search);
-    const rawUsername = params.get("u") || ME.username || "";
-    const targetUsername = rawUsername.toLowerCase();
+  const panel = document.getElementById("requestsPanel");
+  const list = document.getElementById("requestsList");
+  panel.style.display = "block";
+  list.innerHTML = "";
 
-    viewedUser = targetUsername === (ME.username || "").toLowerCase() ? ME : await getProfileByUsername(targetUsername);
+  const requesterIds = data.map(r => r.follower_id);
+  await Promise.all(requesterIds.map(getProfile));
 
-    if (!viewedUser) {
-      document.getElementById("profileScroll").innerHTML = `<div class="locked-posts">User not found.</div>`;
-      return;
-    }
+  for (const req of data) {
+    const p = await getProfile(req.follower_id);
+    const row = document.createElement("div");
+    row.className = "request-row";
 
-    isOwnProfile = viewedUser.id === ME.id;
-    document.getElementById("profileTopTitle").textContent = isOwnProfile ? "Your profile" : `@${viewedUser.username}`;
+    const av = document.createElement("span");
+    av.className = "avatar";
+    av.style.width = "34px"; av.style.height = "34px"; av.style.fontSize = "12px";
+    if (p?.pfp_url) { av.style.backgroundImage = `url("${p.pfp_url}")`; av.style.backgroundSize = "cover"; }
+    else { av.style.background = colorFromName(p?.display_name || "?"); av.textContent = initials(p?.display_name); }
+    row.appendChild(av);
 
-    await loadFollowState();
-    renderProfileHeader();
-    await renderStats();
-    renderActions();
-    wireEditProfile();
-    wireNewPost();
-    wirePfpUpload();
-    wireFollowListModal();
-    await loadPosts();
+    const info = document.createElement("div");
+    info.className = "request-info";
+    info.innerHTML = `<div class="follow-list-name">${escapeHTML(p?.display_name || "Unknown")}</div><div class="follow-list-username">@${escapeHTML(p?.username || "")}</div>`;
+    row.appendChild(info);
 
-  } catch (err) {
-    console.error("Profile Load Error:", err);
-    document.getElementById("profileScroll").innerHTML = `
-      <div style="padding: 20px; color: red; text-align: center;">
-        <b>Error Found:</b> ${err.message}
-      </div>`;
-  } finally {
-    const loader = document.getElementById("loadingOverlay");
-    if (loader) loader.classList.add("hide");
+    const actions = document.createElement("div");
+    actions.className = "request-actions";
+
+    const acceptBtn = document.createElement("button");
+    acceptBtn.className = "request-accept";
+    acceptBtn.textContent = "Accept";
+    acceptBtn.addEventListener("click", async () => {
+      const { error: aErr } = await sb.from("follows").update({ status: "accepted" }).eq("id", req.id);
+      if (aErr) { toast(aErr.message || "Could not accept."); return; }
+      row.remove();
+      await renderStats();
+      if (!list.children.length) panel.style.display = "none";
+    });
+    actions.appendChild(acceptBtn);
+
+    const declineBtn = document.createElement("button");
+    declineBtn.className = "request-decline";
+    declineBtn.textContent = "Decline";
+    declineBtn.addEventListener("click", async () => {
+      const { error: dErr } = await sb.from("follows").delete().eq("id", req.id);
+      if (dErr) { toast(dErr.message || "Could not decline."); return; }
+      row.remove();
+      if (!list.children.length) panel.style.display = "none";
+    });
+    actions.appendChild(declineBtn);
+
+    row.appendChild(actions);
+    list.appendChild(row);
   }
 }
 
@@ -171,23 +205,22 @@ function renderActions() {
   } else {
     btn.textContent = "Follow";
   }
-  btn.addEventListener("click", () => toggleFollow(btn));
+  btn.addEventListener("click", toggleFollow);
   actions.appendChild(btn);
 }
 
-async function toggleFollow(btn) {
-  setButtonLoading(btn, true);
+async function toggleFollow() {
   if (followState === "none") {
     const { error } = await sb.from("follows").insert({
       follower_id: ME.id,
       following_id: viewedUser.id,
     });
-    if (error) { setButtonLoading(btn, false); toast(error.message || "Could not follow."); return; }
+    if (error) { toast(error.message || "Could not follow."); return; }
   } else {
     const { error } = await sb.from("follows")
       .delete()
       .eq("follower_id", ME.id).eq("following_id", viewedUser.id);
-    if (error) { setButtonLoading(btn, false); toast(error.message || "Could not update follow status."); return; }
+    if (error) { toast(error.message || "Could not update follow status."); return; }
   }
   await loadFollowState();
   renderActions();
@@ -215,28 +248,33 @@ function wireEditProfile() {
       return;
     }
 
-    if (newUsername !== ME.username) {
-      const { data: existing } = await sb.from("profiles").select("id")
-        .eq("username", newUsername).neq("id", ME.id).maybeSingle();
-      if (existing) { errEl.textContent = "That username is already taken."; return; }
-    }
-
     const saveBtn = document.getElementById("saveEditBtn");
-    setButtonLoading(saveBtn, true);
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving…";
+
+    if (newUsername !== ME.username) {
+      const { error: rpcErr } = await sb.rpc("change_own_username", { new_username: newUsername });
+      if (rpcErr) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save";
+        errEl.textContent = rpcErr.message.includes("taken")
+          ? "That username is already taken."
+          : (rpcErr.message || "Could not change username.");
+        return;
+      }
+    }
 
     const { error } = await sb.from("profiles").update({
       display_name: newDisplayName,
-      username: newUsername,
       bio: newBio || null,
       is_private: newPrivate,
     }).eq("id", ME.id);
 
-    setButtonLoading(saveBtn, false);
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save";
 
     if (error) {
-      errEl.textContent = error.message.includes("unique")
-        ? "That username is already taken."
-        : (error.message || "Could not save changes.");
+      errEl.textContent = error.message || "Could not save changes.";
       return;
     }
 
@@ -258,8 +296,6 @@ function wirePfpUpload() {
   input.addEventListener("change", async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const editBtn = document.getElementById("pfpEditBtn");
-    setButtonLoading(editBtn, true);
     try {
       const compressed = await compressImageFile(file);
       const path = `${ME.id}/${Date.now()}.jpg`;
@@ -274,8 +310,6 @@ function wirePfpUpload() {
       toast("Profile photo updated");
     } catch (err) {
       toast(err.message || "Could not update photo.");
-    } finally {
-      setButtonLoading(editBtn, false);
     }
   });
 }
@@ -313,7 +347,7 @@ function wireNewPost() {
     if (!text && !pendingPostImageFile) return;
 
     const btn = document.getElementById("publishPostBtn");
-    setButtonLoading(btn, true);
+    btn.disabled = true;
 
     try {
       let image_url = null;
@@ -343,7 +377,7 @@ function wireNewPost() {
     } catch (err) {
       toast(err.message || "Could not publish post.");
     } finally {
-      setButtonLoading(btn, false);
+      btn.disabled = false;
     }
   });
 }
@@ -371,24 +405,57 @@ async function loadPosts() {
     return;
   }
 
+  const postIds = (data || []).map(p => p.id);
+  const [likeCounts, myLikes, commentCounts] = await Promise.all([
+    fetchLikeCounts(postIds),
+    fetchMyLikes(postIds),
+    fetchCommentCounts(postIds),
+  ]);
+
   for (const post of data || []) {
-    listEl.appendChild(buildPostCard(post));
+    listEl.appendChild(buildPostCard(
+      post,
+      likeCounts[post.id] || 0,
+      myLikes.has(post.id),
+      commentCounts[post.id] || 0
+    ));
   }
 }
 
-function buildPostCard(post) {
+async function fetchLikeCounts(postIds) {
+  if (!postIds.length) return {};
+  const { data } = await sb.from("post_likes").select("post_id").in("post_id", postIds);
+  const counts = {};
+  (data || []).forEach(r => { counts[r.post_id] = (counts[r.post_id] || 0) + 1; });
+  return counts;
+}
+
+async function fetchMyLikes(postIds) {
+  if (!postIds.length) return new Set();
+  const { data } = await sb.from("post_likes").select("post_id").eq("user_id", ME.id).in("post_id", postIds);
+  return new Set((data || []).map(r => r.post_id));
+}
+
+async function fetchCommentCounts(postIds) {
+  if (!postIds.length) return {};
+  const { data } = await sb.from("post_comments").select("post_id").eq("deleted", false).in("post_id", postIds);
+  const counts = {};
+  (data || []).forEach(r => { counts[r.post_id] = (counts[r.post_id] || 0) + 1; });
+  return counts;
+}
+
+function buildPostCard(post, likeCount, likedByMe, commentCount) {
   const card = document.createElement("div");
   card.className = "post-card";
 
   if (post.user_id === ME.id) {
     const del = document.createElement("button");
     del.className = "post-delete";
-    del.textContent = "🗑";
+    del.innerHTML = svgIcon("trash", 13);
     del.addEventListener("click", async () => {
       if (!confirm("Delete this post?")) return;
-      setButtonLoading(del, true);
       const { error } = await sb.from("posts").update({ deleted: true }).eq("id", post.id).eq("user_id", ME.id);
-      if (error) { setButtonLoading(del, false); toast(error.message || "Could not delete post."); return; }
+      if (error) { toast(error.message || "Could not delete post."); return; }
       card.remove();
       renderStats();
     });
@@ -415,7 +482,98 @@ function buildPostCard(post) {
     card.appendChild(img);
   }
 
+  const engageRow = document.createElement("div");
+  engageRow.className = "post-engage-row";
+
+  const likeBtn = document.createElement("button");
+  likeBtn.className = `like-btn ${likedByMe ? "liked" : ""}`;
+  likeBtn.innerHTML = `${svgIcon("heart", 15)} <span class="like-count">${likeCount}</span>`;
+  likeBtn.addEventListener("click", () => toggleLike(post.id, likeBtn));
+  engageRow.appendChild(likeBtn);
+
+  const commentBtn = document.createElement("button");
+  commentBtn.className = "comment-toggle-btn";
+  commentBtn.innerHTML = `${svgIcon("comment", 14)} ${commentCount}`;
+  commentBtn.addEventListener("click", () => toggleComments(post.id, card));
+  engageRow.appendChild(commentBtn);
+
+  card.appendChild(engageRow);
+
+  const commentsSection = document.createElement("div");
+  commentsSection.className = "comments-section";
+  commentsSection.style.display = "none";
+  card.appendChild(commentsSection);
+
   return card;
+}
+
+async function toggleLike(postId, btn) {
+  const wasLiked = btn.classList.contains("liked");
+  if (wasLiked) {
+    const { error } = await sb.from("post_likes").delete().eq("post_id", postId).eq("user_id", ME.id);
+    if (error) { toast(error.message || "Could not unlike."); return; }
+  } else {
+    const { error } = await sb.from("post_likes").insert({ post_id: postId, user_id: ME.id });
+    if (error) { toast(error.message || "Could not like."); return; }
+  }
+  const current = parseInt(btn.querySelector(".like-count").textContent, 10) || 0;
+  const newCount = wasLiked ? current - 1 : current + 1;
+  btn.classList.toggle("liked", !wasLiked);
+  btn.innerHTML = `${svgIcon("heart", 15)} <span class="like-count">${newCount}</span>`;
+}
+
+async function toggleComments(postId, card) {
+  const section = card.querySelector(".comments-section");
+  const isOpen = section.style.display !== "none";
+  if (isOpen) { section.style.display = "none"; return; }
+  section.style.display = "block";
+  await loadCommentsInto(postId, section, card);
+}
+
+async function loadCommentsInto(postId, section, card) {
+  section.innerHTML = `<div class="search-hint">Loading…</div>`;
+
+  const { data, error } = await sb
+    .from("post_comments").select("*")
+    .eq("post_id", postId).eq("deleted", false)
+    .order("created_at", { ascending: true });
+
+  if (error) { section.innerHTML = `<div class="search-hint">Could not load comments.</div>`; return; }
+
+  const authorIds = [...new Set((data || []).map(c => c.user_id))];
+  await Promise.all(authorIds.map(getProfile));
+
+  section.innerHTML = "";
+  for (const c of data || []) {
+    const author = await getProfile(c.user_id);
+    const row = document.createElement("div");
+    row.className = "comment-row";
+    row.innerHTML = `<b>${escapeHTML(author?.display_name || "Unknown")}</b> ${escapeHTML(c.content)}`;
+    section.appendChild(row);
+  }
+
+  const inputRow = document.createElement("div");
+  inputRow.className = "comment-input-row";
+  inputRow.innerHTML = `<input type="text" placeholder="Add a comment…" maxlength="300" /><button>Post</button>`;
+  section.appendChild(inputRow);
+
+  const input = inputRow.querySelector("input");
+  const sendBtn = inputRow.querySelector("button");
+  const submit = async () => {
+    const text = input.value.trim();
+    if (!text) return;
+    sendBtn.disabled = true;
+    const { error: cErr } = await sb.from("post_comments").insert({ post_id: postId, user_id: ME.id, content: text });
+    sendBtn.disabled = false;
+    if (cErr) { toast(cErr.message || "Could not post comment."); return; }
+    input.value = "";
+    await loadCommentsInto(postId, section, card);
+    const countBtn = card.querySelector(".comment-toggle-btn");
+    const current = parseInt(countBtn.textContent.replace(/\D/g, ""), 10) || 0;
+    countBtn.innerHTML = `${svgIcon("comment", 14)} ${current + 1}`;
+  };
+  sendBtn.addEventListener("click", submit);
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
 }
 
 function wireFollowListModal() {
@@ -475,6 +633,6 @@ async function openFollowList(type) {
 
 setTimeout(() => {
   document.getElementById("loadingOverlay")?.classList.add("hide");
-}, 3000);
+}, 8000);
 
 init();
