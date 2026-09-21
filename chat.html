@@ -25,7 +25,7 @@
 <div class="chat-shell">
 
   <aside class="members-panel" id="membersPanel">
-<button class="panel-close-btn" id="closeMembersPanel">✕</button>
+<button class="panel-close-btn" id="closeMembersPanel" data-icon="close" data-icon-size="16"></button>
     <div class="brand-mini">𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</div>
     <div class="room-name" id="roomNameLabel">𝑅𝒫𝑀 𝒫𝓊𝒷𝓁𝒾𝒸 𝑅𝑜𝑜𝓂</div>
 
@@ -40,12 +40,21 @@
   <main class="chat-main">
     <div class="chat-header">
       <div style="display:flex; align-items:center; gap:10px;">
-        <button class="menu-toggle" id="menuToggle">☰</button>
+        <button class="menu-toggle" id="menuToggle" data-icon="menu" data-icon-size="18"></button>
         <h2 id="headerRoomName">𝑅𝒫𝑀 𝒫𝓊𝒷𝓁𝒾𝒸 𝑅𝑜𝑜𝓂</h2>
       </div>
       <div style="display:flex; align-items:center; gap:10px;">
-        <button class="header-icon-btn" id="searchToggle" title="Search messages">🔍</button>
+        <button class="header-icon-btn" id="notifToggle" title="Notifications" style="position:relative;">
+          <span data-icon="bell" data-icon-size="16"></span>
+          <span class="notif-badge" id="notifBadge" style="display:none;"></span>
+        </button>
+        <button class="header-icon-btn" id="searchToggle" title="Search messages" data-icon="search" data-icon-size="16"></button>
         <span class="online-count" id="headerOnline"><span id="headerOnlineText">0 online</span></span>
+      </div>
+
+      <div class="search-panel" id="notifPanel">
+        <div class="notif-header">Notifications</div>
+        <div class="search-results" id="notifResults"></div>
       </div>
 
       <div class="search-panel" id="searchPanel">
@@ -58,7 +67,7 @@
 
     <div class="messages-wrap">
       <div class="messages" id="messages"></div>
-      <button class="jump-to-latest" id="jumpToLatest">↓ New messages</button>
+      <button class="jump-to-latest" id="jumpToLatest"><span data-icon="loadMore" data-icon-size="14"></span> New messages</button>
     </div>
 
     <div class="typing-indicator" id="typingIndicator"></div>
@@ -66,7 +75,7 @@
     <div class="composer">
       <div class="reply-bar" id="replyBar">
         <span>Replying to <b id="replyToName"></b>: <span id="replyToText"></span></span>
-        <button id="cancelReply">✕</button>
+        <button id="cancelReply" data-icon="close" data-icon-size="14"></button>
       </div>
 
       <div class="attach-preview" id="attachPreview">
@@ -83,19 +92,19 @@
       <div class="sticker-panel" id="stickerPanel"></div>
 
       <div class="composer-row">
-        <button class="icon-btn" id="stickerToggle" title="Stickers">⛾</button>
-        <label class="icon-btn" id="imageBtn" for="imageInput" title="Send image">◉°</label>
+        <button class="icon-btn" id="stickerToggle" title="Stickers" data-icon="sticker" data-icon-size="19"></button>
+        <label class="icon-btn" id="imageBtn" for="imageInput" title="Send image" data-icon="image" data-icon-size="19"></label>
         <input type="file" id="imageInput" accept="image/*" style="display:none;" />
-        <button class="icon-btn" id="voiceBtn" title="Record voice note">၊၊||၊</button>
+        <button class="icon-btn" id="voiceBtn" title="Record voice note" data-icon="mic" data-icon-size="19"></button>
         <textarea id="msgInput" rows="1" placeholder="Type a message..."></textarea>
-        <button class="send-btn" id="sendBtn" disabled>➤</button>
+        <button class="send-btn" id="sendBtn" disabled data-icon="send" data-icon-size="18"></button>
       </div>
     </div>
 
     <nav class="bottom-nav">
-      <a href="chat.html" class="active"><span class="nav-icon">💬</span>Chat</a>
-      <a href="discover.html"><span class="nav-icon">🗺</span>Discover</a>
-      <a href="profile.html"><span class="nav-icon">👤</span>Profile</a>
+      <a href="chat.html" class="active"><span class="nav-icon" data-icon="chat" data-icon-size="20"></span>Chat</a>
+      <a href="discover.html"><span class="nav-icon" data-icon="globe" data-icon-size="20"></span>Discover</a>
+      <a href="profile.html"><span class="nav-icon" data-icon="person" data-icon-size="20"></span>Profile</a>
     </nav>
   </main>
 </div>
