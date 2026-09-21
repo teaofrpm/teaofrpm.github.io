@@ -8,6 +8,8 @@ async function init() {
   ME = await getMyProfile();
   if (!ME) return;
 
+  applyIconAttributes();
+
   if (ME.banned) {
     toast("This account has been banned.");
     await sb.auth.signOut();
@@ -90,7 +92,7 @@ function renderPeople(people, error) {
 
     const info = document.createElement("div");
     info.innerHTML = `
-      <div class="follow-list-name">${escapeHTML(p.display_name)}${p.is_private ? " 🔒︎" : ""}</div>
+      <div class="follow-list-name">${escapeHTML(p.display_name)}${p.is_private ? ` ${svgIcon("lock", 11)}` : ""}</div>
       <div class="follow-list-username">@${escapeHTML(p.username)}</div>
     `;
     row.appendChild(info);
