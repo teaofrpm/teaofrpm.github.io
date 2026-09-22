@@ -52,7 +52,7 @@ async function routeAfterAuth() {
     return;
   }
   if (profile.is_verified) {
-    window.location.href = "chat.html";
+    window.location.href = "home.html";
   } else {
     window.location.href = "verify.html";
   }
