@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#000000" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="apple-touch-icon" href="images/logo.png" />
+<title>Reels — 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</title>
+<link rel="icon" href="images/logo.png" />
+<link rel="preconnect" href="https://jfybtgoofxfhjgeyumzl.supabase.co" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/app-shell.css" />
+<link rel="stylesheet" href="css/reels.css" />
+</head>
+<body class="reels-page">
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-inner">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</div>
+  </div>
+</div>
+
+<header class="reels-header">
+  <h1>Reels</h1>
+  <button class="reels-upload-btn" id="reelUploadBtn" data-icon="plus" data-icon-size="22" aria-label="Upload reel"></button>
+</header>
+
+<main class="reels-feed" id="reelsFeed">
+  <div class="reels-sentinel" id="reelsSentinel"></div>
+</main>
+
+<input type="file" id="reelInput" accept="video/*" style="display:none;" />
+
+<div class="app-sheet-backdrop" id="reelUploadSheet">
+  <div class="app-sheet reel-upload-sheet">
+    <div class="app-sheet-handle"></div>
+    <div class="app-sheet-title">New reel</div>
+    <div class="reel-upload-body">
+      <video id="reelUploadPreview" playsinline muted loop></video>
+      <textarea id="reelCaption" rows="3" maxlength="300" placeholder="Write a caption…"></textarea>
+      <p class="error-text" id="reelUploadError"></p>
+      <button class="btn" id="reelPublishBtn">Share reel</button>
+    </div>
+  </div>
+</div>
+
+<nav id="appNav" data-active="reels"></nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/app-shell.js"></script>
+<script src="js/reels.js"></script>
+</body>
+</html>
