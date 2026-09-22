@@ -168,11 +168,12 @@
   (async () => {
     const { data } = await sb.auth.getSession();
     if (data.session) {
-      const profile = await getMyProfile();
-      if (profile && profile.is_verified) {
-        document.getElementById("enterBtn").textContent = "Continue to Chat Room →";
-      }
+      await routeAfterAuth();
+      return;
     }
+    document.getElementById("enterBtn").style.display = "none";
+    entryModal.style.display = "flex";
+    showPane(modalChoice);
   })();
 </script>
 </body>
