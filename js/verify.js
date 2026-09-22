@@ -1,4 +1,3 @@
-
 let selectedFile = null;
 let pollTimer = null;
 
@@ -27,7 +26,7 @@ async function init() {
   }
 
   if (profile.is_verified) {
-    window.location.href = "chat.html";
+    window.location.href = "home.html";
     return;
   }
 
@@ -56,7 +55,7 @@ function startPolling(userId) {
     if (profile && profile.is_verified) {
       clearInterval(pollTimer);
       showState(approvedState);
-      setTimeout(() => (window.location.href = "chat.html"), 1200);
+      setTimeout(() => (window.location.href = "home.html"), 1200);
       return;
     }
     const { data: reqs } = await sb
