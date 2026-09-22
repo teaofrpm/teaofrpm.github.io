@@ -55,19 +55,17 @@ async function init() {
   document.getElementById("roomNameLabel").textContent = window.TEAOFRPM_CONFIG.ROOM_NAME;
   document.getElementById("headerRoomName").textContent = window.TEAOFRPM_CONFIG.ROOM_NAME;
 
-  await Promise.all([loadStickers(), preloadProfiles(), loadHistory(), loadNotifications()]);
+  await Promise.all([loadStickers(), preloadProfiles(), loadHistory()]);
 
   subscribeRealtime();
   subscribePresence();
   subscribeProfileUpdates();
-  subscribeNotifications();
   wireComposer();
   wireHeader();
   wireScrollTracking();
   wireLightbox();
   wireSearch();
   wireGlobalKeys();
-  wireNotifications();
   startBackgroundSync();
 
   document.addEventListener("visibilitychange", () => {
@@ -895,7 +893,6 @@ function wireGlobalKeys() {
     if (e.key !== "Escape") return;
     closeLightbox();
     document.getElementById("searchPanel").classList.remove("show");
-    document.getElementById("notifPanel").classList.remove("show");
     document.getElementById("stickerPanel").classList.remove("show");
     document.querySelectorAll(".emoji-picker").forEach(p => p.remove());
     if (window.innerWidth <= 760) document.getElementById("membersPanel").classList.remove("open");
@@ -1130,114 +1127,6 @@ function wireHeader() {
     document.getElementById("membersPanel").classList.remove("open");
   });
   document.getElementById("loadMoreBtn").addEventListener("click", loadOlderMessages);
-}
-
-let notifications = [];
-
-async function loadNotifications() {
-  const { data, error } = await sb
-    .from("notifications")
-    .select("*")
-    .eq("user_id", ME.id)
-    .order("created_at", { ascending: false })
-    .limit(30);
-
-  if (error) { console.error(error); return; }
-  notifications = data || [];
-
-  const actorIds = [...new Set(notifications.map(n => n.actor_id).filter(Boolean))];
-  await Promise.all(actorIds.map(getProfile));
-
-  renderNotifications();
-}
-
-function notifText(n, actorName) {
-  switch (n.type) {
-    case "follow_request": return `<b>${actorName}</b> requested to follow you`;
-    case "follow": return `<b>${actorName}</b> started following you`;
-    case "follow_accepted": return `<b>${actorName}</b> accepted your follow request`;
-    case "like": return `<b>${actorName}</b> liked your post`;
-    case "comment": return `<b>${actorName}</b> commented on your post`;
-    default: return `<b>${actorName}</b> sent an update`;
-  }
-}
-
-function buildNotifRow(n) {
-  const actor = n.actor_id ? profileCache.get(n.actor_id) : null;
-  const actorName = actor ? escapeHTML(actor.display_name) : "Someone";
-
-  const row = document.createElement("a");
-  row.className = `notif-row ${n.read ? "" : "unread"}`;
-  row.href = actor ? `profile.html?u=${encodeURIComponent(actor.username)}` : "#";
-
-  const av = document.createElement("span");
-  av.className = "avatar";
-  av.style.width = "30px"; av.style.height = "30px"; av.style.fontSize = "11px"; av.style.flexShrink = "0";
-  setAvatarContent(av, actor);
-  row.appendChild(av);
-
-  const info = document.createElement("div");
-  info.innerHTML = `${notifText(n, actorName)}<div class="notif-time">${formatTime(n.created_at)}</div>`;
-  row.appendChild(info);
-
-  row.addEventListener("click", () => markNotifRead(n.id));
-
-  return row;
-}
-
-function renderNotifications() {
-  const unreadCount = notifications.filter(n => !n.read).length;
-  const badge = document.getElementById("notifBadge");
-  if (unreadCount > 0) {
-    badge.textContent = unreadCount > 9 ? "9+" : String(unreadCount);
-    badge.style.display = "flex";
-  } else {
-    badge.style.display = "none";
-  }
-
-  const results = document.getElementById("notifResults");
-  if (!notifications.length) {
-    results.innerHTML = `<div class="search-hint">No notifications yet.</div>`;
-    return;
-  }
-  results.innerHTML = "";
-  for (const n of notifications) results.appendChild(buildNotifRow(n));
-}
-
-async function markNotifRead(id) {
-  const n = notifications.find(x => x.id === id);
-  if (!n || n.read) return;
-  n.read = true;
-  await sb.from("notifications").update({ read: true }).eq("id", id);
-  renderNotifications();
-}
-
-async function markAllNotifsRead() {
-  const unread = notifications.filter(n => !n.read);
-  if (!unread.length) return;
-  unread.forEach(n => { n.read = true; });
-  await sb.from("notifications").update({ read: true }).eq("user_id", ME.id).eq("read", false);
-  renderNotifications();
-}
-
-function subscribeNotifications() {
-  sb.channel("public:notifications")
-    .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${ME.id}` }, async (payload) => {
-      const n = payload.new;
-      if (n.actor_id) await getProfile(n.actor_id);
-      notifications.unshift(n);
-      renderNotifications();
-    })
-    .subscribe();
-}
-
-function wireNotifications() {
-  const toggle = document.getElementById("notifToggle");
-  const panel = document.getElementById("notifPanel");
-  toggle.addEventListener("click", () => {
-    const isOpen = panel.classList.toggle("show");
-    if (isOpen) markAllNotifsRead();
-  });
 }
 
 function wireSearch() {
