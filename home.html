@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#8B0000" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="apple-touch-icon" href="images/logo.png" />
+<title>𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</title>
+<link rel="icon" href="images/logo.png" />
+<link rel="preconnect" href="https://jfybtgoofxfhjgeyumzl.supabase.co" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/app-shell.css" />
+<link rel="stylesheet" href="css/home.css" />
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-inner">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</div>
+  </div>
+</div>
+
+<div class="home-shell">
+
+  <header class="home-header">
+    <span class="home-header-side"></span>
+    <h1 class="home-brand">𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</h1>
+    <div class="home-header-side right">
+      <button class="header-icon-btn" id="notifToggle" title="Notifications" style="position:relative;">
+        <span data-icon="bell" data-icon-size="17"></span>
+        <span class="notif-badge" id="notifBadge" style="display:none;"></span>
+      </button>
+    </div>
+
+    <div class="search-panel" id="notifPanel">
+      <div class="notif-header">Notifications</div>
+      <div class="search-results" id="notifResults"></div>
+    </div>
+  </header>
+
+  <div class="home-body">
+    <aside class="story-rail" id="storyRail"></aside>
+
+    <main class="feed" id="feed">
+      <div class="feed-label" id="feedLabel" style="display:none;"></div>
+      <div class="feed-list" id="feedList"></div>
+      <div class="feed-sentinel" id="feedSentinel"></div>
+      <div class="feed-end" id="feedEnd" style="display:none;">You're all caught up</div>
+    </main>
+  </div>
+</div>
+
+<input type="file" id="storyInput" accept="image/*" style="display:none;" />
+
+<div class="story-viewer" id="storyViewer">
+  <div class="story-progress" id="storyProgress"></div>
+  <div class="story-top">
+    <a class="story-user" id="storyUser"></a>
+    <button class="story-close" id="storyClose" data-icon="close" data-icon-size="22" aria-label="Close"></button>
+  </div>
+  <img class="story-img" id="storyImg" alt="" />
+  <div class="story-tap left" id="storyTapLeft"></div>
+  <div class="story-tap right" id="storyTapRight"></div>
+  <div class="story-footer" id="storyFooter"></div>
+</div>
+
+<nav id="appNav" data-active="home" data-scroll-el="feed"></nav>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/app-shell.js"></script>
+<script src="js/notifications.js"></script>
+<script src="js/home.js"></script>
+</body>
+</html>
