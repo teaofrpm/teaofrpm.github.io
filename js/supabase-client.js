@@ -172,6 +172,12 @@ const ICON_PATHS = {
   loadMore: '<path d="M12 5v10"/><path d="M7 11l5 5 5-5"/>',
   more: '<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
   lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  home: '<path d="M4 11l8-7 8 7"/><path d="M6 10v9h12v-9"/><path d="M10 19v-5h4v5"/>',
+  reel: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M10 9.5v5l4.5-2.5z"/>',
+  plus: '<path d="M12 5v14"/><path d="M5 12h14"/>',
+  pause: '<rect x="7" y="5" width="3.5" height="14" rx="1"/><rect x="13.5" y="5" width="3.5" height="14" rx="1"/>',
+  mute: '<path d="M4 9v6h4l5 5V4L8 9H4z"/><path d="M17 8l4 8"/><path d="M21 8l-4 8"/>',
+  unmute: '<path d="M4 9v6h4l5 5V4L8 9H4z"/><path d="M16 9a4 4 0 0 1 0 6"/><path d="M18.5 6.5a8 8 0 0 1 0 11"/>',
 };
 
 function svgIcon(name, size = 18) {
