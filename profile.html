@@ -12,6 +12,7 @@
 <link rel="icon" href="images/logo.png" />
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/app-shell.css" />
 </head>
 <body>
 
@@ -25,7 +26,7 @@
 <div class="profile-shell">
 
   <div class="profile-topbar">
-    <a href="chat.html" class="header-icon-btn" title="Back to chat" data-icon="back" data-icon-size="16"></a>
+    <a href="home.html" class="header-icon-btn" title="Back" data-icon="back" data-icon-size="16"></a>
     <h2 id="profileTopTitle">Profile</h2>
     <span style="width:32px;"></span>
   </div>
@@ -106,11 +107,7 @@
 
   </div>
 
-  <nav class="bottom-nav">
-    <a href="chat.html"><span class="nav-icon" data-icon="chat" data-icon-size="20"></span>Chat</a>
-    <a href="discover.html"><span class="nav-icon" data-icon="globe" data-icon-size="20"></span>Discover</a>
-    <a href="profile.html" class="active"><span class="nav-icon" data-icon="person" data-icon-size="20"></span>Profile</a>
-  </nav>
+  <nav id="appNav" data-active="profile" data-scroll-el="profileScroll"></nav>
 </div>
 
 <div class="follow-list-modal" id="followListModal">
@@ -127,6 +124,7 @@
 <script src="js/config.js"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/app-shell.js"></script>
 <script src="js/profile.js"></script>
 </body>
 </html>
