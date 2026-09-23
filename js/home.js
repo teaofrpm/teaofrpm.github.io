@@ -1,4 +1,3 @@
-
 let ME = null;
 
 const FEED_PAGE = 12;
@@ -289,7 +288,7 @@ async function loadMoreFeed() {
   if (feed.loading || feed.done) return;
   feed.loading = true;
 
-  let query = sb.from("posts").select("*").eq("deleted", false)
+  let query = sb.from("posts").select("*").eq("deleted", false).eq("archived", false)
     .order("created_at", { ascending: false }).limit(FEED_PAGE);
   if (feed.mode === "following") query = query.in("user_id", feed.authorIds);
   if (feed.cursor) query = query.lt("created_at", feed.cursor);
@@ -321,10 +320,11 @@ async function loadMoreFeed() {
   if (posts.length < FEED_PAGE) feed.done = true;
 
   const ids = posts.map(p => p.id);
-  const [likeRows, myLikeRows, commentRows] = await Promise.all([
+  const [likeRows, myLikeRows, commentRows, saveRows] = await Promise.all([
     sb.from("post_likes").select("post_id").in("post_id", ids),
     sb.from("post_likes").select("post_id").eq("user_id", ME.id).in("post_id", ids),
     sb.from("post_comments").select("post_id").eq("deleted", false).in("post_id", ids),
+    sb.from("saves").select("post_id").eq("user_id", ME.id).in("post_id", ids),
     ...[...new Set(posts.map(p => p.user_id))].map(getProfile),
   ]);
 
@@ -332,15 +332,16 @@ async function loadMoreFeed() {
   const likes = countBy(likeRows);
   const comments = countBy(commentRows);
   const mine = new Set((myLikeRows.data || []).map(r => r.post_id));
+  const saved = new Set((saveRows.data || []).map(r => r.post_id));
 
   const list = document.getElementById("feedList");
   for (const post of posts) {
-    list.appendChild(buildFeedCard(post, likes[post.id] || 0, mine.has(post.id), comments[post.id] || 0));
+    list.appendChild(buildFeedCard(post, likes[post.id] || 0, mine.has(post.id), comments[post.id] || 0, saved.has(post.id)));
   }
   if (feed.done && list.children.length) document.getElementById("feedEnd").style.display = "block";
 }
 
-function buildFeedCard(post, likeCount, likedByMe, commentCount) {
+function buildFeedCard(post, likeCount, likedByMe, commentCount, savedByMe) {
   const author = profileCache.get(post.user_id);
   const profileHref = author ? `profile.html?u=${encodeURIComponent(author.username)}` : "#";
 
@@ -408,6 +409,14 @@ function buildFeedCard(post, likeCount, likedByMe, commentCount) {
     },
   }));
   actions.appendChild(commentBtn);
+
+  const saveBtn = document.createElement("button");
+  saveBtn.className = `save-btn ${savedByMe ? "saved" : ""}`;
+  saveBtn.style.marginLeft = "auto";
+  saveBtn.innerHTML = svgIcon("bookmark", 19);
+  saveBtn.addEventListener("click", () => toggleSave("post", post.id, saveBtn));
+  actions.appendChild(saveBtn);
+
   card.appendChild(actions);
 
   return card;
