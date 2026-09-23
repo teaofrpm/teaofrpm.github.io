@@ -1,4 +1,3 @@
-
 let ME = null;
 
 const REELS_PAGE = 6;
@@ -86,10 +85,11 @@ async function loadMoreReels() {
   if (reels.length < REELS_PAGE) reelsState.done = true;
 
   const ids = reels.map(r => r.id);
-  const [likeRows, myLikeRows, commentRows] = await Promise.all([
+  const [likeRows, myLikeRows, commentRows, saveRows] = await Promise.all([
     sb.from("reel_likes").select("reel_id").in("reel_id", ids),
     sb.from("reel_likes").select("reel_id").eq("user_id", ME.id).in("reel_id", ids),
     sb.from("reel_comments").select("reel_id").eq("deleted", false).in("reel_id", ids),
+    sb.from("saves").select("reel_id").eq("user_id", ME.id).in("reel_id", ids),
     ...[...new Set(reels.map(r => r.user_id))].map(getProfile),
   ]);
 
@@ -97,10 +97,11 @@ async function loadMoreReels() {
   const likes = countBy(likeRows);
   const comments = countBy(commentRows);
   const mine = new Set((myLikeRows.data || []).map(r => r.reel_id));
+  const saved = new Set((saveRows.data || []).map(r => r.reel_id));
 
   feedEl.querySelector(".reels-empty")?.remove();
   for (const reel of reels) {
-    const el = buildReel(reel, likes[reel.id] || 0, mine.has(reel.id), comments[reel.id] || 0);
+    const el = buildReel(reel, likes[reel.id] || 0, mine.has(reel.id), comments[reel.id] || 0, saved.has(reel.id));
     feedEl.insertBefore(el, sentinel);
     playObserver.observe(el);
   }
@@ -164,6 +165,12 @@ function buildReel(reel, likeCount, likedByMe, commentCount) {
   muteBtn.innerHTML = svgIcon(reelsState.muted ? "mute" : "unmute", 26);
   muteBtn.addEventListener("click", toggleMute);
   actions.appendChild(muteBtn);
+
+  const saveBtn = document.createElement("button");
+  saveBtn.className = "save-btn";
+  saveBtn.innerHTML = svgIcon("bookmark", 26);
+  saveBtn.addEventListener("click", () => toggleSave("reel", reel.id, saveBtn));
+  actions.appendChild(saveBtn);
 
   if (reel.user_id === ME.id) {
     const delBtn = document.createElement("button");
