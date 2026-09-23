@@ -1,3 +1,7 @@
+// Shared app chrome used by every logged-in page.
+// Nav config lives on the placeholder element, e.g.
+// <nav id="appNav" data-active="home" data-scroll-el="feed" data-hide-on-focus="msgInput"></nav>
+
 function timeAgo(ts) {
   const secs = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
   if (secs < 60) return "now";
