@@ -175,6 +175,7 @@ function renderActions() {
   actions.innerHTML = "";
 
   if (isOwnProfile) {
+    document.getElementById("settingsLink").style.display = "flex";
     const btn = document.createElement("button");
     btn.className = "btn-outline btn";
     btn.textContent = "Edit profile";
@@ -398,6 +399,7 @@ async function loadPosts() {
     .select("*")
     .eq("user_id", viewedUser.id)
     .eq("deleted", false)
+    .eq("archived", false)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -406,13 +408,16 @@ async function loadPosts() {
   }
 
   const postIds = (data || []).map(p => p.id);
-  const [likeCounts, myLikes, commentCounts] = await Promise.all([
+  const [likeCounts, myLikes, commentCounts, mySaves] = await Promise.all([
     fetchLikeCounts(postIds),
     fetchMyLikes(postIds),
     fetchCommentCounts(postIds),
+    postIds.length ? sb.from("saves").select("post_id").eq("user_id", ME.id).in("post_id", postIds) : Promise.resolve({ data: [] }),
   ]);
+  const savedSet = new Set((mySaves.data || []).map(s => s.post_id));
 
   for (const post of data || []) {
+    post.savedByMe = savedSet.has(post.id);
     listEl.appendChild(buildPostCard(
       post,
       likeCounts[post.id] || 0,
@@ -449,6 +454,20 @@ function buildPostCard(post, likeCount, likedByMe, commentCount) {
   card.className = "post-card";
 
   if (post.user_id === ME.id) {
+    const archiveBtn = document.createElement("button");
+    archiveBtn.className = "post-archive";
+    archiveBtn.title = post.archived ? "Unarchive" : "Archive";
+    archiveBtn.innerHTML = svgIcon("archive", 13);
+    archiveBtn.addEventListener("click", async () => {
+      const next = !post.archived;
+      const { error } = await sb.from("posts").update({ archived: next }).eq("id", post.id).eq("user_id", ME.id);
+      if (error) { toast(error.message || "Could not update."); return; }
+      post.archived = next;
+      toast(next ? "Post archived" : "Post unarchived");
+      if (next) { card.remove(); renderStats(); }
+    });
+    card.appendChild(archiveBtn);
+
     const del = document.createElement("button");
     del.className = "post-delete";
     del.innerHTML = svgIcon("trash", 13);
@@ -496,6 +515,13 @@ function buildPostCard(post, likeCount, likedByMe, commentCount) {
   commentBtn.innerHTML = `${svgIcon("comment", 14)} ${commentCount}`;
   commentBtn.addEventListener("click", () => toggleComments(post.id, card));
   engageRow.appendChild(commentBtn);
+
+  const saveBtn = document.createElement("button");
+  saveBtn.className = `save-btn ${post.savedByMe ? "saved" : ""}`;
+  saveBtn.style.marginLeft = "auto";
+  saveBtn.innerHTML = svgIcon("bookmark", 16);
+  saveBtn.addEventListener("click", () => toggleSave("post", post.id, saveBtn));
+  engageRow.appendChild(saveBtn);
 
   card.appendChild(engageRow);
 
