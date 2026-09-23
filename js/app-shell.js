@@ -1,8 +1,3 @@
-
-// Shared app chrome used by every logged-in page.
-// Nav config lives on the placeholder element, e.g.
-// <nav id="appNav" data-active="home" data-scroll-el="feed" data-hide-on-focus="msgInput"></nav>
-
 function timeAgo(ts) {
   const secs = Math.floor((Date.now() - new Date(ts).getTime()) / 1000);
   if (secs < 60) return "now";
@@ -13,6 +8,23 @@ function timeAgo(ts) {
   const days = Math.floor(hrs / 24);
   if (days < 7) return `${days}d`;
   return new Date(ts).toLocaleDateString([], { day: "numeric", month: "short" });
+}
+
+async function toggleSave(kind, id, btn) {
+  const column = kind === "post" ? "post_id" : "reel_id";
+  const wasSaved = btn.classList.contains("saved");
+  btn.classList.toggle("saved", !wasSaved);
+
+  const { error } = wasSaved
+    ? await sb.from("saves").delete().eq("user_id", ME.id).eq(column, id)
+    : await sb.from("saves").insert({ user_id: ME.id, [column]: id });
+
+  if (error) {
+    btn.classList.toggle("saved", wasSaved);
+    toast(error.message || "Could not update.");
+  } else {
+    toast(wasSaved ? "Removed" : "Saved");
+  }
 }
 
 const AppNav = (() => {
