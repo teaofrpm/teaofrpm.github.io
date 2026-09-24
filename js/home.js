@@ -160,6 +160,8 @@ function showCurrentStory() {
 
   renderStoryFooter(story, isMe);
 
+  renderStoryShareTag(story);
+
   const img = document.getElementById("storyImg");
   viewer.elapsed = 0;
   viewer.paused = true;
@@ -233,6 +235,22 @@ function wireStoryViewer() {
     });
     el.addEventListener("pointerleave", resumeStory);
   });
+}
+
+async function renderStoryShareTag(story) {
+  document.querySelector(".story-share-tag")?.remove();
+  if (!story.shared_post_id) return;
+
+  const { data: post } = await sb.from("posts").select("user_id").eq("id", story.shared_post_id).maybeSingle();
+  if (!post) return;
+  const author = await getProfile(post.user_id);
+  if (!author) return;
+
+  const tag = document.createElement("a");
+  tag.className = "story-share-tag";
+  tag.href = `profile.html?u=${encodeURIComponent(author.username)}`;
+  tag.textContent = `Post by @${author.username}`;
+  document.getElementById("storyViewer").appendChild(tag);
 }
 
 async function renderStoryFooter(story, isMe) {
@@ -416,6 +434,8 @@ function buildFeedCard(post, likeCount, likedByMe, commentCount, savedByMe) {
   saveBtn.innerHTML = svgIcon("bookmark", 19);
   saveBtn.addEventListener("click", () => toggleSave("post", post.id, saveBtn));
   actions.appendChild(saveBtn);
+
+  attachPostExtras(card, post, actions);
 
   card.appendChild(actions);
 
