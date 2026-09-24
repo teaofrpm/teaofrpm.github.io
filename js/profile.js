@@ -50,6 +50,7 @@ async function init() {
   wireFollowListModal();
   await loadPosts();
   await loadFollowRequests();
+  await Highlights.render(document.getElementById("highlightRail"), viewedUser, isOwnProfile);
 
   document.getElementById("loadingOverlay").classList.add("hide");
 }
@@ -208,6 +209,18 @@ function renderActions() {
   }
   btn.addEventListener("click", toggleFollow);
   actions.appendChild(btn);
+
+  const msgBtn = document.createElement("button");
+  msgBtn.className = "follow-btn following";
+  msgBtn.textContent = "Message";
+  msgBtn.addEventListener("click", async () => {
+    msgBtn.disabled = true;
+    const { data, error } = await sb.rpc("get_or_create_dm", { other_user: viewedUser.id });
+    msgBtn.disabled = false;
+    if (error) { toast(error.message || "Could not open chat."); return; }
+    window.location.href = `room.html?c=${data}`;
+  });
+  actions.appendChild(msgBtn);
 }
 
 async function toggleFollow() {
@@ -522,6 +535,8 @@ function buildPostCard(post, likeCount, likedByMe, commentCount) {
   saveBtn.innerHTML = svgIcon("bookmark", 16);
   saveBtn.addEventListener("click", () => toggleSave("post", post.id, saveBtn));
   engageRow.appendChild(saveBtn);
+
+  attachPostExtras(card, post, engageRow);
 
   card.appendChild(engageRow);
 
