@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#8B0000" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="apple-touch-icon" href="images/logo.png" />
+<title>Chat — 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</title>
+<link rel="icon" href="images/logo.png" />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>(function(){var t=localStorage.getItem("teaofrpm_theme");if(t==="dark")document.documentElement.setAttribute("data-theme","dark");var f=localStorage.getItem("teaofrpm_font");if(f&&f!=="default")document.documentElement.setAttribute("data-font",f);})();</script>
+<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/app-shell.css" />
+<link rel="stylesheet" href="css/messages.css" />
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-inner">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</div>
+  </div>
+</div>
+
+<div class="chat-shell room-shell">
+  <main class="chat-main">
+    <div class="chat-header room-header">
+      <a href="messages.html" class="header-icon-btn" data-icon="back" data-icon-size="16" title="Back"></a>
+      <a class="room-title" id="roomTitleLink">
+        <span class="avatar" id="roomAvatar"></span>
+        <span>
+          <b id="roomTitle">Chat</b>
+          <small id="roomSubtitle"></small>
+        </span>
+      </a>
+      <button class="header-icon-btn" id="roomInfoBtn" data-icon="more" data-icon-size="18" title="Details"></button>
+    </div>
+
+    <div class="messages" id="messages"></div>
+
+    <div class="composer">
+      <div class="attach-preview" id="attachPreview">
+        <img id="attachImg" />
+        <span id="attachName" style="font-size:12.5px; color:var(--text-muted);"></span>
+        <button id="removeAttach">Remove</button>
+      </div>
+      <div class="attach-preview" id="audioPreview">
+        <audio id="audioPreviewPlayer" controls></audio>
+        <button id="removeAudioAttach">Remove</button>
+      </div>
+      <div class="composer-row">
+        <label class="icon-btn" id="imageBtn" for="imageInput" title="Send image" data-icon="image" data-icon-size="19"></label>
+        <input type="file" id="imageInput" accept="image/*" style="display:none;" />
+        <button class="icon-btn" id="voiceBtn" title="Record voice note" data-icon="mic" data-icon-size="19"></button>
+        <textarea id="msgInput" rows="1" placeholder="Message…"></textarea>
+        <button class="send-btn" id="sendBtn" disabled data-icon="send" data-icon-size="18"></button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="app-sheet-backdrop" id="roomInfoSheet">
+  <div class="app-sheet">
+    <div class="app-sheet-handle"></div>
+    <div class="app-sheet-title" id="roomInfoTitle">Details</div>
+    <div class="room-info-body">
+      <div id="groupEditArea" style="display:none;">
+        <div class="pfp-wrap" style="margin:0 auto 14px;">
+          <div class="pfp" id="groupPfp" style="width:70px;height:70px;font-size:24px;"></div>
+          <label class="pfp-edit-btn" id="groupPfpEdit" for="groupPfpInput" style="width:26px;height:26px;">
+            <span data-icon="edit" data-icon-size="12"></span>
+          </label>
+          <input type="file" id="groupPfpInput" accept="image/*" style="display:none;" />
+        </div>
+        <div class="field">
+          <label>Group name</label>
+          <input type="text" id="groupNameEdit" maxlength="40" />
+        </div>
+        <button class="btn btn-small" id="saveGroupBtn" style="width:100%;">Save changes</button>
+        <div class="rule"></div>
+      </div>
+
+      <div class="settings-group-title">Members</div>
+      <div class="settings-list" id="roomMembers"></div>
+
+      <div id="addMemberArea" style="display:none; margin-top:14px;">
+        <div class="settings-group-title">Add people</div>
+        <input type="text" class="settings-search" id="addMemberSearch" placeholder="Search people you follow…" />
+        <div class="settings-list" id="addMemberList"></div>
+      </div>
+
+      <button class="btn-outline btn btn-small" id="leaveGroupBtn" style="width:100%; margin-top:16px; display:none;">Leave group</button>
+    </div>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox"><img id="lightboxImg" /></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/app-shell.js"></script>
+<script src="js/room.js"></script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#8B0000" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="apple-touch-icon" href="images/logo.png" />
+<title>Messages — 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</title>
+<link rel="icon" href="images/logo.png" />
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>(function(){var t=localStorage.getItem("teaofrpm_theme");if(t==="dark")document.documentElement.setAttribute("data-theme","dark");var f=localStorage.getItem("teaofrpm_font");if(f&&f!=="default")document.documentElement.setAttribute("data-font",f);})();</script>
+<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/app-shell.css" />
+<link rel="stylesheet" href="css/messages.css" />
+</head>
+<body>
+
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-inner">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</div>
+  </div>
+</div>
+
+<div class="profile-shell">
+  <div class="profile-topbar">
+    <a href="home.html" class="header-icon-btn" title="Back" data-icon="back" data-icon-size="16"></a>
+    <h2>Messages</h2>
+    <button class="header-icon-btn" id="newGroupBtn" title="New group" data-icon="plus" data-icon-size="18"></button>
+  </div>
+
+  <div class="profile-scroll" id="inboxScroll">
+    <a class="thread-row pinned" href="chat.html">
+      <span class="avatar thread-avatar">RPM</span>
+      <div class="thread-text">
+        <b>𝑅𝒫𝑀 𝒫𝓊𝒷𝓁𝒾𝒸 𝑅𝑜𝑜𝓂</b>
+        <span>Everyone at RPM</span>
+      </div>
+    </a>
+    <div class="thread-list" id="threadList"></div>
+  </div>
+
+  <nav id="appNav" data-active="messages" data-scroll-el="inboxScroll"></nav>
+</div>
+
+<div class="app-sheet-backdrop" id="newGroupSheet">
+  <div class="app-sheet">
+    <div class="app-sheet-handle"></div>
+    <div class="app-sheet-title">New group</div>
+    <div class="new-group-body">
+      <div class="field">
+        <label>Group name</label>
+        <input type="text" id="groupNameInput" maxlength="40" placeholder="e.g. Class 12 squad" />
+      </div>
+      <input type="text" class="settings-search" id="groupMemberSearch" placeholder="Search people you follow…" />
+      <div class="settings-list" id="groupMemberList"></div>
+      <p class="error-text" id="groupError"></p>
+      <button class="btn" id="createGroupBtn">Create group</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/app-shell.js"></script>
+<script src="js/messages.js"></script>
+</body>
+</html>
