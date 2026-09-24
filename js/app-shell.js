@@ -35,7 +35,7 @@ const AppNav = (() => {
   const ITEMS = [
     { key: "home", href: "home.html", icon: "home", label: "Home" },
     { key: "reels", href: "reels.html", icon: "reel", label: "Reels" },
-    { key: "messages", href: "chat.html", icon: "chat", label: "Messages" },
+    { key: "messages", href: "messages.html", icon: "chat", label: "Messages" },
     { key: "discover", href: "discover.html", icon: "globe", label: "Discover" },
     { key: "profile", href: "profile.html", icon: "person", label: "Profile" },
   ];
