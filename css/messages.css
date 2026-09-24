@@ -1,0 +1,65 @@
+.thread-row{
+  display:flex; align-items:center; gap:12px;
+  padding:11px 12px;
+  border-radius:12px;
+  text-decoration:none;
+  color:var(--text-dark);
+  background:var(--white);
+  border:1px solid var(--border-soft);
+  margin-bottom:8px;
+}
+.thread-row:hover{ background:var(--dusty-rose); }
+.thread-row.pinned{
+  border-color:var(--gold-deep);
+  background:linear-gradient(135deg, var(--warm-cream), var(--white));
+}
+.thread-avatar{ width:46px; height:46px; font-size:14px; flex-shrink:0; }
+.thread-text{ flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+.thread-text b{ font-size:14.5px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.thread-text span{
+  font-size:12.5px; color:var(--text-muted);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.thread-meta{ display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; }
+.thread-time{ font-size:11px; color:var(--text-muted); }
+.thread-unread{
+  min-width:19px; height:19px; padding:0 5px;
+  border-radius:999px;
+  background:var(--bright-red); color:#fff;
+  font-size:10.5px; font-weight:800;
+  display:flex; align-items:center; justify-content:center;
+}
+.thread-row.has-unread .thread-text b{ font-weight:800; }
+.thread-row.has-unread .thread-text span{ color:var(--text-dark); font-weight:600; }
+
+.thread-list{ display:flex; flex-direction:column; }
+.inbox-empty{ text-align:center; color:var(--text-muted); font-size:13.5px; padding:36px 16px; }
+
+.new-group-body{ padding:14px 16px 18px; overflow-y:auto; }
+.group-member-row{ cursor:pointer; }
+.group-member-row.selected{ border-color:var(--gold-deep); background:var(--warm-cream); }
+.group-member-check{
+  width:22px; height:22px; border-radius:50%; flex-shrink:0;
+  border:2px solid var(--border-soft);
+  display:flex; align-items:center; justify-content:center;
+  color:#3a2400;
+}
+.group-member-row.selected .group-member-check{
+  background:var(--gold-deep); border-color:var(--gold-deep);
+}
+
+/* ===== Room (DM / group) view ===== */
+.room-shell{ grid-template-columns:1fr !important; }
+.room-header{ gap:10px; }
+.room-title{
+  flex:1; min-width:0;
+  display:flex; align-items:center; gap:10px;
+  text-decoration:none; color:var(--text-dark);
+}
+.room-title .avatar{ width:36px; height:36px; font-size:13px; }
+.room-title span{ min-width:0; display:flex; flex-direction:column; }
+.room-title b{ font-size:15px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.room-title small{ font-size:11.5px; color:var(--text-muted); }
+
+.room-info-body{ padding:14px 16px 20px; overflow-y:auto; }
+.room-info-body .field input{ width:100%; }
