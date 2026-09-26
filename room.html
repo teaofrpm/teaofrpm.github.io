@@ -14,6 +14,7 @@
 <script>(function(){var t=localStorage.getItem("teaofrpm_theme");if(t==="dark")document.documentElement.setAttribute("data-theme","dark");var f=localStorage.getItem("teaofrpm_font");if(f&&f!=="default")document.documentElement.setAttribute("data-font",f);})();</script>
 <link rel="stylesheet" href="css/style.css" />
 <link rel="stylesheet" href="css/app-shell.css" />
+<link rel="stylesheet" href="css/calls.css" />
 <link rel="stylesheet" href="css/messages.css" />
 </head>
 <body>
@@ -36,6 +37,8 @@
           <small id="roomSubtitle"></small>
         </span>
       </a>
+      <button class="header-icon-btn room-call-btn" id="callAudioBtn" data-icon="phone" data-icon-size="17" title="Voice call" style="display:none;"></button>
+      <button class="header-icon-btn room-call-btn" id="callVideoBtn" data-icon="video" data-icon-size="18" title="Video call" style="display:none;"></button>
       <button class="header-icon-btn" id="roomInfoBtn" data-icon="more" data-icon-size="18" title="Details"></button>
     </div>
 
@@ -104,6 +107,7 @@
 <script src="js/supabase-client.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/app-shell.js"></script>
+<script src="js/calls.js"></script>
 <script src="js/room.js"></script>
 </body>
 </html>
