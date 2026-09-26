@@ -49,6 +49,7 @@ async function init() {
   wirePfpUpload();
   wireFollowListModal();
   await loadPosts();
+  wireProfileTabs();
   await loadFollowRequests();
   await Highlights.render(document.getElementById("highlightRail"), viewedUser, isOwnProfile);
 
@@ -136,6 +137,24 @@ function renderProfileHeader() {
   document.getElementById("profileUsername").textContent = `@${viewedUser.username}`;
   document.getElementById("profileBio").textContent = viewedUser.bio || (isOwnProfile ? "Add a bio…" : "");
   document.getElementById("privateBadge").style.display = viewedUser.is_private ? "inline-block" : "none";
+
+  const website = document.getElementById("profileWebsite");
+  if (viewedUser.website_url) {
+    website.href = viewedUser.website_url;
+    website.textContent = viewedUser.website_url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+    website.style.display = "inline-flex";
+  } else {
+    website.style.display = "none";
+  }
+
+  const song = document.getElementById("profileSong");
+  if (viewedUser.profile_song_url) {
+    song.src = viewedUser.profile_song_url;
+    song.style.display = "block";
+  } else {
+    song.style.display = "none";
+    song.removeAttribute("src");
+  }
 
   if (isOwnProfile) {
     document.getElementById("pfpEditBtn").style.display = "flex";
@@ -394,6 +413,52 @@ function wireNewPost() {
       btn.disabled = false;
     }
   });
+}
+
+function wireProfileTabs() {
+  document.querySelectorAll("#profileTabs button").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      document.querySelectorAll("#profileTabs button").forEach(b => b.classList.toggle("active", b === btn));
+      const tagged = btn.dataset.tab === "tagged";
+      document.getElementById("postsList").style.display = tagged ? "none" : "flex";
+      document.getElementById("taggedList").style.display = tagged ? "flex" : "none";
+      if (tagged) await loadTaggedPosts();
+    });
+  });
+}
+
+let taggedLoaded = false;
+
+async function loadTaggedPosts() {
+  if (taggedLoaded) return;
+  taggedLoaded = true;
+  const listEl = document.getElementById("taggedList");
+  listEl.innerHTML = `<div class="search-hint">Loading…</div>`;
+
+  if (!canSeePosts()) { listEl.innerHTML = `<div class="locked-posts">This account is private.</div>`; return; }
+
+  const { data: tags } = await sb.from("post_tags").select("post_id")
+    .eq("tagged_user_id", viewedUser.id).order("created_at", { ascending: false });
+
+  if (!tags || !tags.length) { listEl.innerHTML = `<div class="settings-empty">No tagged posts yet.</div>`; return; }
+
+  const ids = tags.map(t => t.post_id);
+  const { data: posts } = await sb.from("posts").select("*")
+    .in("id", ids).eq("deleted", false).eq("archived", false)
+    .order("created_at", { ascending: false });
+
+  if (!posts || !posts.length) { listEl.innerHTML = `<div class="settings-empty">No tagged posts yet.</div>`; return; }
+
+  await Promise.all([...new Set(posts.map(p => p.user_id))].map(getProfile));
+  const postIds = posts.map(p => p.id);
+  const [likeCounts, myLikes, commentCounts] = await Promise.all([
+    fetchLikeCounts(postIds), fetchMyLikes(postIds), fetchCommentCounts(postIds),
+  ]);
+
+  listEl.innerHTML = "";
+  for (const post of posts) {
+    listEl.appendChild(buildPostCard(post, likeCounts[post.id] || 0, myLikes.has(post.id), commentCounts[post.id] || 0));
+  }
 }
 
 async function loadPosts() {
