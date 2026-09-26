@@ -45,16 +45,9 @@ body.reels-immersive .reel-actions{ opacity:0; pointer-events:none; }
   background:#000;
   overflow:hidden;
 }
-/* Default to contain so a small or square video is never scaled up and
-   cropped. reels.js switches to cover for genuinely phone-shaped video. */
-.reel video{
-  width:100%; height:100%;
-  object-fit:contain;
-  display:block;
-}
-.reel.letterboxed video{ object-fit:contain; }
+.reel video{ width:100%; height:100%; object-fit:cover; }
 @media (min-width:761px){
-  .reel video{ max-width:min(480px, 100%); }
+  .reel video{ max-width:min(480px, 100%); object-fit:contain; }
 }
 
 .reel-state{
