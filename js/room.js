@@ -1,4 +1,3 @@
-
 let ME = null;
 let convo = null;
 let members = [];
@@ -77,6 +76,14 @@ function renderHeader() {
     subtitle.textContent = otherUser ? `@${otherUser.username}` : "";
     setAvatarContent(av, otherUser);
     if (otherUser) link.href = `profile.html?u=${encodeURIComponent(otherUser.username)}`;
+    if (otherUser) {
+      const audioBtn = document.getElementById("callAudioBtn");
+      const videoBtn = document.getElementById("callVideoBtn");
+      audioBtn.style.display = "flex";
+      videoBtn.style.display = "flex";
+      audioBtn.onclick = () => CallManager.start(convo.id, otherUser, "audio");
+      videoBtn.onclick = () => CallManager.start(convo.id, otherUser, "video");
+    }
   } else {
     title.textContent = convo.name || "Group";
     subtitle.textContent = `${members.length} member${members.length === 1 ? "" : "s"}`;
@@ -125,6 +132,11 @@ function appendMessage(m, container) {
     divider.innerHTML = `<span>${formatDayLabel(m.created_at)}</span>`;
     container.appendChild(divider);
     lastRenderedDay = day;
+  }
+
+  if (m.call_id) {
+    container.appendChild(buildCallLogRow(m));
+    return;
   }
 
   const author = profileCache.get(m.user_id);
@@ -212,6 +224,26 @@ function appendMessage(m, container) {
 async function getSharedPostAuthor(postId) {
   const { data } = await sb.from("posts").select("user_id").eq("id", postId).maybeSingle();
   return data ? getProfile(data.user_id) : null;
+}
+
+function buildCallLogRow(m) {
+  const row = document.createElement("div");
+  row.className = "call-log-row";
+  row.dataset.msgId = m.id;
+
+  const text = m.content || "Call";
+  const missed = /missed|declined|couldn/i.test(text);
+  const isVideo = /video/i.test(text);
+
+  const chip = document.createElement("button");
+  chip.className = `call-log-chip ${missed ? "missed" : ""}`;
+  chip.innerHTML = `${svgIcon(isVideo ? "video" : "phone", 15)} ${escapeHTML(text)} <small>${formatTime(m.created_at)}</small>`;
+  chip.title = "Call back";
+  chip.addEventListener("click", () => {
+    if (convo.kind === "dm" && otherUser) CallManager.start(convo.id, otherUser, isVideo ? "video" : "audio");
+  });
+  row.appendChild(chip);
+  return row;
 }
 
 function formatDayLabel(ts) {
