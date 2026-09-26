@@ -26,8 +26,11 @@ async function init() {
   wireStoryUpload();
   wireStoryViewer();
 
-  await Promise.all([loadStories(), initFeed(), Notifs.init(ME)]);
+  // Paint the page shape instantly, then drop the spinner — data fills in after.
+  Skeleton.show("feed", "feedList", 3);
   document.getElementById("loadingOverlay").classList.add("hide");
+
+  await Promise.all([loadStories(), initFeed(), Notifs.init(ME)]);
 }
 
 /* ======================= STORIES ======================= */
@@ -361,6 +364,7 @@ async function loadMoreFeed() {
 
   if (!posts.length) {
     feed.done = true;
+    Skeleton.clear("feedList");
     if (!document.getElementById("feedList").children.length) {
       document.getElementById("feedList").innerHTML = `<div class="feed-empty">No posts yet. Share the first one from your profile.</div>`;
     } else {
@@ -388,6 +392,7 @@ async function loadMoreFeed() {
   const saved = new Set((saveRows.data || []).map(r => r.post_id));
 
   const list = document.getElementById("feedList");
+  Skeleton.clear(list);
   for (const post of posts) {
     list.appendChild(buildFeedCard(post, likes[post.id] || 0, mine.has(post.id), comments[post.id] || 0, saved.has(post.id)));
   }
