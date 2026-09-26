@@ -1101,37 +1101,54 @@ button:active .icon-svg, a:active .icon-svg, label:active .icon-svg{ transform:s
    this block needed to change.
    ============================================================ */
 :root[data-theme="dark"]{
-  --deep-royal:   #c9a6ff;
-  --slate-blue:   #b98bff;
-  --dusty-rose:   #3a2430;
-  --warm-cream:   #201d27;
-  --cream-tan:    #262230;
-  --deep-red:     #ff6b6b;
-  --bright-red:   #ff8a8a;
-  --gold:         #ffe08a;
-  --gold-warm:    #f2c14e;
-  --gold-deep:    #e0a627;
-  --aqua-dark:    #5fd4e8;
-  --aqua:         #22d3ee;
-  --aqua-light:   #7fe6f5;
+  /* Warm-neutral dark, not saturated purple. Accent hues kept but softened
+     so text and gold/red stay legible without glowing. */
+  --deep-royal:   #d9c9a0;
+  --slate-blue:   #cdbfa0;
+  --dusty-rose:   #2a2620;
+  --warm-cream:   #1e1c19;
+  --cream-tan:    #242019;
+  --deep-red:     #ff7a6b;
+  --bright-red:   #ff9385;
+  --gold:         #ffd873;
+  --gold-warm:    #eec25a;
+  --gold-deep:    #d9a63c;
+  --aqua-dark:    #67cfd8;
+  --aqua:         #3ecad4;
+  --aqua-light:   #7fe6ee;
   --teal:         #4fd1c5;
-  --navy:         #b9c8ff;
-  --pale-bg:      #131118;
-  --mesh-1:       #241f2e;
-  --mesh-2:       #241f2e;
-  --mesh-3:       #241f2e;
-  --mesh-4:       #241f2e;
-  --mesh-5:       #241f2e;
-  --text-dark:    #f0ecf7;
-  --text-muted:   #a79fb5;
-  --border-soft:  #35303f;
-  --white:        #1b1822;
-  --shadow:       0 10px 30px rgba(0,0,0,.45);
+  --navy:         #cdd6ff;
+  --pale-bg:      #0f0e0c;
+  --mesh-1:       #201d18;
+  --mesh-2:       #201d18;
+  --mesh-3:       #201d18;
+  --mesh-4:       #201d18;
+  --mesh-5:       #201d18;
+  --text-dark:    #f3efe6;
+  --text-muted:   #a49f95;
+  --border-soft:  #322e28;
+  --white:        #17150f;
+  --shadow:       0 12px 34px rgba(0,0,0,.55);
 }
+/* Kill the light paper texture + tinted panels that ignored the variables */
 :root[data-theme="dark"] body{ background-image:none; }
-:root[data-theme="dark"] .messages{ background-color:#171420; background-image:none; }
-:root[data-theme="dark"] .msg-row:not(.own) .bubble{ background:var(--cream-tan); color:var(--text-dark); }
+:root[data-theme="dark"] .messages{ background-color:#121009; background-image:none; }
+:root[data-theme="dark"] .msg-row:not(.own) .bubble{ background:#221f18; color:var(--text-dark); }
 :root[data-theme="dark"] .loading-overlay{ background:var(--pale-bg); }
+:root[data-theme="dark"] .home-header,
+:root[data-theme="dark"] .app-nav{ background:rgba(23,21,15,.92); }
+:root[data-theme="dark"] .chat-header{ background-image:none; }
+:root[data-theme="dark"] .members-panel{ background:linear-gradient(180deg,#1b1913,#17150f); }
+:root[data-theme="dark"] .feed-card,
+:root[data-theme="dark"] .thread-row,
+:root[data-theme="dark"] .settings-group,
+:root[data-theme="dark"] .post-card,
+:root[data-theme="dark"] .bubble{ box-shadow:none; }
+:root[data-theme="dark"] .notif-row.unread{ background:#241f14; }
+:root[data-theme="dark"] .composer,
+:root[data-theme="dark"] .bottom-nav{ background:#17150f; }
+:root[data-theme="dark"] .msg-row.own .bubble{ background:linear-gradient(160deg,#3a3630,#2a2620); border-color:#3a3630; color:var(--text-dark); }
+:root[data-theme="dark"] ::selection{ background:var(--gold-deep); color:#1a1710; }
 
 :root[data-font="serif"]{ --sans: var(--serif); }
 :root[data-font="system"]{ --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
