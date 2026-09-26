@@ -559,7 +559,9 @@ async function renderInfoSheet() {
 
   const list = document.getElementById("roomMembers");
   list.innerHTML = "";
-  for (const member of members) {
+  const ordered = [...members].sort((a, b) =>
+    (a.role === "admin" ? 0 : 1) - (b.role === "admin" ? 0 : 1));
+  for (const member of ordered) {
     const p = profileCache.get(member.user_id);
     if (!p) continue;
     const row = document.createElement("div");
@@ -573,22 +575,52 @@ async function renderInfoSheet() {
     const name = document.createElement("a");
     name.className = "settings-list-name";
     name.href = `profile.html?u=${encodeURIComponent(p.username)}`;
-    name.innerHTML = `${escapeHTML(p.display_name)}<span class="settings-list-sub">${member.role === "admin" ? "Admin" : "@" + escapeHTML(p.username)}</span>`;
+    name.innerHTML = `${escapeHTML(p.display_name)}${member.user_id === ME.id ? " (you)" : ""}<span class="settings-list-sub">@${escapeHTML(p.username)}${member.role === "admin" ? ' · <b class="member-admin-tag">Admin</b>' : ""}</span>`;
     row.appendChild(name);
 
-    if (isGroup && amAdmin && member.user_id !== ME.id) {
-      const btn = document.createElement("button");
-      btn.textContent = "Remove";
-      btn.addEventListener("click", async () => {
-        if (!confirm(`Remove ${p.display_name} from the group?`)) return;
-        const { error } = await sb.from("conversation_members").delete()
-          .eq("conversation_id", convo.id).eq("user_id", member.user_id);
-        if (error) { toast(error.message || "Could not remove."); return; }
+    if (isGroup && amAdmin) {
+      const isTargetAdmin = member.role === "admin";
+
+      const roleBtn = document.createElement("button");
+      roleBtn.textContent = isTargetAdmin ? "Remove admin" : "Make admin";
+      roleBtn.addEventListener("click", async () => {
+        const verb = isTargetAdmin ? "remove admin rights from" : "make an admin";
+        const who = member.user_id === ME.id ? "yourself" : p.display_name;
+        if (!confirm(`${isTargetAdmin ? "Remove admin from" : "Make"} ${who}${isTargetAdmin ? "" : " an admin"}?`)) return;
+
+        roleBtn.disabled = true;
+        const { error } = await sb.rpc("set_member_role", {
+          p_conversation: convo.id,
+          p_user: member.user_id,
+          p_role: isTargetAdmin ? "member" : "admin",
+        });
+        roleBtn.disabled = false;
+
+        // The database refuses to leave a group without an admin, and
+        // refuses role changes from non-admins — surface whichever it says.
+        if (error) { toast(error.message || `Could not ${verb} them.`); return; }
+
         await loadMembers();
         renderHeader();
         await renderInfoSheet();
+        toast(isTargetAdmin ? "Admin removed" : `${p.display_name} is now an admin`);
       });
-      row.appendChild(btn);
+      row.appendChild(roleBtn);
+
+      if (member.user_id !== ME.id) {
+        const btn = document.createElement("button");
+        btn.textContent = "Remove";
+        btn.addEventListener("click", async () => {
+          if (!confirm(`Remove ${p.display_name} from the group?`)) return;
+          const { error } = await sb.from("conversation_members").delete()
+            .eq("conversation_id", convo.id).eq("user_id", member.user_id);
+          if (error) { toast(error.message || "Could not remove."); return; }
+          await loadMembers();
+          renderHeader();
+          await renderInfoSheet();
+        });
+        row.appendChild(btn);
+      }
     }
     list.appendChild(row);
   }

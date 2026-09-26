@@ -66,12 +66,20 @@ async function init() {
   if (targetId) await showTargetReel(targetId);
 
   await loadMoreReels();
+  setTimeout(clearReelSkeleton, 6000);
+}
+
+function clearReelSkeleton() {
+  const feedEl = document.getElementById("reelsFeed");
+  Skeleton.clear(feedEl);
+  feedEl.querySelector(".sk-wrap")?.remove();
 }
 
 async function showTargetReel(id) {
   const { data: reel } = await sb.from("reels").select("*")
     .eq("id", id).eq("deleted", false).maybeSingle();
 
+  clearReelSkeleton();
   if (!reel) { toast("That reel isn't available anymore."); return; }
 
   await renderReels([reel]);
@@ -88,7 +96,8 @@ async function loadMoreReels() {
 
   const { data: reels, error } = await query;
   reelsState.loading = false;
-  if (error) { console.error(error); return; }
+  clearReelSkeleton();
+  if (error) { console.error(error); toast("Could not load reels."); return; }
 
   const feedEl = document.getElementById("reelsFeed");
   const sentinel = document.getElementById("reelsSentinel");
@@ -133,8 +142,7 @@ async function renderReels(rows) {
   const mine = new Set((myLikeRows.data || []).map(r => r.reel_id));
   const saved = new Set((saveRows.data || []).map(r => r.reel_id));
 
-  feedEl.querySelector(".reel-skeleton")?.remove();
-  Skeleton.clear(feedEl);
+  clearReelSkeleton();
   feedEl.querySelector(".reels-empty")?.remove();
   for (const reel of reels) {
     const el = buildReel(reel, likes[reel.id] || 0, mine.has(reel.id), comments[reel.id] || 0, saved.has(reel.id));
@@ -153,6 +161,17 @@ function buildReel(reel, likeCount, likedByMe, commentCount, savedByMe) {
 
   const video = document.createElement("video");
   video.src = reel.video_url;
+
+  // A phone-shaped video fills the screen; anything squarer or wider is
+  // letterboxed instead of being blown up and cropped.
+  video.addEventListener("loadedmetadata", () => {
+    if (!video.videoWidth || !video.videoHeight) return;
+    const videoAspect = video.videoWidth / video.videoHeight;
+    const boxAspect = (el.clientWidth || window.innerWidth) / (el.clientHeight || window.innerHeight);
+    const closeEnough = Math.abs(videoAspect - boxAspect) / boxAspect < 0.18;
+    video.style.objectFit = closeEnough ? "cover" : "contain";
+    el.classList.toggle("letterboxed", !closeEnough);
+  }, { once: true });
   video.playsInline = true;
   video.loop = true;
   video.muted = reelsState.muted;
