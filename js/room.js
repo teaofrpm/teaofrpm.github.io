@@ -47,6 +47,8 @@ async function init() {
   wireInfoSheet();
   document.getElementById("lightbox").addEventListener("click", () => document.getElementById("lightbox").classList.remove("show"));
 
+  Skeleton.show("chat", "messages", 6);
+  document.getElementById("loadingOverlay").classList.add("hide");
   await loadMessages();
   subscribeMessages();
   markRead();
