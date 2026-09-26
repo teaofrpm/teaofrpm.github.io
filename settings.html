@@ -19,16 +19,10 @@
 </head>
 <body>
 
-<div class="loading-overlay" id="loadingOverlay">
-  <div class="loading-inner">
-    <div class="loading-spinner"></div>
-    <div class="loading-text">𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</div>
-  </div>
-</div>
 
 <div class="profile-shell">
   <div class="profile-topbar">
-    <a href="profile.html" class="header-icon-btn" title="Back" data-icon="back" data-icon-size="16"></a>
+    <button class="header-icon-btn" id="settingsBack" title="Back" data-icon="back" data-icon-size="16"></button>
     <h2 id="settingsTitle">Settings</h2>
     <span style="width:32px;"></span>
   </div>
@@ -36,7 +30,7 @@
   <div class="profile-scroll" id="settingsScroll">
 
     <!-- ============ ROOT: menu ============ -->
-    <div class="settings-panel" data-panel="root">
+    <div class="settings-panel show" data-panel="root">
       <div class="settings-group">
         <div class="settings-group-title">Content</div>
         <button class="settings-row" data-open="archive"><span class="settings-row-icon" data-icon="archive" data-icon-size="18"></span><span class="settings-row-text"><b>Archive</b><span>Archived posts</span></span><span class="settings-row-chevron" data-icon="chevron" data-icon-size="16"></span></button>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#8B0000" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -15,34 +15,53 @@
 <link rel="stylesheet" href="css/style.css" />
 <link rel="stylesheet" href="css/app-shell.css" />
 <link rel="stylesheet" href="css/calls.css" />
+<link rel="stylesheet" href="css/discover.css" />
 </head>
 <body>
-
-<div class="loading-overlay" id="loadingOverlay">
-  <div class="loading-inner">
-    <div class="loading-spinner"></div>
-    <div class="loading-text">𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</div>
-  </div>
-</div>
 
 <div class="profile-shell">
 
   <div class="profile-topbar">
     <a href="home.html" class="header-icon-btn" title="Back" data-icon="back" data-icon-size="16"></a>
     <h2>Discover</h2>
-    <span style="width:32px;"></span>
+    <button class="header-icon-btn" id="refreshNewsBtn" title="Refresh" data-icon="refresh" data-icon-size="18"></button>
   </div>
 
   <div class="discover-search-box">
-    <input type="text" id="discoverInput" placeholder="Search by name or username…" />
+    <span class="discover-search-icon" data-icon="search" data-icon-size="15"></span>
+    <input type="text" id="discoverInput" placeholder="Search people…" autocomplete="off" />
+    <button class="discover-clear" id="discoverClear" title="Clear" data-icon="close" data-icon-size="14"></button>
   </div>
 
+  <div class="news-tabs" id="newsTabs"></div>
+
   <div class="profile-scroll" id="discoverScroll">
-    <div class="discover-section-label" id="discoverLabel">People</div>
-    <div class="discover-list" id="discoverList"></div>
+    <div class="discover-section-label" id="discoverLabel">Top stories</div>
+    <div class="news-list" id="newsList"></div>
+    <div class="discover-list" id="discoverList" hidden></div>
+    <div id="newsSentinel" style="height:1px;"></div>
   </div>
 
   <nav id="appNav" data-active="discover" data-scroll-el="discoverScroll"></nav>
+</div>
+
+<div class="reader-layer" id="readerLayer">
+  <div class="reader-bar">
+    <button class="header-icon-btn" id="readerClose" title="Close" data-icon="close" data-icon-size="17"></button>
+    <div class="reader-title" id="readerTitle"></div>
+    <a class="header-icon-btn" id="readerOpen" target="_blank" rel="noopener noreferrer" title="Open in browser" data-icon="link" data-icon-size="17"></a>
+  </div>
+  <div class="reader-body">
+    <iframe id="readerFrame" referrerpolicy="no-referrer"></iframe>
+    <div class="reader-fallback" id="readerFallback">
+      <div class="reader-fallback-inner">
+        <span data-icon="globe" data-icon-size="34"></span>
+        <b id="fallbackTitle"></b>
+        <p>This publisher doesn't allow their page to be shown inside another app. Open it in your browser to read the full story.</p>
+        <a class="btn" id="fallbackOpen" target="_blank" rel="noopener noreferrer">Open the article</a>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>

@@ -19,18 +19,18 @@
 </head>
 <body>
 
-<div class="loading-overlay" id="loadingOverlay">
-  <div class="loading-inner">
-    <div class="loading-spinner"></div>
-    <div class="loading-text">𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</div>
-  </div>
-</div>
 
 <div class="profile-shell">
   <div class="profile-topbar">
     <a href="home.html" class="header-icon-btn" title="Back" data-icon="back" data-icon-size="16"></a>
     <h2>Messages</h2>
-    <button class="header-icon-btn" id="newGroupBtn" title="New group" data-icon="plus" data-icon-size="18"></button>
+    <div class="new-chat-wrap">
+      <button class="header-icon-btn" id="newChatBtn" title="New chat" data-icon="plus" data-icon-size="18"></button>
+      <div class="new-chat-menu" id="newChatMenu">
+        <button data-new="dm"><span data-icon="chat" data-icon-size="16"></span>New message</button>
+        <button data-new="group"><span data-icon="person" data-icon-size="16"></span>New group</button>
+      </div>
+    </div>
   </div>
 
   <div class="profile-scroll" id="inboxScroll">
@@ -47,6 +47,17 @@
   <nav id="appNav" data-active="messages" data-scroll-el="inboxScroll"></nav>
 </div>
 
+<div class="app-sheet-backdrop" id="newDmSheet">
+  <div class="app-sheet">
+    <div class="app-sheet-handle"></div>
+    <div class="app-sheet-title">New message</div>
+    <div class="new-group-body">
+      <input type="text" class="settings-search" id="dmPeopleSearch" placeholder="Search anyone on teaofrpm…" autocomplete="off" />
+      <div class="settings-list" id="dmPeopleList"></div>
+    </div>
+  </div>
+</div>
+
 <div class="app-sheet-backdrop" id="newGroupSheet">
   <div class="app-sheet">
     <div class="app-sheet-handle"></div>
@@ -56,7 +67,7 @@
         <label>Group name</label>
         <input type="text" id="groupNameInput" maxlength="40" placeholder="e.g. Class 12 squad" />
       </div>
-      <input type="text" class="settings-search" id="groupMemberSearch" placeholder="Search people you follow…" />
+      <input type="text" class="settings-search" id="groupMemberSearch" placeholder="Search anyone on teaofrpm…" autocomplete="off" />
       <div class="settings-list" id="groupMemberList"></div>
       <p class="error-text" id="groupError"></p>
       <button class="btn" id="createGroupBtn">Create group</button>
