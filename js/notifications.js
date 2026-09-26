@@ -12,11 +12,13 @@ const Notifs = (() => {
     reel_comment: "commented on your reel",
     tag: "tagged you in a post",
     reshare: "shared your post",
+    missed_call: "tried to call you",
   };
 
   function linkFor(n, actor) {
     if (["follow_request", "like", "comment", "tag", "reshare"].includes(n.type)) return "profile.html";
     if (n.type === "reel_like" || n.type === "reel_comment") return "reels.html";
+    if (n.type === "missed_call") return "messages.html";
     return actor ? `profile.html?u=${encodeURIComponent(actor.username)}` : "#";
   }
 
