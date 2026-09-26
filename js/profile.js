@@ -41,6 +41,8 @@ async function init() {
   document.getElementById("profileTopTitle").textContent = isOwnProfile ? "Your profile" : `@${viewedUser.username}`;
 
   await loadFollowState();
+  document.getElementById("loadingOverlay").classList.add("hide");
+  Skeleton.show("feed", "postsList", 2);
   renderProfileHeader();
   await renderStats();
   renderActions();
