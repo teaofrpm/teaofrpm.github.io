@@ -49,6 +49,8 @@
       </div>
 
       <div class="profile-bio" id="profileBio"></div>
+      <a class="profile-website" id="profileWebsite" target="_blank" rel="noopener noreferrer" style="display:none;"></a>
+      <audio class="profile-song" id="profileSong" controls style="display:none;"></audio>
 
       <div class="profile-stats">
         <div class="stat-item" id="statPosts"><b id="postsCount">0</b><span>Posts</span></div>
@@ -107,7 +109,13 @@
       <span data-icon="lock" data-icon-size="14"></span> This account is private. Follow to see their posts.
     </div>
 
+    <div class="profile-tabs" id="profileTabs">
+      <button class="active" data-tab="posts">Posts</button>
+      <button data-tab="tagged">Tagged</button>
+    </div>
+
     <div class="posts-list" id="postsList"></div>
+    <div class="posts-list" id="taggedList" style="display:none;"></div>
 
   </div>
 
