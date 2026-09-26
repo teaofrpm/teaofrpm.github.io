@@ -1,11 +1,10 @@
 let ME = null;
 
 const REELS_PAGE = 6;
-const MAX_REEL_BYTES = 50 * 1024 * 1024;   
+const MAX_REEL_BYTES = 50 * 1024 * 1024;   // Supabase free-plan upload ceiling
 const MAX_REEL_SECONDS = 180;
 
 const reelsState = { cursor: null, done: false, loading: false, muted: true, immersive: false };
-const shownReelIds = new Set(); // a deep-linked reel must not appear twice in the feed
 let pendingReelFile = null;
 let pendingReelPreviewUrl = null;
 let playObserver = null;
@@ -50,40 +49,10 @@ async function init() {
   const moreObserver = new IntersectionObserver((entries) => {
     if (entries[0].isIntersecting) loadMoreReels();
   }, { root: feedEl, rootMargin: "200% 0px" });
-  const sentinelEl = document.getElementById("reelsSentinel");
-  if (sentinelEl) moreObserver.observe(sentinelEl);
-
-  // Placeholder inserted before the sentinel (not via innerHTML) so the
-  // sentinel the observer is watching survives.
-  const placeholder = document.createElement("div");
-  placeholder.className = "sk-wrap reel-skeleton";
-  placeholder.innerHTML = `<div class="skeleton sk-reel"></div>`;
-  feedEl.insertBefore(placeholder, sentinelEl);
-
-  // ?r=<id> — opened from a notification. Show that reel at the top first,
-  // then fill the rest of the feed underneath it.
-  const targetId = new URLSearchParams(location.search).get("r");
-  if (targetId) await showTargetReel(targetId);
+  moreObserver.observe(document.getElementById("reelsSentinel"));
 
   await loadMoreReels();
-  setTimeout(clearReelSkeleton, 6000);
-}
-
-function clearReelSkeleton() {
-  document.getElementById("reelsFeed")
-    ?.querySelectorAll(".sk-wrap, .reel-skeleton")
-    .forEach(el => el.remove());
-}
-
-async function showTargetReel(id) {
-  const { data: reel } = await sb.from("reels").select("*")
-    .eq("id", id).eq("deleted", false).maybeSingle();
-
-  clearReelSkeleton();
-  if (!reel) { toast("That reel isn't available anymore."); return; }
-
-  await renderReels([reel]);
-  document.getElementById("reelsFeed").scrollTop = 0;
+  document.getElementById("loadingOverlay").classList.add("hide");
 }
 
 async function loadMoreReels() {
@@ -96,15 +65,13 @@ async function loadMoreReels() {
 
   const { data: reels, error } = await query;
   reelsState.loading = false;
-  clearReelSkeleton();
-  if (error) { console.error(error); toast("Could not load reels."); return; }
+  if (error) { console.error(error); return; }
 
   const feedEl = document.getElementById("reelsFeed");
   const sentinel = document.getElementById("reelsSentinel");
 
   if (!reels.length) {
     reelsState.done = true;
-    feedEl.querySelector(".reel-skeleton")?.remove();
     if (!feedEl.querySelector(".reel")) {
       const empty = document.createElement("div");
       empty.className = "reels-empty";
@@ -117,32 +84,21 @@ async function loadMoreReels() {
   reelsState.cursor = reels[reels.length - 1].created_at;
   if (reels.length < REELS_PAGE) reelsState.done = true;
 
-  await renderReels(reels);
-}
-
-async function renderReels(rows) {
-  const reels = rows.filter(r => !shownReelIds.has(r.id));
-  if (!reels.length) return;
-  reels.forEach(r => shownReelIds.add(r.id));
-
-  const feedEl = document.getElementById("reelsFeed");
-  const sentinel = document.getElementById("reelsSentinel");
   const ids = reels.map(r => r.id);
   const [likeRows, myLikeRows, commentRows, saveRows] = await Promise.all([
     sb.from("reel_likes").select("reel_id").in("reel_id", ids),
     sb.from("reel_likes").select("reel_id").eq("user_id", ME.id).in("reel_id", ids),
     sb.from("reel_comments").select("reel_id").eq("deleted", false).in("reel_id", ids),
     sb.from("saves").select("reel_id").eq("user_id", ME.id).in("reel_id", ids),
-    getProfiles(reels.map(r => r.user_id)),
+    ...[...new Set(reels.map(r => r.user_id))].map(getProfile),
   ]);
 
-  const countBy = res => (res.data || []).reduce((acc, r) => ((acc[r.reel_id] = (acc[r.reel_id] || 0) + 1), acc), {});
+  const countBy = rows => (rows.data || []).reduce((acc, r) => ((acc[r.reel_id] = (acc[r.reel_id] || 0) + 1), acc), {});
   const likes = countBy(likeRows);
   const comments = countBy(commentRows);
   const mine = new Set((myLikeRows.data || []).map(r => r.reel_id));
   const saved = new Set((saveRows.data || []).map(r => r.reel_id));
 
-  clearReelSkeleton();
   feedEl.querySelector(".reels-empty")?.remove();
   for (const reel of reels) {
     const el = buildReel(reel, likes[reel.id] || 0, mine.has(reel.id), comments[reel.id] || 0, saved.has(reel.id));
@@ -161,17 +117,6 @@ function buildReel(reel, likeCount, likedByMe, commentCount, savedByMe) {
 
   const video = document.createElement("video");
   video.src = reel.video_url;
-
-  // A phone-shaped video fills the screen; anything squarer or wider is
-  // letterboxed instead of being blown up and cropped.
-  video.addEventListener("loadedmetadata", () => {
-    if (!video.videoWidth || !video.videoHeight) return;
-    const videoAspect = video.videoWidth / video.videoHeight;
-    const boxAspect = (el.clientWidth || window.innerWidth) / (el.clientHeight || window.innerHeight);
-    const closeEnough = Math.abs(videoAspect - boxAspect) / boxAspect < 0.18;
-    video.style.objectFit = closeEnough ? "cover" : "contain";
-    el.classList.toggle("letterboxed", !closeEnough);
-  }, { once: true });
   video.playsInline = true;
   video.loop = true;
   video.muted = reelsState.muted;
@@ -395,11 +340,8 @@ async function publishReel() {
     AppNav.exitFullscreen();
 
     const feedEl = document.getElementById("reelsFeed");
-    shownReelIds.add(reel.id);
-    feedEl.querySelector(".reel-skeleton")?.remove();
-    Skeleton.clear(feedEl);
-  feedEl.querySelector(".reels-empty")?.remove();
-    const el = buildReel(reel, 0, false, 0, false);
+    feedEl.querySelector(".reels-empty")?.remove();
+    const el = buildReel(reel, 0, false, 0);
     feedEl.insertBefore(el, feedEl.firstChild);
     playObserver.observe(el);
     feedEl.scrollTo({ top: 0, behavior: "smooth" });
@@ -411,5 +353,7 @@ async function publishReel() {
     btn.textContent = "Share reel";
   }
 }
+
+setTimeout(() => document.getElementById("loadingOverlay")?.classList.add("hide"), 8000);
 
 init();
