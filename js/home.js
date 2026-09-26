@@ -28,7 +28,6 @@ async function init() {
 
   // Paint the page shape instantly, then drop the spinner — data fills in after.
   Skeleton.show("feed", "feedList", 3);
-  document.getElementById("loadingOverlay").classList.add("hide");
 
   await Promise.all([loadStories(), initFeed(), Notifs.init(ME)]);
 }
@@ -53,7 +52,7 @@ async function loadStories() {
     if (!byUser.has(s.user_id)) byUser.set(s.user_id, []);
     byUser.get(s.user_id).push(s);
   }
-  await Promise.all([...byUser.keys()].map(getProfile));
+  await getProfiles([...byUser.keys()]);
 
   const others = [...byUser.entries()]
     .filter(([uid]) => uid !== ME.id)
@@ -382,7 +381,7 @@ async function loadMoreFeed() {
     sb.from("post_likes").select("post_id").eq("user_id", ME.id).in("post_id", ids),
     sb.from("post_comments").select("post_id").eq("deleted", false).in("post_id", ids),
     sb.from("saves").select("post_id").eq("user_id", ME.id).in("post_id", ids),
-    ...[...new Set(posts.map(p => p.user_id))].map(getProfile),
+    getProfiles(posts.map(p => p.user_id)),
   ]);
 
   const countBy = rows => (rows.data || []).reduce((acc, r) => ((acc[r.post_id] = (acc[r.post_id] || 0) + 1), acc), {});
@@ -475,7 +474,7 @@ function buildFeedCard(post, likeCount, likedByMe, commentCount, savedByMe) {
   saveBtn.addEventListener("click", () => toggleSave("post", post.id, saveBtn));
   actions.appendChild(saveBtn);
 
-  attachPostExtras(card, post, actions);
+  if (typeof attachPostExtras === "function") attachPostExtras(card, post, actions);
 
   card.appendChild(actions);
 
@@ -509,7 +508,5 @@ async function togglePostLike(postId, btn) {
     toast(error.message || "Could not update like.");
   }
 }
-
-setTimeout(() => document.getElementById("loadingOverlay")?.classList.add("hide"), 8000);
 
 init();

@@ -167,7 +167,7 @@ async function openCommentsSheet({ table, column, id, myId, onAdded }) {
       .eq(column, id).eq("deleted", false)
       .order("created_at", { ascending: true });
     if (error) { body.innerHTML = `<div class="search-hint">Could not load comments.</div>`; return; }
-    await Promise.all([...new Set((data || []).map(c => c.user_id))].map(getProfile));
+    await getProfiles((data || []).map(c => c.user_id));
 
     if (!data.length) { body.innerHTML = `<div class="search-hint">No comments yet. Be the first.</div>`; return; }
     body.innerHTML = "";
@@ -254,8 +254,18 @@ const Skeleton = (() => {
       </div>
     </div>`;
 
+  const reelCard = () => `
+    <div class="sk-reel">
+      <div class="skeleton sk-reel-media"></div>
+      <div class="sk-reel-foot">
+        <div class="skeleton sk-circle" style="width:34px;height:34px;"></div>
+        <div class="skeleton sk-line" style="width:120px;"></div>
+      </div>
+    </div>`;
+
   const KINDS = {
     feed: (n = 3) => feedCard().repeat(n),
+    reel: (n = 1) => reelCard().repeat(n),
     rows: (n = 6) => row().repeat(n),
     chat: (n = 6) => Array.from({ length: n }, (_, i) => msg(i % 3 === 0)).join(""),
     profile: () => profileHead(),

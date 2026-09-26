@@ -5,6 +5,7 @@ const MAX_REEL_BYTES = 50 * 1024 * 1024;   // Supabase free-plan upload ceiling
 const MAX_REEL_SECONDS = 180;
 
 const reelsState = { cursor: null, done: false, loading: false, muted: true, immersive: false };
+const shownReelIds = new Set(); // a deep-linked reel must not appear twice in the feed
 let pendingReelFile = null;
 let pendingReelPreviewUrl = null;
 let playObserver = null;
@@ -28,6 +29,7 @@ async function init() {
   wireUpload();
 
   const feedEl = document.getElementById("reelsFeed");
+  Skeleton.show("reel", feedEl, 1);
 
   // Whichever reel is mostly on screen plays; everything else pauses
   playObserver = new IntersectionObserver((entries) => {
@@ -51,8 +53,29 @@ async function init() {
   }, { root: feedEl, rootMargin: "200% 0px" });
   moreObserver.observe(document.getElementById("reelsSentinel"));
 
+  // Placeholder inserted before the sentinel (not via innerHTML) so the
+  // sentinel the observer is watching survives.
+  const placeholder = document.createElement("div");
+  placeholder.className = "sk-wrap reel-skeleton";
+  placeholder.innerHTML = `<div class="skeleton sk-reel"></div>`;
+  feedEl.insertBefore(placeholder, document.getElementById("reelsSentinel"));
+
+  // ?r=<id> — opened from a notification. Show that reel at the top first,
+  // then fill the rest of the feed underneath it.
+  const targetId = new URLSearchParams(location.search).get("r");
+  if (targetId) await showTargetReel(targetId);
+
   await loadMoreReels();
-  document.getElementById("loadingOverlay").classList.add("hide");
+}
+
+async function showTargetReel(id) {
+  const { data: reel } = await sb.from("reels").select("*")
+    .eq("id", id).eq("deleted", false).maybeSingle();
+
+  if (!reel) { toast("That reel isn't available anymore."); return; }
+
+  await renderReels([reel]);
+  document.getElementById("reelsFeed").scrollTop = 0;
 }
 
 async function loadMoreReels() {
@@ -72,6 +95,7 @@ async function loadMoreReels() {
 
   if (!reels.length) {
     reelsState.done = true;
+    feedEl.querySelector(".reel-skeleton")?.remove();
     if (!feedEl.querySelector(".reel")) {
       const empty = document.createElement("div");
       empty.className = "reels-empty";
@@ -84,21 +108,33 @@ async function loadMoreReels() {
   reelsState.cursor = reels[reels.length - 1].created_at;
   if (reels.length < REELS_PAGE) reelsState.done = true;
 
+  await renderReels(reels);
+}
+
+async function renderReels(rows) {
+  const reels = rows.filter(r => !shownReelIds.has(r.id));
+  if (!reels.length) return;
+  reels.forEach(r => shownReelIds.add(r.id));
+
+  const feedEl = document.getElementById("reelsFeed");
+  const sentinel = document.getElementById("reelsSentinel");
   const ids = reels.map(r => r.id);
   const [likeRows, myLikeRows, commentRows, saveRows] = await Promise.all([
     sb.from("reel_likes").select("reel_id").in("reel_id", ids),
     sb.from("reel_likes").select("reel_id").eq("user_id", ME.id).in("reel_id", ids),
     sb.from("reel_comments").select("reel_id").eq("deleted", false).in("reel_id", ids),
     sb.from("saves").select("reel_id").eq("user_id", ME.id).in("reel_id", ids),
-    ...[...new Set(reels.map(r => r.user_id))].map(getProfile),
+    getProfiles(reels.map(r => r.user_id)),
   ]);
 
-  const countBy = rows => (rows.data || []).reduce((acc, r) => ((acc[r.reel_id] = (acc[r.reel_id] || 0) + 1), acc), {});
+  const countBy = res => (res.data || []).reduce((acc, r) => ((acc[r.reel_id] = (acc[r.reel_id] || 0) + 1), acc), {});
   const likes = countBy(likeRows);
   const comments = countBy(commentRows);
   const mine = new Set((myLikeRows.data || []).map(r => r.reel_id));
   const saved = new Set((saveRows.data || []).map(r => r.reel_id));
 
+  feedEl.querySelector(".reel-skeleton")?.remove();
+  Skeleton.clear(feedEl);
   feedEl.querySelector(".reels-empty")?.remove();
   for (const reel of reels) {
     const el = buildReel(reel, likes[reel.id] || 0, mine.has(reel.id), comments[reel.id] || 0, saved.has(reel.id));
@@ -340,8 +376,11 @@ async function publishReel() {
     AppNav.exitFullscreen();
 
     const feedEl = document.getElementById("reelsFeed");
-    feedEl.querySelector(".reels-empty")?.remove();
-    const el = buildReel(reel, 0, false, 0);
+    shownReelIds.add(reel.id);
+    feedEl.querySelector(".reel-skeleton")?.remove();
+    Skeleton.clear(feedEl);
+  feedEl.querySelector(".reels-empty")?.remove();
+    const el = buildReel(reel, 0, false, 0, false);
     feedEl.insertBefore(el, feedEl.firstChild);
     playObserver.observe(el);
     feedEl.scrollTo({ top: 0, behavior: "smooth" });
@@ -353,7 +392,5 @@ async function publishReel() {
     btn.textContent = "Share reel";
   }
 }
-
-setTimeout(() => document.getElementById("loadingOverlay")?.classList.add("hide"), 8000);
 
 init();

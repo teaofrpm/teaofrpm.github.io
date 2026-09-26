@@ -1,5 +1,5 @@
 let ME = null;
-let followingPeople = [];
+let allPeople = [];            // every verified member, loaded once and reused
 const selectedMembers = new Set();
 
 async function init() {
@@ -18,27 +18,25 @@ async function init() {
 
   profileCache.set(ME.id, ME);
   applyIconAttributes();
-  wireNewGroup();
+  wireNewChat();
 
   Skeleton.show("rows", "threadList", 6);
-  document.getElementById("loadingOverlay").classList.add("hide");
   await loadInbox();
   subscribeInbox();
 
-  document.getElementById("loadingOverlay").classList.add("hide");
 }
 
 async function loadInbox() {
   const { data, error } = await sb.rpc("my_conversations");
   const list = document.getElementById("threadList");
 
-  if (error) { list.innerHTML = `<div class="inbox-empty">Could not load your chats.</div>`; return; }
+  if (error || !data) { list.innerHTML = `<div class="inbox-empty">Could not load your chats.</div>`; return; }
   if (!data.length) {
     list.innerHTML = `<div class="inbox-empty">No chats yet.<br>Open someone's profile and tap Message, or create a group.</div>`;
     return;
   }
 
-  await Promise.all(data.filter(c => c.other_user_id).map(c => getProfile(c.other_user_id)));
+  await getProfiles(data.map(c => c.other_user_id));
 
   list.innerHTML = "";
   for (const convo of data) {
@@ -88,46 +86,146 @@ function subscribeInbox() {
     .subscribe();
 }
 
-/* ---------- New group ---------- */
+/* ---------- New chat: DM anyone, or make a group ---------- */
 
-function wireNewGroup() {
-  const sheet = document.getElementById("newGroupSheet");
+// Loaded once per page visit and shared by both pickers.
+async function loadAllPeople() {
+  if (allPeople.length) return allPeople;
+  const { data, error } = await sb.from("profiles")
+    .select("id,username,display_name,pfp_url,is_private")
+    .eq("is_verified", true)
+    .neq("id", ME.id)
+    .order("display_name", { ascending: true })
+    .limit(500);
+  if (error) { toast("Could not load people."); return []; }
+  (data || []).forEach(p => profileCache.set(p.id, p));
+  allPeople = data || [];
+  return allPeople;
+}
 
-  document.getElementById("newGroupBtn").addEventListener("click", async () => {
-    selectedMembers.clear();
-    document.getElementById("groupNameInput").value = "";
-    document.getElementById("groupError").textContent = "";
-    sheet.classList.add("show");
-    AppNav.enterFullscreen(() => sheet.classList.remove("show"));
-    await loadFollowingForGroup();
+function matchPeople(people, filterText) {
+  if (!filterText) return people;
+  const q = filterText.toLowerCase();
+  return people.filter(p =>
+    (p.display_name || "").toLowerCase().includes(q) ||
+    (p.username || "").toLowerCase().includes(q));
+}
+
+function wireNewChat() {
+  const menu = document.getElementById("newChatMenu");
+  const btn = document.getElementById("newChatBtn");
+
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    menu.classList.toggle("show");
+  });
+  document.addEventListener("click", () => menu.classList.remove("show"));
+
+  menu.addEventListener("click", (e) => {
+    const choice = e.target.closest("[data-new]");
+    if (!choice) return;
+    menu.classList.remove("show");
+    if (choice.dataset.new === "dm") openDmPicker();
+    else openGroupSheet();
   });
 
-  sheet.addEventListener("click", (e) => { if (e.target === sheet) AppNav.exitFullscreen(); });
+  document.getElementById("newDmSheet").addEventListener("click", (e) => {
+    if (e.target.id === "newDmSheet") AppNav.exitFullscreen();
+  });
+  document.getElementById("newGroupSheet").addEventListener("click", (e) => {
+    if (e.target.id === "newGroupSheet") AppNav.exitFullscreen();
+  });
 
+  document.getElementById("dmPeopleSearch").addEventListener("input", (e) => {
+    renderDmPeople(e.target.value.trim());
+  });
   document.getElementById("groupMemberSearch").addEventListener("input", (e) => {
-    renderGroupMembers(e.target.value.trim().toLowerCase());
+    renderGroupMembers(e.target.value.trim());
   });
-
   document.getElementById("createGroupBtn").addEventListener("click", createGroup);
 }
 
-async function loadFollowingForGroup() {
-  const { data } = await sb.from("follows").select("following_id")
-    .eq("follower_id", ME.id).eq("status", "accepted");
-  const ids = (data || []).map(f => f.following_id);
-  if (ids.length) await Promise.all(ids.map(getProfile));
-  followingPeople = ids.map(id => profileCache.get(id)).filter(Boolean);
-  renderGroupMembers();
+/* ---- Direct message: anyone on the app, followed or not ---- */
+
+async function openDmPicker() {
+  const sheet = document.getElementById("newDmSheet");
+  document.getElementById("dmPeopleSearch").value = "";
+  Skeleton.show("rows", "dmPeopleList", 5);
+  sheet.classList.add("show");
+  AppNav.enterFullscreen(() => sheet.classList.remove("show"));
+
+  await loadAllPeople();
+  renderDmPeople("");
+}
+
+function renderDmPeople(filterText) {
+  const list = document.getElementById("dmPeopleList");
+  const people = matchPeople(allPeople, filterText);
+
+  if (!people.length) {
+    list.innerHTML = `<div class="settings-empty">No one found.</div>`;
+    return;
+  }
+
+  list.innerHTML = "";
+  for (const p of people) {
+    const row = document.createElement("button");
+    row.className = "settings-list-row people-pick-row";
+
+    const av = document.createElement("span");
+    av.className = "avatar";
+    setAvatarContent(av, p);
+    row.appendChild(av);
+
+    const name = document.createElement("div");
+    name.className = "settings-list-name";
+    name.innerHTML = `${escapeHTML(p.display_name)}<span class="settings-list-sub">@${escapeHTML(p.username)}</span>`;
+    row.appendChild(name);
+
+    row.addEventListener("click", () => startDm(p, row));
+    list.appendChild(row);
+  }
+}
+
+async function startDm(person, row) {
+  row.disabled = true;
+  row.classList.add("busy");
+
+  // The RPC is the only thing allowed to create a DM: it reuses an existing
+  // thread if there is one and refuses if either side has blocked the other.
+  const { data, error } = await sb.rpc("get_or_create_dm", { other_user: person.id });
+
+  if (error) {
+    row.disabled = false;
+    row.classList.remove("busy");
+    toast(error.message || "Could not open that chat.");
+    return;
+  }
+  window.location.href = `room.html?c=${data}`;
+}
+
+/* ---- Group ---- */
+
+async function openGroupSheet() {
+  const sheet = document.getElementById("newGroupSheet");
+  selectedMembers.clear();
+  document.getElementById("groupNameInput").value = "";
+  document.getElementById("groupMemberSearch").value = "";
+  document.getElementById("groupError").textContent = "";
+  Skeleton.show("rows", "groupMemberList", 5);
+  sheet.classList.add("show");
+  AppNav.enterFullscreen(() => sheet.classList.remove("show"));
+
+  await loadAllPeople();
+  renderGroupMembers("");
 }
 
 function renderGroupMembers(filterText = "") {
   const list = document.getElementById("groupMemberList");
-  const people = filterText
-    ? followingPeople.filter(p => p.display_name.toLowerCase().includes(filterText) || p.username.toLowerCase().includes(filterText))
-    : followingPeople;
+  const people = matchPeople(allPeople, filterText);
 
   if (!people.length) {
-    list.innerHTML = `<div class="settings-empty">Follow people first to add them to a group.</div>`;
+    list.innerHTML = `<div class="settings-empty">No one found.</div>`;
     return;
   }
 
@@ -152,19 +250,23 @@ function renderGroupMembers(filterText = "") {
     row.appendChild(check);
 
     row.addEventListener("click", () => {
-      if (selectedMembers.has(p.id)) {
-        selectedMembers.delete(p.id);
-        row.classList.remove("selected");
-        check.innerHTML = "";
-      } else {
-        selectedMembers.add(p.id);
-        row.classList.add("selected");
-        check.innerHTML = svgIcon("check", 13);
-      }
+      const on = selectedMembers.has(p.id);
+      if (on) selectedMembers.delete(p.id); else selectedMembers.add(p.id);
+      row.classList.toggle("selected", !on);
+      check.innerHTML = on ? "" : svgIcon("check", 13);
+      updateGroupCount();
     });
 
     list.appendChild(row);
   }
+  updateGroupCount();
+}
+
+function updateGroupCount() {
+  const btn = document.getElementById("createGroupBtn");
+  btn.textContent = selectedMembers.size
+    ? `Create group · ${selectedMembers.size} selected`
+    : "Create group";
 }
 
 async function createGroup() {
@@ -187,7 +289,5 @@ async function createGroup() {
   if (error) { errEl.textContent = error.message || "Could not create group."; return; }
   window.location.href = `room.html?c=${data}`;
 }
-
-setTimeout(() => document.getElementById("loadingOverlay")?.classList.add("hide"), 8000);
 
 init();

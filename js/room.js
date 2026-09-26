@@ -36,7 +36,6 @@ async function init() {
   const { data, error } = await sb.from("conversations").select("*").eq("id", convoId).maybeSingle();
   if (error || !data) {
     document.getElementById("messages").innerHTML = `<div class="inbox-empty">This chat isn't available.</div>`;
-    document.getElementById("loadingOverlay").classList.add("hide");
     return;
   }
   convo = data;
@@ -48,19 +47,17 @@ async function init() {
   document.getElementById("lightbox").addEventListener("click", () => document.getElementById("lightbox").classList.remove("show"));
 
   Skeleton.show("chat", "messages", 6);
-  document.getElementById("loadingOverlay").classList.add("hide");
   await loadMessages();
   subscribeMessages();
   markRead();
 
   document.addEventListener("visibilitychange", () => { if (!document.hidden) markRead(); });
-  document.getElementById("loadingOverlay").classList.add("hide");
 }
 
 async function loadMembers() {
   const { data } = await sb.from("conversation_members").select("*").eq("conversation_id", convo.id);
   members = data || [];
-  await Promise.all(members.map(m => getProfile(m.user_id)));
+  await getProfiles(members.map(m => m.user_id));
   amAdmin = members.some(m => m.user_id === ME.id && m.role === "admin");
   otherUser = convo.kind === "dm"
     ? profileCache.get(members.find(m => m.user_id !== ME.id)?.user_id)
@@ -117,7 +114,7 @@ async function loadMessages() {
   if (error) { toast("Could not load messages."); return; }
 
   const ordered = [...(data || [])].reverse();
-  await Promise.all([...new Set(ordered.map(m => m.user_id))].map(getProfile));
+  await getProfiles(ordered.map(m => m.user_id));
 
   const container = document.getElementById("messages");
   container.innerHTML = "";
@@ -138,6 +135,18 @@ function appendMessage(m, container) {
 
   if (m.call_id) {
     container.appendChild(buildCallLogRow(m));
+    return;
+  }
+
+  if (m.is_system) {
+    container.appendChild(buildSystemRow(m));
+    return;
+  }
+
+  // "Riya changed the group name to …" — written by a database trigger, never
+  // by a client, so it can't be faked or sent as an ordinary message.
+  if (m.is_system) {
+    container.appendChild(buildSystemRow(m));
     return;
   }
 
@@ -228,6 +237,39 @@ async function getSharedPostAuthor(postId) {
   return data ? getProfile(data.user_id) : null;
 }
 
+function buildSystemRow(m) {
+  const row = document.createElement("div");
+  row.className = "system-row";
+  row.dataset.msgId = m.id;
+
+  const actor = profileCache.get(m.user_id);
+  const who = m.user_id === ME.id ? "You" : (actor?.display_name || "Someone");
+  const text = m.content || "updated the chat";
+  const icon = /photo/i.test(text) ? "image" : /theme/i.test(text) ? "palette" : "edit";
+
+  const chip = document.createElement("div");
+  chip.className = "system-chip";
+  chip.innerHTML = `${svgIcon(icon, 13)}<span><b>${escapeHTML(who)}</b> ${escapeHTML(text)}</span><small>${formatTime(m.created_at)}</small>`;
+  row.appendChild(chip);
+  return row;
+}
+
+// Written by the database itself whenever the group name, photo or theme
+// changes, so the record of who changed what can't be faked by a client.
+function buildSystemRow(m) {
+  const who = profileCache.get(m.user_id);
+  const name = who ? (who.id === ME.id ? "You" : who.display_name) : "Someone";
+
+  const row = document.createElement("div");
+  row.className = "system-msg-row";
+  row.dataset.msgId = m.id;
+  row.innerHTML = `<span class="system-msg-chip">
+      <b>${escapeHTML(name)}</b> ${escapeHTML(m.content || "made a change")}
+      <small>${formatTime(m.created_at)}</small>
+    </span>`;
+  return row;
+}
+
 function buildCallLogRow(m) {
   const row = document.createElement("div");
   row.className = "call-log-row";
@@ -282,6 +324,32 @@ function subscribeMessages() {
       filter: `conversation_id=eq.${convo.id}`,
     }, ({ new: m }) => {
       if (m.deleted) document.querySelector(`[data-msg-id="${m.id}"]`)?.remove();
+    })
+    .subscribe();
+
+  // Someone else renaming the group or changing its photo should be visible
+  // here immediately, not only after a reload.
+  sb.channel(`convo:${convo.id}`)
+    .on("postgres_changes", {
+      event: "UPDATE", schema: "public", table: "conversations",
+      filter: `id=eq.${convo.id}`,
+    }, ({ new: c }) => {
+      convo = { ...convo, ...c };
+      renderHeader();
+      if (document.getElementById("roomInfoSheet").classList.contains("show")) {
+        document.getElementById("groupNameEdit").value = convo.name || "";
+        setGroupAvatar(document.getElementById("groupPfp"), convo);
+      }
+    })
+    .subscribe();
+
+  sb.channel(`convo:${convo.id}`)
+    .on("postgres_changes", {
+      event: "UPDATE", schema: "public", table: "conversations",
+      filter: `id=eq.${convo.id}`,
+    }, ({ new: c }) => {
+      convo = { ...convo, ...c };
+      renderHeader();
     })
     .subscribe();
 }
@@ -477,11 +545,14 @@ async function renderInfoSheet() {
   document.getElementById("roomInfoTitle").textContent = convo.kind === "dm" ? "Details" : "Group details";
 
   const isGroup = convo.kind === "group";
-  document.getElementById("groupEditArea").style.display = isGroup && amAdmin ? "block" : "none";
+  // Any member can rename the group or change its photo — the conversations
+  // UPDATE policy allows it, and every change is logged into the chat.
+  // Adding/removing members stays with admins, which the database enforces.
+  document.getElementById("groupEditArea").style.display = isGroup ? "block" : "none";
   document.getElementById("leaveGroupBtn").style.display = isGroup ? "block" : "none";
   document.getElementById("addMemberArea").style.display = isGroup && amAdmin ? "block" : "none";
 
-  if (isGroup && amAdmin) {
+  if (isGroup) {
     document.getElementById("groupNameEdit").value = convo.name || "";
     setGroupAvatar(document.getElementById("groupPfp"), convo);
   }
@@ -528,12 +599,15 @@ async function renderInfoSheet() {
 let addablePeople = [];
 
 async function loadAddableMembers() {
-  const { data } = await sb.from("follows").select("following_id")
-    .eq("follower_id", ME.id).eq("status", "accepted");
   const memberIds = new Set(members.map(m => m.user_id));
-  const ids = (data || []).map(f => f.following_id).filter(id => !memberIds.has(id));
-  if (ids.length) await Promise.all(ids.map(getProfile));
-  addablePeople = ids.map(id => profileCache.get(id)).filter(Boolean);
+  const { data } = await sb.from("profiles")
+    .select("id,username,display_name,pfp_url")
+    .eq("is_verified", true)
+    .order("display_name", { ascending: true })
+    .limit(500);
+
+  (data || []).forEach(p => profileCache.set(p.id, p));
+  addablePeople = (data || []).filter(p => !memberIds.has(p.id));
   renderAddMembers();
 }
 
@@ -613,7 +687,5 @@ async function leaveGroup() {
   if (error) { toast(error.message || "Could not leave."); return; }
   window.location.href = "messages.html";
 }
-
-setTimeout(() => document.getElementById("loadingOverlay")?.classList.add("hide"), 8000);
 
 init();

@@ -15,9 +15,16 @@ const Notifs = (() => {
     missed_call: "tried to call you",
   };
 
+  // A notification points at the thing it is about, not at a generic tab:
+  // a like on your reel opens that reel, a like on your post opens that post.
   function linkFor(n, actor) {
-    if (["follow_request", "like", "comment", "tag", "reshare"].includes(n.type)) return "profile.html";
-    if (n.type === "reel_like" || n.type === "reel_comment") return "reels.html";
+    if (n.type === "reel_like" || n.type === "reel_comment") {
+      return n.reel_id ? `reels.html?r=${n.reel_id}` : "reels.html";
+    }
+    if (["like", "comment", "tag", "reshare"].includes(n.type)) {
+      return n.post_id ? `profile.html?post=${n.post_id}` : "profile.html";
+    }
+    if (n.type === "follow_request") return "profile.html?panel=requests";
     if (n.type === "missed_call") return "messages.html";
     return actor ? `profile.html?u=${encodeURIComponent(actor.username)}` : "#";
   }
@@ -55,7 +62,7 @@ const Notifs = (() => {
       .eq("user_id", me.id).order("created_at", { ascending: false }).limit(40);
     if (error) { console.error(error); return; }
     items = data || [];
-    await Promise.all([...new Set(items.map(n => n.actor_id).filter(Boolean))].map(getProfile));
+    await getProfiles(items.map(n => n.actor_id));
     render();
   }
 

@@ -28,7 +28,6 @@ async function init() {
 
   document.getElementById("logoutRow").addEventListener("click", logoutUser);
 
-  document.getElementById("loadingOverlay").classList.add("hide");
 }
 
 /* ---------- Panel navigation ---------- */
@@ -42,14 +41,28 @@ const PANEL_TITLES = {
 
 const loadedPanels = new Set();
 
+let currentPanel = "root";
+
 function wireNav() {
   document.querySelectorAll("[data-open]").forEach((btn) => {
     btn.addEventListener("click", () => openPanel(btn.dataset.open));
   });
 
-  window.addEventListener("popstate", (e) => {
-    showPanel((e.state && e.state.panel) || "root");
+  // The top-left arrow means "up one level" inside settings, and only
+  // leaves for the profile page once we're already at the root menu.
+  document.getElementById("settingsBack").addEventListener("click", () => {
+    if (currentPanel === "root") window.location.href = "profile.html";
+    else history.back();
   });
+
+  window.addEventListener("popstate", (e) => {
+    showPanel((e.state && e.state.panel) || "root", true);
+  });
+
+  // A panel can be linked to directly, e.g. settings.html#saved
+  const deepLink = location.hash.replace("#", "");
+  if (deepLink && PANEL_TITLES[deepLink]) openPanel(deepLink);
+  else showPanel("root");
 }
 
 function openPanel(name) {
@@ -57,9 +70,12 @@ function openPanel(name) {
   showPanel(name);
 }
 
-function showPanel(name) {
+function showPanel(name, isBack = false) {
+  currentPanel = name;
   document.querySelectorAll(".settings-panel").forEach((p) => {
-    p.classList.toggle("show", p.dataset.panel === name);
+    const on = p.dataset.panel === name;
+    p.classList.toggle("show", on);
+    p.classList.toggle("back", on && isBack);
   });
   document.getElementById("settingsTitle").textContent = PANEL_TITLES[name] || "Settings";
   document.getElementById("settingsScroll").scrollTop = 0;
@@ -67,7 +83,11 @@ function showPanel(name) {
   if (!loadedPanels.has(name)) {
     loadedPanels.add(name);
     const loader = { archive: loadArchive, saved: loadSaved, liked: loadLiked, activity: loadActivity, closeFriends: loadCloseFriends, blocked: loadBlocked }[name];
-    if (loader) loader();
+    if (loader) {
+      const listId = { archive: "archiveList", saved: "savedList", liked: "likedList", activity: "activityList", closeFriends: "closeFriendsList", blocked: "blockedList" }[name];
+      if (listId) Skeleton.show("rows", listId, 4);
+      loader();
+    }
   }
 }
 
@@ -188,8 +208,6 @@ function wireWellbeing() {
     }
   }, 5000);
 }
-
-setTimeout(() => document.getElementById("loadingOverlay")?.classList.add("hide"), 8000);
 
 init();
 
@@ -418,7 +436,7 @@ async function loadCloseFriends() {
   const { data: following } = await sb.from("follows").select("following_id")
     .eq("follower_id", ME.id).eq("status", "accepted");
   const ids = (following || []).map((f) => f.following_id);
-  if (ids.length) await Promise.all(ids.map(getProfile));
+  if (ids.length) await getProfiles(ids);
 
   const { data: current } = await sb.from("close_friends").select("friend_id").eq("owner_id", ME.id);
   closeFriendsSet = new Set((current || []).map((c) => c.friend_id));

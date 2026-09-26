@@ -72,7 +72,6 @@ async function init() {
     if (!document.hidden) markSeen();
   });
 
-  document.getElementById("loadingOverlay").classList.add("hide");
 }
 
 async function loadHistory() {
@@ -96,7 +95,7 @@ async function loadHistory() {
   newestLoadedAt = ordered.length ? ordered[ordered.length - 1].created_at : newestLoadedAt;
 
   const ids = [...new Set(ordered.map(m => m.user_id))];
-  await Promise.all(ids.map(getProfile));
+  await getProfiles(ids);
 
   const reactionsByMsg = await fetchReactions(ordered.map(m => m.id));
 
@@ -216,7 +215,7 @@ async function loadOlderMessages() {
   if (ordered.length) oldestLoadedAt = ordered[0].created_at;
 
   const ids = [...new Set(ordered.map(m => m.user_id))];
-  await Promise.all(ids.map(getProfile));
+  await getProfiles(ids);
   const reactionsByMsg = await fetchReactions(ordered.map(m => m.id));
 
   await appendMessages(container, ordered, reactionsByMsg, "prepend");
@@ -846,7 +845,7 @@ async function syncNewMessages() {
   if (error || !msgs || !msgs.length) return;
 
   const ids = [...new Set(msgs.map(m => m.user_id))];
-  await Promise.all(ids.map(getProfile));
+  await getProfiles(ids);
 
   for (const m of msgs) {
     const { data: reactions } = await sb.from("message_reactions").select("*").eq("message_id", m.id);
@@ -1180,7 +1179,7 @@ async function runMessageSearch(term) {
   }
 
   const ids = [...new Set(data.map(m => m.user_id))];
-  await Promise.all(ids.map(getProfile));
+  await getProfiles(ids);
 
   results.innerHTML = "";
   for (const m of data) {
@@ -1204,7 +1203,6 @@ async function runMessageSearch(term) {
 }
 
 setTimeout(() => {
-  document.getElementById("loadingOverlay")?.classList.add("hide");
 }, 8000);
 
 init();

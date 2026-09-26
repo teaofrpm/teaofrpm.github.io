@@ -33,7 +33,6 @@ async function init() {
   if (!viewedUser) {
     document.getElementById("profileScroll").innerHTML =
       `<div class="locked-posts">User not found.</div>`;
-    document.getElementById("loadingOverlay").classList.add("hide");
     return;
   }
 
@@ -41,7 +40,6 @@ async function init() {
   document.getElementById("profileTopTitle").textContent = isOwnProfile ? "Your profile" : `@${viewedUser.username}`;
 
   await loadFollowState();
-  document.getElementById("loadingOverlay").classList.add("hide");
   Skeleton.show("feed", "postsList", 2);
   renderProfileHeader();
   await renderStats();
@@ -53,9 +51,39 @@ async function init() {
   await loadPosts();
   wireProfileTabs();
   await loadFollowRequests();
-  await Highlights.render(document.getElementById("highlightRail"), viewedUser, isOwnProfile);
+  // social-extras.js owns highlights and the post ⋯ menu. If that script
+  // failed to load, the rest of the profile must still work.
+  if (typeof Highlights !== "undefined") {
+    await Highlights.render(document.getElementById("highlightRail"), viewedUser, isOwnProfile);
+  }
 
-  document.getElementById("loadingOverlay").classList.add("hide");
+  handleDeepLink(params);
+}
+
+// Notifications link straight at the thing they are about, e.g.
+// profile.html?post=<id> for a like, profile.html?panel=requests for a request.
+function handleDeepLink(params) {
+  const postId = params.get("post");
+  const panel = params.get("panel");
+
+  const focus = (el) => {
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.add("deep-link-flash");
+    setTimeout(() => el.classList.remove("deep-link-flash"), 1800);
+  };
+
+  if (panel === "requests") {
+    const el = document.getElementById("requestsPanel");
+    if (el && el.style.display !== "none") focus(el);
+    return;
+  }
+
+  if (postId) {
+    const card = document.querySelector(`.post-card[data-post-id="${postId}"]`);
+    if (card) focus(card);
+    else toast("That post isn't in view anymore.");
+  }
 }
 
 async function loadFollowRequests() {
@@ -74,7 +102,7 @@ async function loadFollowRequests() {
   list.innerHTML = "";
 
   const requesterIds = data.map(r => r.follower_id);
-  await Promise.all(requesterIds.map(getProfile));
+  await getProfiles(requesterIds);
 
   for (const req of data) {
     const p = await getProfile(req.follower_id);
@@ -451,7 +479,7 @@ async function loadTaggedPosts() {
 
   if (!posts || !posts.length) { listEl.innerHTML = `<div class="settings-empty">No tagged posts yet.</div>`; return; }
 
-  await Promise.all([...new Set(posts.map(p => p.user_id))].map(getProfile));
+  await getProfiles(posts.map(p => p.user_id));
   const postIds = posts.map(p => p.id);
   const [likeCounts, myLikes, commentCounts] = await Promise.all([
     fetchLikeCounts(postIds), fetchMyLikes(postIds), fetchCommentCounts(postIds),
@@ -532,6 +560,7 @@ async function fetchCommentCounts(postIds) {
 function buildPostCard(post, likeCount, likedByMe, commentCount) {
   const card = document.createElement("div");
   card.className = "post-card";
+  card.dataset.postId = post.id;
 
   if (post.user_id === ME.id) {
     const archiveBtn = document.createElement("button");
@@ -603,7 +632,7 @@ function buildPostCard(post, likeCount, likedByMe, commentCount) {
   saveBtn.addEventListener("click", () => toggleSave("post", post.id, saveBtn));
   engageRow.appendChild(saveBtn);
 
-  attachPostExtras(card, post, engageRow);
+  if (typeof attachPostExtras === "function") attachPostExtras(card, post, engageRow);
 
   card.appendChild(engageRow);
 
@@ -649,7 +678,7 @@ async function loadCommentsInto(postId, section, card) {
   if (error) { section.innerHTML = `<div class="search-hint">Could not load comments.</div>`; return; }
 
   const authorIds = [...new Set((data || []).map(c => c.user_id))];
-  await Promise.all(authorIds.map(getProfile));
+  await getProfiles(authorIds);
 
   section.innerHTML = "";
   for (const c of data || []) {
@@ -740,7 +769,6 @@ async function openFollowList(type) {
 }
 
 setTimeout(() => {
-  document.getElementById("loadingOverlay")?.classList.add("hide");
 }, 8000);
 
 init();
