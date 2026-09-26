@@ -63,3 +63,114 @@
 
 .room-info-body{ padding:14px 16px 20px; overflow-y:auto; }
 .room-info-body .field input{ width:100%; }
+
+/* ===== New chat chooser (+ button) ===== */
+.new-chat-wrap{ position:relative; flex-shrink:0; }
+.new-chat-menu{
+  position:absolute; top:calc(100% + 8px); right:0; z-index:60;
+  min-width:186px;
+  background:var(--white);
+  border:1px solid var(--border-soft);
+  border-radius:12px;
+  box-shadow:0 10px 28px rgba(0,0,0,.16);
+  padding:5px;
+  display:none;
+  transform-origin:top right;
+}
+.new-chat-menu.show{ display:block; animation:chatMenuIn .14s ease; }
+@keyframes chatMenuIn{
+  from{ opacity:0; transform:scale(.94) translateY(-4px); }
+  to{ opacity:1; transform:none; }
+}
+.new-chat-menu button{
+  width:100%;
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px;
+  border:none; background:none;
+  border-radius:8px;
+  font-size:13.5px; font-weight:600;
+  color:var(--text-dark);
+  cursor:pointer; text-align:left;
+}
+.new-chat-menu button:hover{ background:var(--dusty-rose); }
+.new-chat-menu button span{ color:var(--bright-red); display:flex; flex-shrink:0; }
+
+/* Rows you tap to start a DM */
+.people-pick-row{
+  width:100%; text-align:left; cursor:pointer;
+  transition:transform .12s ease, border-color .15s ease;
+}
+.people-pick-row:hover{ border-color:var(--gold-deep); }
+.people-pick-row:active{ transform:scale(.99); }
+.people-pick-row.busy{ opacity:.55; pointer-events:none; }
+
+/* ===== System messages (group renamed, photo changed, theme changed) ===== */
+.system-row{
+  display:flex; justify-content:center;
+  margin:10px 0;
+  padding:0 8px;
+}
+.system-chip{
+  display:inline-flex; align-items:center; gap:7px;
+  max-width:88%;
+  padding:6px 12px;
+  border-radius:999px;
+  background:rgba(0,0,0,.05);
+  border:1px solid var(--border-soft);
+  color:var(--text-muted);
+  font-size:11.8px; line-height:1.35;
+  text-align:center;
+}
+.system-chip svg{ flex-shrink:0; opacity:.75; }
+.system-chip b{ color:var(--text-dark); font-weight:700; }
+.system-chip small{ opacity:.7; flex-shrink:0; font-size:10.5px; }
+:root[data-theme="dark"] .system-chip{ background:rgba(255,255,255,.06); }
+
+/* ===== New-chat chooser ===== */
+.new-chat-wrap{ position:relative; flex-shrink:0; }
+.new-chat-menu{
+  position:absolute; right:0; top:calc(100% + 6px); z-index:60;
+  min-width:178px;
+  background:var(--white);
+  border:1px solid var(--border-soft);
+  border-radius:12px;
+  box-shadow:0 10px 26px rgba(0,0,0,.16);
+  padding:5px;
+  display:none;
+  animation:chatMenuIn .14s ease;
+}
+.new-chat-menu.show{ display:block; }
+@keyframes chatMenuIn{ from{ opacity:0; transform:translateY(-6px) scale(.97); } to{ opacity:1; transform:none; } }
+.new-chat-menu button{
+  width:100%;
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px;
+  background:none; border:none; border-radius:8px;
+  color:var(--text-dark); font-size:14px; font-weight:600;
+  text-align:left; cursor:pointer;
+}
+.new-chat-menu button:hover{ background:var(--dusty-rose); }
+.new-chat-menu button span{ color:var(--bright-red); display:flex; }
+
+.people-pick-row{
+  width:100%; text-align:left; cursor:pointer;
+  font-family:inherit;
+  transition:transform .12s ease, border-color .15s ease;
+}
+.people-pick-row:hover{ border-color:var(--gold-deep); }
+.people-pick-row:active{ transform:scale(.99); }
+.people-pick-row.busy{ opacity:.55; pointer-events:none; }
+
+/* ===== System messages (group renamed, photo changed, theme changed) ===== */
+.system-msg-row{ display:flex; justify-content:center; margin:10px 0; }
+.system-msg-chip{
+  max-width:86%;
+  padding:6px 13px;
+  border-radius:999px;
+  background:var(--warm-cream);
+  border:1px solid var(--border-soft);
+  color:var(--text-muted);
+  font-size:11.5px; line-height:1.45; text-align:center;
+}
+.system-msg-chip b{ color:var(--text-dark); font-weight:700; }
+.system-msg-chip small{ opacity:.75; margin-left:5px; font-size:10.5px; }

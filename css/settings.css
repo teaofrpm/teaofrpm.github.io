@@ -1,6 +1,18 @@
+/* Exactly one panel is on screen at a time. The old rule pinned the root
+   menu to display:block permanently, so opening a section just appended it
+   underneath the menu instead of replacing it. */
 .settings-panel{ display:none; }
-.settings-panel[data-panel="root"]{ display:block; }
-.settings-panel.show{ display:block; }
+.settings-panel.show{ display:block; animation:settingsSlideIn .22s ease; }
+.settings-panel.show.back{ animation:settingsSlideBack .22s ease; }
+
+@keyframes settingsSlideIn{
+  from{ opacity:0; transform:translateX(18px); }
+  to{ opacity:1; transform:none; }
+}
+@keyframes settingsSlideBack{
+  from{ opacity:0; transform:translateX(-18px); }
+  to{ opacity:1; transform:none; }
+}
 
 .settings-group{
   background:var(--white);

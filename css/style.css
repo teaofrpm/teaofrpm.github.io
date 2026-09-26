@@ -819,31 +819,6 @@ button:active .icon-svg, a:active .icon-svg, label:active .icon-svg{ transform:s
 .lightbox.show{ display:flex; }
 .lightbox img{ max-width:92vw; max-height:92vh; object-fit:contain; border-radius:8px; }
 
-.loading-overlay{
-  position:fixed; inset:0; z-index:200;
-  display:flex; align-items:center; justify-content:center;
-  background:var(--pale-bg);
-  transition:opacity .4s ease;
-}
-.loading-overlay.hide{ opacity:0; pointer-events:none; }
-.loading-inner{ display:flex; flex-direction:column; align-items:center; gap:16px; }
-.loading-spinner{
-  width:46px; height:46px;
-  border:4px solid var(--border-soft);
-  border-top-color:var(--gold-deep);
-  border-radius:50%;
-  animation:loadingSpin .8s linear infinite;
-}
-@keyframes loadingSpin{ to{ transform:rotate(360deg); } }
-.loading-text{
-  font-family:var(--serif);
-  font-size:22px;
-  font-weight:700;
-  background:linear-gradient(100deg, var(--deep-red), var(--slate-blue), var(--aqua-dark));
-  -webkit-background-clip:text; background-clip:text; color:transparent;
-  animation:loadingPulse 1.4s ease-in-out infinite;
-}
-@keyframes loadingPulse{ 0%,100%{ opacity:.5; } 50%{ opacity:1; } }
 
 .bottom-nav{
   display:flex;
@@ -1028,18 +1003,7 @@ button:active .icon-svg, a:active .icon-svg, label:active .icon-svg{ transform:s
 .request-accept{ background:var(--gold-deep); color:#3a2400; }
 .request-decline{ background:rgba(0,0,0,.08); color:var(--text-dark); }
 
-.discover-search-box{ padding:14px 20px 0; }
-.discover-search-box input{
-  width:100%;
-  background:var(--white);
-  border:1px solid var(--border-soft);
-  border-radius:999px;
-  padding:11px 16px;
-  font-size:14.5px;
-  font-family:var(--sans);
-  outline:none;
-}
-.discover-search-box input:focus{ border-color:var(--aqua); box-shadow:0 0 0 3px rgba(6,182,212,.15); }
+/* Discover search styling now lives in css/discover.css */
 .discover-section-label{ font-size:12px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.3px; margin-bottom:8px; }
 .discover-row{ padding:10px 8px; }
 
@@ -1134,7 +1098,6 @@ button:active .icon-svg, a:active .icon-svg, label:active .icon-svg{ transform:s
 :root[data-theme="dark"] body{ background-image:none; }
 :root[data-theme="dark"] .messages{ background-color:#121009; background-image:none; }
 :root[data-theme="dark"] .msg-row:not(.own) .bubble{ background:#221f18; color:var(--text-dark); }
-:root[data-theme="dark"] .loading-overlay{ background:var(--pale-bg); }
 :root[data-theme="dark"] .home-header,
 :root[data-theme="dark"] .app-nav{ background:rgba(23,21,15,.92); }
 :root[data-theme="dark"] .chat-header{ background-image:none; }
@@ -1152,3 +1115,13 @@ button:active .icon-svg, a:active .icon-svg, label:active .icon-svg{ transform:s
 
 :root[data-font="serif"]{ --sans: var(--serif); }
 :root[data-font="system"]{ --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+/* Briefly marks whatever a notification linked you to */
+.deep-link-flash{
+  animation:deepLinkFlash 1.8s ease;
+  border-radius:var(--radius);
+}
+@keyframes deepLinkFlash{
+  0%,100%{ box-shadow:0 0 0 0 rgba(216,165,61,0); }
+  15%,60%{ box-shadow:0 0 0 3px rgba(216,165,61,.55); }
+}
