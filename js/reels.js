@@ -107,7 +107,7 @@ async function loadMoreReels() {
   }
 }
 
-function buildReel(reel, likeCount, likedByMe, commentCount) {
+function buildReel(reel, likeCount, likedByMe, commentCount, savedByMe) {
   const author = profileCache.get(reel.user_id);
   const profileHref = author ? `profile.html?u=${encodeURIComponent(author.username)}` : "#";
 
@@ -167,7 +167,7 @@ function buildReel(reel, likeCount, likedByMe, commentCount) {
   actions.appendChild(muteBtn);
 
   const saveBtn = document.createElement("button");
-  saveBtn.className = "save-btn";
+  saveBtn.className = `save-btn ${savedByMe ? "saved" : ""}`;
   saveBtn.innerHTML = svgIcon("bookmark", 26);
   saveBtn.addEventListener("click", () => toggleSave("reel", reel.id, saveBtn));
   actions.appendChild(saveBtn);
