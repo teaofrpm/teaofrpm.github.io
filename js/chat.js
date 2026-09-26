@@ -79,6 +79,7 @@ async function loadHistory() {
   const { data: msgs, error } = await sb
     .from("messages")
     .select("*")
+    .is("conversation_id", null)
     .eq("deleted", false)
     .order("created_at", { ascending: false })
     .limit(PAGE_SIZE);
@@ -198,6 +199,7 @@ async function loadOlderMessages() {
   const { data: msgs, error } = await sb
     .from("messages")
     .select("*")
+    .is("conversation_id", null)
     .eq("deleted", false)
     .lt("created_at", oldestLoadedAt)
     .order("created_at", { ascending: false })
@@ -792,6 +794,7 @@ function subscribeRealtime() {
   sb.channel("public:messages")
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, async (payload) => {
       const m = payload.new;
+      if (m.conversation_id) return;
       await getProfile(m.user_id);
       const { data: reactions } = await sb.from("message_reactions").select("*").eq("message_id", m.id);
       await appendLiveMessage(m, reactions || []);
@@ -834,6 +837,7 @@ async function syncNewMessages() {
   const { data: msgs, error } = await sb
     .from("messages")
     .select("*")
+    .is("conversation_id", null)
     .eq("deleted", false)
     .gt("created_at", newestLoadedAt)
     .order("created_at", { ascending: true })
@@ -1160,6 +1164,7 @@ async function runMessageSearch(term) {
   const { data, error } = await sb
     .from("messages")
     .select("*")
+    .is("conversation_id", null)
     .eq("deleted", false)
     .ilike("content", `%${term}%`)
     .order("created_at", { ascending: false })
