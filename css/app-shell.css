@@ -174,3 +174,108 @@ body.has-app-nav.nav-hidden .home-shell{ bottom:0; }
 }
 .sk-reel-media{ position:absolute; inset:0; border-radius:0; opacity:.35; }
 .sk-reel-foot{ position:relative; display:flex; align-items:center; gap:10px; padding:0 16px 26px; }
+
+/* ============================================================
+   Motion pass. Everything here is CSS-only — no JS, no extra
+   requests — and all of it is switched off for anyone who has
+   "reduce motion" turned on at the OS level.
+   ============================================================ */
+
+/* --- Page content eases in instead of snapping --- */
+@keyframes mtnRise{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+@keyframes mtnPop{ 0%{ transform:scale(.88); } 55%{ transform:scale(1.06); } 100%{ transform:scale(1); } }
+@keyframes mtnSlideLeft{ from{ opacity:0; transform:translateX(-14px); } to{ opacity:1; transform:none; } }
+
+.profile-scroll > *,
+.chat-main{ animation:mtnRise .28s cubic-bezier(.22,.9,.3,1) both; }
+
+/* --- Staggered list entry: each row lands a beat after the one above --- */
+.thread-list .thread-row,
+.news-list .news-card,
+.discover-list .follow-list-row,
+.settings-group,
+.settings-list .settings-list-row{
+  animation:mtnRise .32s cubic-bezier(.22,.9,.3,1) both;
+}
+.thread-list .thread-row:nth-child(1),
+.news-list .news-card:nth-child(1),
+.discover-list .follow-list-row:nth-child(1){ animation-delay:.02s; }
+.thread-list .thread-row:nth-child(2),
+.news-list .news-card:nth-child(2),
+.discover-list .follow-list-row:nth-child(2){ animation-delay:.05s; }
+.thread-list .thread-row:nth-child(3),
+.news-list .news-card:nth-child(3),
+.discover-list .follow-list-row:nth-child(3){ animation-delay:.08s; }
+.thread-list .thread-row:nth-child(4),
+.news-list .news-card:nth-child(4),
+.discover-list .follow-list-row:nth-child(4){ animation-delay:.11s; }
+.thread-list .thread-row:nth-child(5),
+.news-list .news-card:nth-child(5),
+.discover-list .follow-list-row:nth-child(5){ animation-delay:.14s; }
+.thread-list .thread-row:nth-child(n+6),
+.news-list .news-card:nth-child(n+6),
+.discover-list .follow-list-row:nth-child(n+6){ animation-delay:.17s; }
+
+.settings-group:nth-child(2){ animation-delay:.05s; }
+.settings-group:nth-child(3){ animation-delay:.1s; }
+.settings-group:nth-child(4){ animation-delay:.15s; }
+
+/* --- Bottom nav: the active tab lifts, taps give physical feedback --- */
+.app-nav a{ transition:color .18s ease, transform .18s cubic-bezier(.34,1.56,.64,1); }
+.app-nav a .icon-svg{ transition:transform .22s cubic-bezier(.34,1.56,.64,1); }
+.app-nav a:active{ transform:scale(.9); }
+.app-nav a.active .icon-svg{ transform:translateY(-2px) scale(1.12); }
+.app-nav a.active span{ animation:mtnRise .25s ease both; }
+
+/* --- Buttons and rows respond to being pressed --- */
+.btn, .btn-outline, .send-btn, .icon-btn, .header-icon-btn,
+.settings-row, .news-tab, .thread-row, .news-card{
+  transition:transform .14s cubic-bezier(.34,1.56,.64,1),
+             background .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+.btn:active, .btn-outline:active, .send-btn:active,
+.icon-btn:active, .header-icon-btn:active{ transform:scale(.93); }
+.settings-row:active, .thread-row:active, .news-card:active{ transform:scale(.985); }
+
+.settings-row .settings-row-chevron{ transition:transform .18s ease; }
+.settings-row:hover .settings-row-chevron{ transform:translateX(3px); }
+
+/* --- Avatars and profile pictures --- */
+.avatar, .pfp{ transition:transform .2s cubic-bezier(.34,1.56,.64,1); }
+a:hover > .avatar, .thread-row:hover .avatar{ transform:scale(1.07); }
+
+/* --- Send button wakes up when there's something to send --- */
+.send-btn:not(:disabled){ animation:mtnPop .26s cubic-bezier(.34,1.56,.64,1); }
+
+/* --- System chips in group chats drop in --- */
+.system-msg-row{ animation:mtnRise .3s ease both; }
+
+/* --- Unread badges and counters --- */
+.thread-unread, .notif-badge{ animation:mtnPop .3s cubic-bezier(.34,1.56,.64,1); }
+
+/* --- Sheets and menus get a softer, springier curve --- */
+.app-sheet{ animation:appSheetUp .3s cubic-bezier(.22,.9,.3,1); }
+.new-chat-menu.show{ animation:mtnPop .18s cubic-bezier(.34,1.56,.64,1); transform-origin:top right; }
+
+/* --- Story rail --- */
+.story-rail > *{ animation:mtnSlideLeft .3s ease both; }
+.story-rail > *:nth-child(2){ animation-delay:.04s; }
+.story-rail > *:nth-child(3){ animation-delay:.08s; }
+.story-rail > *:nth-child(n+4){ animation-delay:.12s; }
+
+/* --- Reel action buttons --- */
+.reel-actions button{ transition:transform .16s cubic-bezier(.34,1.56,.64,1); }
+.reel-actions button:active{ transform:scale(.85); }
+
+/* --- Toast --- */
+.toast.show{ animation:mtnRise .26s cubic-bezier(.34,1.56,.64,1); }
+
+/* Anyone who asks their phone for less motion gets less motion. */
+@media (prefers-reduced-motion:reduce){
+  *, *::before, *::after{
+    animation-duration:.01ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;
+    scroll-behavior:auto !important;
+  }
+}
