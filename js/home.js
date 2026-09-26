@@ -74,8 +74,9 @@ function renderStoryRail() {
     const hasStories = group.stories.length > 0;
     const unseen = hasStories && group.stories.some(s => !seenStoryIds.has(s.id) && !isMe);
 
+    const closeOnly = hasStories && group.stories.some(st => st.audience === "close_friends");
     const item = document.createElement("button");
-    item.className = `story-item ${unseen || (isMe && hasStories) ? "unseen" : ""}`;
+    item.className = `story-item ${unseen || (isMe && hasStories) ? "unseen" : ""} ${closeOnly ? "close-friends" : ""}`;
     item.innerHTML = `<div class="story-ring"><span class="avatar"></span></div><span class="story-name">${isMe ? "Your story" : escapeHTML(group.user.display_name)}</span>`;
     setAvatarContent(item.querySelector(".avatar"), group.user);
 
@@ -105,6 +106,9 @@ function wireStoryUpload() {
     const file = input.files[0];
     input.value = "";
     if (!file) return;
+    const audience = await askStoryAudience();
+    if (!audience) return;
+
     toast("Uploading story…");
     try {
       const blob = await compressImageFile(file);
@@ -112,13 +116,44 @@ function wireStoryUpload() {
       const { error: upErr } = await sb.storage.from("stories").upload(path, blob, { contentType: "image/jpeg" });
       if (upErr) throw upErr;
       const { data: pub } = sb.storage.from("stories").getPublicUrl(path);
-      const { error } = await sb.from("stories").insert({ user_id: ME.id, image_url: pub.publicUrl });
+      const { error } = await sb.from("stories").insert({ user_id: ME.id, image_url: pub.publicUrl, audience });
       if (error) throw error;
-      toast("Story added");
+      toast(audience === "close_friends" ? "Shared with close friends" : "Story added");
       await loadStories();
     } catch (err) {
       toast(err.message || "Could not upload story.");
     }
+  });
+}
+
+function askStoryAudience() {
+  return new Promise((resolve) => {
+    const backdrop = document.createElement("div");
+    backdrop.className = "app-sheet-backdrop show";
+    backdrop.innerHTML = `
+      <div class="app-sheet extras-sheet">
+        <div class="app-sheet-handle"></div>
+        <div class="app-sheet-title">Share story with</div>
+        <div class="extras-sheet-body">
+          <button class="extras-action" data-choice="everyone">${svgIcon("globe", 17)} Everyone</button>
+          <button class="extras-action" data-choice="close_friends">${svgIcon("star", 17)} Close friends only</button>
+        </div>
+      </div>`;
+    document.body.appendChild(backdrop);
+
+    let answered = false;
+    const finish = (value) => {
+      if (answered) return;
+      answered = true;
+      backdrop.remove();
+      resolve(value);
+    };
+
+    backdrop.querySelectorAll("[data-choice]").forEach((btn) => {
+      btn.addEventListener("click", () => { AppNav.exitFullscreen(); finish(btn.dataset.choice); });
+    });
+    backdrop.addEventListener("click", (e) => { if (e.target === backdrop) AppNav.exitFullscreen(); });
+    AppNav.enterFullscreen(() => finish(null));
   });
 }
 
