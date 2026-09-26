@@ -1,4 +1,3 @@
-
 let ME = null;
 let followingPeople = [];
 const selectedMembers = new Set();
@@ -21,6 +20,8 @@ async function init() {
   applyIconAttributes();
   wireNewGroup();
 
+  Skeleton.show("rows", "threadList", 6);
+  document.getElementById("loadingOverlay").classList.add("hide");
   await loadInbox();
   subscribeInbox();
 
