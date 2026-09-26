@@ -174,3 +174,6 @@
 }
 .system-msg-chip b{ color:var(--text-dark); font-weight:700; }
 .system-msg-chip small{ opacity:.75; margin-left:5px; font-size:10.5px; }
+
+.member-admin-tag{ color:var(--gold-deep); font-weight:700; }
+.settings-list-row button + button{ margin-left:6px; }

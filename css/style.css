@@ -1125,3 +1125,45 @@ button:active .icon-svg, a:active .icon-svg, label:active .icon-svg{ transform:s
   0%,100%{ box-shadow:0 0 0 0 rgba(216,165,61,0); }
   15%,60%{ box-shadow:0 0 0 3px rgba(216,165,61,.55); }
 }
+
+/* ============================================================
+   Toned-down depth pass.
+   The original shadows were coloured (gold / purple) and large,
+   which reads as a glow rather than as depth. These overrides keep
+   a small neutral shadow so elements still lift off the page.
+   The home banner's shimmer is deliberately left untouched.
+   ============================================================ */
+
+:root{ --shadow: 0 6px 18px rgba(0,0,0,.08); }
+
+.btn{ box-shadow:0 2px 6px rgba(0,0,0,.10); }
+.btn:hover{ box-shadow:0 4px 10px rgba(0,0,0,.14); filter:none; }
+.btn-red{ box-shadow:0 2px 6px rgba(0,0,0,.12); }
+.btn-red:hover{ box-shadow:0 4px 10px rgba(0,0,0,.16); }
+.send-btn{ box-shadow:0 2px 6px rgba(0,0,0,.12); }
+.jump-to-latest{ box-shadow:0 2px 8px rgba(0,0,0,.14); }
+
+/* Message bubbles: a hairline of depth, nothing more */
+.bubble{ box-shadow:0 1px 3px rgba(0,0,0,.05); }
+.msg-row.owner-msg .bubble{
+  border:1.5px solid var(--gold-deep);
+  box-shadow:0 1px 3px rgba(0,0,0,.06);
+}
+.msg-row.owner-msg.own .bubble{
+  border:1.5px solid var(--gold);
+  box-shadow:0 1px 3px rgba(0,0,0,.10);
+}
+
+/* Avatars kept their purple halo; a plain white ring is enough */
+.pfp{ box-shadow:0 2px 8px rgba(0,0,0,.10), 0 0 0 4px var(--white); }
+
+/* The login logo pulsed a gold glow on a loop — distracting, and it
+   ran forever on a page nobody stays on. Static ring instead. */
+.logo-frame{
+  animation:none;
+  box-shadow:0 4px 16px rgba(0,0,0,.10), 0 0 0 6px var(--white);
+}
+
+:root[data-theme="dark"] .bubble,
+:root[data-theme="dark"] .msg-row.owner-msg .bubble,
+:root[data-theme="dark"] .msg-row.owner-msg.own .bubble{ box-shadow:none; }
