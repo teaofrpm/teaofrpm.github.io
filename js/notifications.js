@@ -1,4 +1,3 @@
-
 const Notifs = (() => {
   let me = null;
   let items = [];
@@ -11,10 +10,12 @@ const Notifs = (() => {
     comment: "commented on your post",
     reel_like: "liked your reel",
     reel_comment: "commented on your reel",
+    tag: "tagged you in a post",
+    reshare: "shared your post",
   };
 
   function linkFor(n, actor) {
-    if (n.type === "follow_request" || n.type === "like" || n.type === "comment") return "profile.html";
+    if (["follow_request", "like", "comment", "tag", "reshare"].includes(n.type)) return "profile.html";
     if (n.type === "reel_like" || n.type === "reel_comment") return "reels.html";
     return actor ? `profile.html?u=${encodeURIComponent(actor.username)}` : "#";
   }
