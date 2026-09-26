@@ -1,0 +1,117 @@
+/* ===== Highlights rail ===== */
+.highlight-rail{
+  display:flex; gap:14px;
+  overflow-x:auto; overflow-y:hidden;
+  padding:4px 2px 12px;
+  scrollbar-width:none;
+}
+.highlight-rail::-webkit-scrollbar{ display:none; }
+.highlight-item{
+  background:none; border:none; padding:0; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center; gap:5px;
+  flex-shrink:0; width:70px;
+}
+.highlight-cover{
+  width:62px; height:62px; border-radius:50%;
+  background-size:cover; background-position:center;
+  border:2px solid var(--border-soft);
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-weight:800; font-size:16px;
+  transition:transform .15s cubic-bezier(.34,1.56,.64,1);
+}
+.highlight-item:hover .highlight-cover{ transform:scale(1.07); }
+.highlight-new{ background:var(--warm-cream); color:var(--text-muted); border-style:dashed; }
+.highlight-title{
+  font-size:11px; font-weight:600; color:var(--text-dark);
+  max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
+.highlight-viewer .story-counter{
+  position:absolute; left:0; right:0; bottom:26px; z-index:3;
+  text-align:center; color:rgba(255,255,255,.85); font-size:12.5px;
+}
+.highlight-preview-grid{ display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+.highlight-preview-grid img{ width:58px; height:58px; object-fit:cover; border-radius:8px; }
+
+/* ===== Post extras ===== */
+.post-more-btn{
+  background:none; border:none; cursor:pointer; padding:0;
+  color:var(--text-muted); display:flex; align-items:center;
+  margin-left:12px;
+}
+.post-more-btn:hover{ color:var(--deep-royal); }
+
+.post-tag-line{
+  display:flex; align-items:center; gap:5px; flex-wrap:wrap;
+  font-size:12px; color:var(--text-muted);
+  padding:6px 14px 0;
+}
+.post-tag-line a{ color:var(--deep-royal); text-decoration:none; font-weight:600; }
+
+.extras-sheet{ height:auto; max-height:80vh; max-height:80dvh; }
+.extras-sheet-body{ padding:14px 16px 20px; overflow-y:auto; }
+.extras-action{
+  width:100%; display:flex; align-items:center; gap:10px;
+  padding:13px 14px; margin-bottom:8px;
+  background:var(--white); border:1px solid var(--border-soft); border-radius:12px;
+  font-size:14px; font-weight:600; color:var(--text-dark);
+  cursor:pointer; text-align:left;
+}
+.extras-action:hover{ background:var(--dusty-rose); }
+
+/* Reshared post shown inside a story or a chat message */
+.shared-post-card{
+  border:1px solid var(--border-soft);
+  border-radius:10px;
+  overflow:hidden;
+  background:var(--white);
+  max-width:220px;
+}
+.shared-post-card img{ width:100%; display:block; }
+.shared-post-card .shared-post-by{
+  font-size:11.5px; color:var(--text-muted);
+  padding:6px 9px;
+}
+.story-shared-wrap{
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  padding:60px 24px;
+}
+
+.story-share-tag{
+  position:absolute; left:50%; bottom:78px; z-index:4;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,.55);
+  color:#fff; text-decoration:none;
+  font-size:12.5px; font-weight:600;
+  padding:7px 14px; border-radius:999px;
+  backdrop-filter:blur(6px);
+}
+
+/* Close-friends stories get their own ring colour */
+.story-item.close-friends .story-ring{
+  background:linear-gradient(140deg, #34d399, #059669) !important;
+}
+
+/* Profile: website link, audio clip, tabs */
+.profile-website{
+  display:inline-flex; align-items:center; gap:5px;
+  margin-top:8px;
+  font-size:13.5px; font-weight:600;
+  color:var(--aqua-dark); text-decoration:none;
+}
+.profile-website:hover{ text-decoration:underline; }
+.profile-song{ margin-top:12px; height:34px; max-width:260px; width:100%; }
+
+.profile-tabs{
+  display:flex; gap:8px;
+  margin:22px 0 4px;
+  border-bottom:1px solid var(--border-soft);
+}
+.profile-tabs button{
+  flex:1; padding:10px 6px;
+  background:none; border:none; border-bottom:2px solid transparent;
+  color:var(--text-muted); font-size:13.5px; font-weight:700;
+  cursor:pointer;
+}
+.profile-tabs button.active{ color:var(--deep-royal); border-bottom-color:var(--gold-deep); }
