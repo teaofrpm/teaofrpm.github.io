@@ -90,6 +90,23 @@ const AppNav = (() => {
       </a>`).join("");
     document.body.classList.add("has-app-nav");
 
+    // Warm up the next page as soon as a tab is touched/hovered, so tapping
+    // it navigates to an already-fetched, already-cached page.
+    const prefetched = new Set();
+    const warm = (href) => {
+      if (prefetched.has(href)) return;
+      prefetched.add(href);
+      const link = document.createElement("link");
+      link.rel = "prefetch";
+      link.href = href;
+      document.head.appendChild(link);
+    };
+    nav.querySelectorAll("a").forEach((a) => {
+      const href = a.getAttribute("href");
+      a.addEventListener("pointerenter", () => warm(href), { passive: true });
+      a.addEventListener("touchstart", () => warm(href), { passive: true });
+    });
+
     const scrollEl = nav.dataset.scrollEl && document.getElementById(nav.dataset.scrollEl);
     if (scrollEl) bindScroll(scrollEl);
     const focusEl = nav.dataset.hideOnFocus && document.getElementById(nav.dataset.hideOnFocus);
@@ -186,3 +203,75 @@ async function openCommentsSheet({ table, column, id, myId, onAdded }) {
 
   await load();
 }
+
+/* ============================================================
+   Skeletons. Each page calls Skeleton.show(kind, target) right
+   away so the user sees the page's shape immediately instead of
+   a spinner, then replaces it with real content when data lands.
+   ============================================================ */
+const Skeleton = (() => {
+  const feedCard = () => `
+    <div class="sk-feed-card">
+      <div class="sk-feed-head">
+        <div class="skeleton sk-circle" style="width:36px;height:36px;"></div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:7px;">
+          <div class="skeleton sk-line" style="width:40%;"></div>
+          <div class="skeleton sk-line" style="width:25%;"></div>
+        </div>
+      </div>
+      <div class="skeleton sk-feed-media"></div>
+      <div class="sk-feed-foot">
+        <div class="skeleton sk-line" style="width:30%;"></div>
+        <div class="skeleton sk-line" style="width:80%;"></div>
+      </div>
+    </div>`;
+
+  const row = () => `
+    <div class="sk-row">
+      <div class="skeleton sk-circle" style="width:46px;height:46px;"></div>
+      <div class="sk-row-text">
+        <div class="skeleton sk-line" style="width:45%;"></div>
+        <div class="skeleton sk-line" style="width:70%;"></div>
+      </div>
+    </div>`;
+
+  const msg = (own) => `
+    <div class="sk-msg ${own ? "own" : ""}">
+      <div class="skeleton sk-circle" style="width:30px;height:30px;"></div>
+      <div class="skeleton sk-bubble" style="width:${own ? 45 : 60}%;"></div>
+    </div>`;
+
+  const profileHead = () => `
+    <div class="sk-profile-head">
+      <div class="skeleton sk-circle" style="width:92px;height:92px;"></div>
+      <div class="skeleton sk-line" style="width:140px;height:16px;"></div>
+      <div class="skeleton sk-line" style="width:90px;"></div>
+      <div class="skeleton sk-line" style="width:220px;margin-top:6px;"></div>
+      <div style="display:flex;gap:28px;margin-top:14px;">
+        <div class="skeleton sk-line" style="width:44px;height:26px;"></div>
+        <div class="skeleton sk-line" style="width:44px;height:26px;"></div>
+        <div class="skeleton sk-line" style="width:44px;height:26px;"></div>
+      </div>
+    </div>`;
+
+  const KINDS = {
+    feed: (n = 3) => feedCard().repeat(n),
+    rows: (n = 6) => row().repeat(n),
+    chat: (n = 6) => Array.from({ length: n }, (_, i) => msg(i % 3 === 0)).join(""),
+    profile: () => profileHead(),
+  };
+
+  function show(kind, target, count) {
+    const el = typeof target === "string" ? document.getElementById(target) : target;
+    if (!el || !KINDS[kind]) return;
+    el.innerHTML = `<div class="sk-wrap">${KINDS[kind](count)}</div>`;
+  }
+
+  function clear(target) {
+    const el = typeof target === "string" ? document.getElementById(target) : target;
+    const wrap = el && el.querySelector(".sk-wrap");
+    if (wrap) wrap.remove();
+  }
+
+  return { show, clear };
+})();
