@@ -1,7 +1,7 @@
 let ME = null;
 
 const REELS_PAGE = 6;
-const MAX_REEL_BYTES = 50 * 1024 * 1024;   // Supabase free-plan upload ceiling
+const MAX_REEL_BYTES = 50 * 1024 * 1024;   
 const MAX_REEL_SECONDS = 180;
 
 const reelsState = { cursor: null, done: false, loading: false, muted: true, immersive: false };
@@ -29,7 +29,6 @@ async function init() {
   wireUpload();
 
   const feedEl = document.getElementById("reelsFeed");
-  Skeleton.show("reel", feedEl, 1);
 
   // Whichever reel is mostly on screen plays; everything else pauses
   playObserver = new IntersectionObserver((entries) => {
@@ -51,14 +50,15 @@ async function init() {
   const moreObserver = new IntersectionObserver((entries) => {
     if (entries[0].isIntersecting) loadMoreReels();
   }, { root: feedEl, rootMargin: "200% 0px" });
-  moreObserver.observe(document.getElementById("reelsSentinel"));
+  const sentinelEl = document.getElementById("reelsSentinel");
+  if (sentinelEl) moreObserver.observe(sentinelEl);
 
   // Placeholder inserted before the sentinel (not via innerHTML) so the
   // sentinel the observer is watching survives.
   const placeholder = document.createElement("div");
   placeholder.className = "sk-wrap reel-skeleton";
   placeholder.innerHTML = `<div class="skeleton sk-reel"></div>`;
-  feedEl.insertBefore(placeholder, document.getElementById("reelsSentinel"));
+  feedEl.insertBefore(placeholder, sentinelEl);
 
   // ?r=<id> — opened from a notification. Show that reel at the top first,
   // then fill the rest of the feed underneath it.
@@ -70,9 +70,9 @@ async function init() {
 }
 
 function clearReelSkeleton() {
-  const feedEl = document.getElementById("reelsFeed");
-  Skeleton.clear(feedEl);
-  feedEl.querySelector(".sk-wrap")?.remove();
+  document.getElementById("reelsFeed")
+    ?.querySelectorAll(".sk-wrap, .reel-skeleton")
+    .forEach(el => el.remove());
 }
 
 async function showTargetReel(id) {
