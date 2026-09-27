@@ -180,3 +180,71 @@
 
 /* Header subtitle turns green while the other person is in the chat */
 #roomSubtitle.is-online{ color:#16a34a; font-weight:600; }
+
+/* ===== Notes rail ===== */
+.notes-rail{
+  display:flex; gap:16px;
+  padding:6px 4px 16px;
+  overflow-x:auto; scrollbar-width:none;
+  -webkit-overflow-scrolling:touch;
+}
+.notes-rail::-webkit-scrollbar{ display:none; }
+.notes-rail:empty{ display:none; }
+
+.note-item{
+  flex:0 0 auto;
+  width:76px;
+  display:flex; flex-direction:column; align-items:center;
+  background:none; border:none; padding:0; cursor:pointer;
+  font-family:inherit;
+}
+.note-bubble{
+  position:relative;
+  max-width:76px;
+  background:var(--white);
+  border:1px solid var(--border-soft);
+  border-radius:14px;
+  padding:6px 9px;
+  margin-bottom:-6px;
+  font-size:10.5px; line-height:1.3;
+  color:var(--text-dark);
+  text-align:center;
+  overflow:hidden;
+  display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical;
+  z-index:2;
+}
+.note-bubble.empty{ color:var(--text-muted); font-style:italic; }
+/* the two little tail dots under the bubble */
+.note-bubble::after,
+.note-bubble::before{
+  content:""; position:absolute; left:14px;
+  background:var(--white);
+  border:1px solid var(--border-soft);
+  border-radius:50%;
+}
+.note-bubble::after{ bottom:-5px; width:7px; height:7px; }
+.note-bubble::before{ bottom:-11px; left:11px; width:4px; height:4px; }
+
+.note-avatar{
+  width:52px; height:52px; font-size:17px;
+  border:2px solid var(--white);
+}
+.note-name{
+  margin-top:5px;
+  font-size:10.5px; color:var(--text-muted);
+  max-width:76px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.note-item:active .note-avatar{ transform:scale(.93); }
+
+.note-sheet-body{ padding:4px 2px 8px; }
+.note-sheet-body textarea{
+  width:100%; resize:none;
+  border:1px solid var(--border-soft); border-radius:12px;
+  padding:11px 13px; font-size:15px; font-family:var(--sans);
+  color:var(--text-dark); background:var(--white); outline:none;
+}
+.note-sheet-body textarea:focus{ border-color:var(--gold-deep); }
+.note-counter{ margin-top:7px; font-size:11.5px; color:var(--text-muted); }
+.note-sheet-actions{ display:flex; gap:9px; margin-top:14px; }
+.note-sheet-actions .btn, .note-sheet-actions .btn-outline{ flex:1; }

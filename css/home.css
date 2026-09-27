@@ -169,3 +169,63 @@
 @media (min-width:761px){
   .story-img{ max-width:480px; }
 }
+
+/* ===== Story: like, reply and insights ===== */
+.story-stats-btn{
+  display:flex; align-items:center; gap:6px;
+  background:none; border:none; color:#fff;
+  font-size:12.5px; font-family:inherit; cursor:pointer;
+}
+.story-like-btn{
+  flex:0 0 auto;
+  width:40px; height:40px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(255,255,255,.14); border:none; color:#fff;
+  cursor:pointer; transition:transform .16s cubic-bezier(.34,1.56,.64,1);
+}
+.story-like-btn:active{ transform:scale(.85); }
+.story-like-btn.liked{ color:#ff3b5c; background:rgba(255,59,92,.18); }
+.story-like-btn.liked svg{ fill:#ff3b5c; }
+
+.story-reply-wrap{ flex:1; min-width:0; }
+.story-reply-wrap input{
+  width:100%;
+  background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.28);
+  border-radius:999px;
+  padding:10px 15px;
+  color:#fff; font-size:14px; font-family:var(--sans);
+  outline:none;
+}
+.story-reply-wrap input::placeholder{ color:rgba(255,255,255,.65); }
+.story-reply-wrap input:focus{ border-color:rgba(255,255,255,.6); }
+
+.story-insights{
+  position:absolute; left:0; right:0; bottom:0;
+  max-height:62%;
+  background:var(--white);
+  border-radius:18px 18px 0 0;
+  display:none; flex-direction:column;
+  z-index:30;
+  padding-bottom:env(safe-area-inset-bottom, 0px);
+}
+.story-insights.show{ display:flex; animation:appSheetUp .26s cubic-bezier(.22,.9,.3,1); }
+.story-insights-head{
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px;
+  border-bottom:1px solid var(--border-soft);
+}
+.story-insights-tabs{ display:flex; gap:6px; flex:1; }
+.insights-tab{
+  flex:1;
+  padding:7px 10px; border-radius:999px;
+  border:1px solid var(--border-soft);
+  background:var(--white); color:var(--text-muted);
+  font-size:12.5px; font-weight:600; cursor:pointer;
+}
+.insights-tab.active{
+  background:linear-gradient(135deg, var(--gold-warm), var(--gold-deep));
+  color:#3a2400; border-color:transparent;
+}
+.story-insights-list{ flex:1; overflow-y:auto; padding:6px 14px 16px; }
+.insight-comment{ color:var(--text-dark) !important; font-style:normal; }
