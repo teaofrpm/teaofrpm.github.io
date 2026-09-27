@@ -260,6 +260,7 @@ function prevStory() {
 }
 
 function wireStoryViewer() {
+  wireStoryInsights();
   document.getElementById("storyClose").addEventListener("click", () => AppNav.exitFullscreen());
 
   // Short tap navigates, press-and-hold pauses (released = resume)
@@ -293,26 +294,147 @@ async function renderStoryShareTag(story) {
 async function renderStoryFooter(story, isMe) {
   const footer = document.getElementById("storyFooter");
   footer.innerHTML = "";
-  if (!isMe) return;
 
-  const seen = document.createElement("span");
-  seen.textContent = "Seen by …";
-  footer.appendChild(seen);
+  if (isMe) {
+    // Owner: counts of who watched, liked and replied — tap to see the names.
+    const stats = document.createElement("button");
+    stats.className = "story-stats-btn";
+    stats.innerHTML = `${svgIcon("eye", 14)} <span id="storySeenCount">…</span>`;
+    stats.addEventListener("click", () => openStoryInsights(story));
+    footer.appendChild(stats);
 
-  const del = document.createElement("button");
-  del.innerHTML = `${svgIcon("trash", 14)} Delete`;
-  del.addEventListener("click", async () => {
-    pauseStory();
-    if (!confirm("Delete this story?")) { resumeStory(); return; }
-    const { error } = await sb.from("stories").delete().eq("id", story.id);
-    if (error) { toast(error.message || "Could not delete story."); resumeStory(); return; }
-    AppNav.exitFullscreen();
-    await loadStories();
+    const del = document.createElement("button");
+    del.innerHTML = `${svgIcon("trash", 14)} Delete`;
+    del.addEventListener("click", async () => {
+      pauseStory();
+      if (!confirm("Delete this story?")) { resumeStory(); return; }
+      const { error } = await sb.from("stories").delete().eq("id", story.id);
+      if (error) { toast(error.message || "Could not delete story."); resumeStory(); return; }
+      AppNav.exitFullscreen();
+      await loadStories();
+    });
+    footer.appendChild(del);
+
+    // Three counts in one round trip instead of three.
+    const [views, likes, comments] = await Promise.all([
+      sb.from("story_views").select("story_id", { count: "exact", head: true }).eq("story_id", story.id),
+      sb.from("story_likes").select("story_id", { count: "exact", head: true }).eq("story_id", story.id),
+      sb.from("story_comments").select("id", { count: "exact", head: true }).eq("story_id", story.id),
+    ]);
+
+    const parts = [`${views.count || 0} seen`];
+    if (likes.count) parts.push(`${likes.count} liked`);
+    if (comments.count) parts.push(`${comments.count} replied`);
+    const el = document.getElementById("storySeenCount");
+    if (el) el.textContent = parts.join(" · ");
+    return;
+  }
+
+  // Viewer: like it, or send a private reply that lands in your DM.
+  const { data: myLike } = await sb.from("story_likes").select("story_id")
+    .eq("story_id", story.id).eq("user_id", ME.id).maybeSingle();
+
+  const likeBtn = document.createElement("button");
+  likeBtn.className = `story-like-btn ${myLike ? "liked" : ""}`;
+  likeBtn.innerHTML = svgIcon("heart", 18);
+  likeBtn.addEventListener("click", async () => {
+    const liked = likeBtn.classList.contains("liked");
+    likeBtn.classList.toggle("liked", !liked);   // flip first, so the tap feels instant
+    const { error } = liked
+      ? await sb.from("story_likes").delete().eq("story_id", story.id).eq("user_id", ME.id)
+      : await sb.from("story_likes").insert({ story_id: story.id, user_id: ME.id });
+    if (error) { likeBtn.classList.toggle("liked", liked); toast("Could not update."); }
   });
-  footer.appendChild(del);
 
-  const { count } = await sb.from("story_views").select("story_id", { count: "exact", head: true }).eq("story_id", story.id);
-  seen.textContent = `Seen by ${count || 0}`;
+  const replyWrap = document.createElement("div");
+  replyWrap.className = "story-reply-wrap";
+  replyWrap.innerHTML = `<input type="text" id="storyReplyInput" maxlength="300" placeholder="Reply to story…" />`;
+
+  const input = replyWrap.querySelector("input");
+  input.addEventListener("focus", pauseStory);
+  input.addEventListener("blur", resumeStory);
+  input.addEventListener("keydown", async (e) => {
+    if (e.key !== "Enter") return;
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = "";
+    const { error } = await sb.from("story_comments")
+      .insert({ story_id: story.id, user_id: ME.id, content: text });
+    toast(error ? (error.message || "Reply failed.") : "Reply sent");
+  });
+
+  footer.append(replyWrap, likeBtn);
+}
+
+/* ---------- Story insights: who watched, liked and replied ---------- */
+
+let insightsStory = null;
+
+function openStoryInsights(story) {
+  insightsStory = story;
+  pauseStory();
+  document.getElementById("storyInsights").classList.add("show");
+  document.querySelectorAll(".insights-tab").forEach((t, i) => t.classList.toggle("active", i === 0));
+  loadInsightsTab("views");
+}
+
+function closeStoryInsights() {
+  document.getElementById("storyInsights").classList.remove("show");
+  resumeStory();
+}
+
+function wireStoryInsights() {
+  document.getElementById("insightsClose").addEventListener("click", closeStoryInsights);
+  document.querySelectorAll(".insights-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".insights-tab").forEach(t => t.classList.toggle("active", t === tab));
+      loadInsightsTab(tab.dataset.tab);
+    });
+  });
+}
+
+async function loadInsightsTab(tab) {
+  const list = document.getElementById("insightsList");
+  list.innerHTML = `<div class="settings-empty">Loading…</div>`;
+  if (!insightsStory) return;
+
+  const table = { views: "story_views", likes: "story_likes", comments: "story_comments" }[tab];
+  const userCol = tab === "views" ? "viewer_id" : "user_id";
+
+  const { data, error } = await sb.from(table).select("*")
+    .eq("story_id", insightsStory.id)
+    .order(tab === "views" ? "viewed_at" : "created_at", { ascending: false });
+
+  if (error) { list.innerHTML = `<div class="settings-empty">Could not load.</div>`; return; }
+
+  const empty = { views: "No one has seen this yet.", likes: "No likes yet.", comments: "No replies yet." }[tab];
+  if (!data.length) { list.innerHTML = `<div class="settings-empty">${empty}</div>`; return; }
+
+  await getProfiles(data.map(r => r[userCol]));
+  list.innerHTML = "";
+
+  for (const r of data) {
+    const p = profileCache.get(r[userCol]);
+    if (!p) continue;
+
+    const row = document.createElement("a");
+    row.className = "follow-list-row";
+    row.href = `profile.html?u=${encodeURIComponent(p.username)}`;
+
+    const av = document.createElement("span");
+    av.className = "avatar";
+    av.style.width = "38px"; av.style.height = "38px"; av.style.fontSize = "13px";
+    setAvatarContent(av, p);
+    row.appendChild(av);
+
+    const info = document.createElement("div");
+    info.innerHTML = `<div class="follow-list-name">${escapeHTML(p.display_name)}</div>` +
+      (tab === "comments"
+        ? `<div class="follow-list-username insight-comment">${escapeHTML(r.content)}</div>`
+        : `<div class="follow-list-username">@${escapeHTML(p.username)}</div>`);
+    row.appendChild(info);
+    list.appendChild(row);
+  }
 }
 
 async function markStoryViewed(story) {

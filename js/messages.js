@@ -19,6 +19,8 @@ async function init() {
   profileCache.set(ME.id, ME);
   applyIconAttributes();
   wireNewChat();
+  wireNotes();
+  loadNotes();
 
   Skeleton.show("rows", "threadList", 6);
   await loadInbox();
@@ -84,6 +86,121 @@ function subscribeInbox() {
       if (payload.new.conversation_id) loadInbox();
     })
     .subscribe();
+}
+
+/* ---------- Notes ----------
+   A note is one short line per person that disappears after 24 hours.
+   The 24h rule is enforced by the database policy, not here — the client
+   simply never receives an expired note, so a stale page can't leak one. */
+
+let myNote = null;
+
+async function loadNotes() {
+  const rail = document.getElementById("notesRail");
+
+  const { data, error } = await sb.from("notes")
+    .select("user_id,content,created_at")
+    .order("created_at", { ascending: false });
+
+  if (error) { rail.innerHTML = ""; return; }
+
+  const notes = data || [];
+  myNote = notes.find(n => n.user_id === ME.id) || null;
+
+  // my own note always sits first, then everyone else's
+  const others = notes.filter(n => n.user_id !== ME.id);
+  await getProfiles(others.map(n => n.user_id));
+
+  rail.innerHTML = "";
+  rail.appendChild(buildNote(ME, myNote, true));
+  for (const n of others) {
+    const p = profileCache.get(n.user_id);
+    if (p) rail.appendChild(buildNote(p, n, false));
+  }
+}
+
+function buildNote(person, note, isMine) {
+  const item = document.createElement("button");
+  item.className = `note-item ${isMine ? "mine" : ""}`;
+
+  const bubble = document.createElement("span");
+  bubble.className = `note-bubble ${note ? "" : "empty"}`;
+  bubble.textContent = note ? note.content : (isMine ? "Leave a note…" : "");
+
+  const av = document.createElement("span");
+  av.className = "avatar note-avatar";
+  setAvatarContent(av, person);
+
+  const name = document.createElement("span");
+  name.className = "note-name";
+  name.textContent = isMine ? "Your note" : person.display_name;
+
+  item.append(bubble, av, name);
+
+  item.addEventListener("click", () => {
+    if (isMine) openNoteSheet();
+    else startDmWithPerson(person);       // tapping a note opens that chat
+  });
+  return item;
+}
+
+function wireNotes() {
+  const sheet = document.getElementById("noteSheet");
+  const input = document.getElementById("noteInput");
+
+  sheet.addEventListener("click", (e) => { if (e.target === sheet) AppNav.exitFullscreen(); });
+
+  input.addEventListener("input", () => {
+    document.getElementById("noteCount").textContent = input.value.length;
+  });
+
+  document.getElementById("noteSaveBtn").addEventListener("click", saveNote);
+  document.getElementById("noteDeleteBtn").addEventListener("click", deleteNote);
+}
+
+function openNoteSheet() {
+  const sheet = document.getElementById("noteSheet");
+  const input = document.getElementById("noteInput");
+
+  input.value = myNote?.content || "";
+  document.getElementById("noteCount").textContent = input.value.length;
+  document.getElementById("noteDeleteBtn").style.display = myNote ? "block" : "none";
+
+  sheet.classList.add("show");
+  AppNav.enterFullscreen(() => sheet.classList.remove("show"));
+  setTimeout(() => input.focus(), 120);
+}
+
+async function saveNote() {
+  const btn = document.getElementById("noteSaveBtn");
+  const text = document.getElementById("noteInput").value.trim();
+  if (!text) { toast("Write something first."); return; }
+
+  btn.disabled = true;
+  // upsert, because one person only ever has one note
+  const { error } = await sb.from("notes")
+    .upsert({ user_id: ME.id, content: text, created_at: new Date().toISOString() },
+            { onConflict: "user_id" });
+  btn.disabled = false;
+
+  if (error) { toast(error.message || "Could not share the note."); return; }
+
+  AppNav.exitFullscreen();
+  await loadNotes();
+  toast("Note shared");
+}
+
+async function deleteNote() {
+  const { error } = await sb.from("notes").delete().eq("user_id", ME.id);
+  if (error) { toast(error.message || "Could not delete."); return; }
+  AppNav.exitFullscreen();
+  await loadNotes();
+}
+
+async function startDmWithPerson(person) {
+  const { data, error } = await sb.rpc("get_or_create_dm", { other_user: person.id });
+  if (error) { toast(error.message || "Could not open that chat."); return; }
+  window.location.href = `room.html?c=${data}`;
 }
 
 /* ---------- New chat: DM anyone, or make a group ---------- */

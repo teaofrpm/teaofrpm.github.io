@@ -86,6 +86,29 @@ function handleDeepLink(params) {
   }
 }
 
+// Bound once: reopening the panel must not stack duplicate listeners.
+let editExtrasWired = false;
+
+function wireEditExtras() {
+  if (editExtrasWired) return;
+  editExtrasWired = true;
+
+  document.getElementById("editBio").addEventListener("input", (e) => {
+    document.getElementById("bioCount").textContent = e.target.value.length;
+  });
+
+  document.getElementById("removePfpBtn").addEventListener("click", async () => {
+    if (!confirm("Remove your profile photo?")) return;
+    const { error } = await sb.from("profiles").update({ pfp_url: null }).eq("id", ME.id);
+    if (error) { toast(error.message || "Could not remove."); return; }
+    ME.pfp_url = null;
+    viewedUser = ME;
+    document.getElementById("removePfpBtn").style.display = "none";
+    renderProfileHeader();
+    toast("Photo removed");
+  });
+}
+
 async function loadFollowRequests() {
   if (!isOwnProfile) return;
 
@@ -237,7 +260,11 @@ function renderActions() {
         document.getElementById("editDisplayName").value = viewedUser.display_name || "";
         document.getElementById("editUsername").value = viewedUser.username || "";
         document.getElementById("editBio").value = viewedUser.bio || "";
+        document.getElementById("editWebsite").value = viewedUser.website_url || "";
+        document.getElementById("bioCount").textContent = (viewedUser.bio || "").length;
+        document.getElementById("removePfpBtn").style.display = viewedUser.pfp_url ? "block" : "none";
         document.getElementById("editPrivate").checked = !!viewedUser.is_private;
+        wireEditExtras();
       }
     });
     actions.appendChild(btn);
@@ -327,10 +354,25 @@ function wireEditProfile() {
       }
     }
 
+    // A website is stored only if it is a real http(s) address — a bad value
+    // here would render as a broken link on every visitor's screen.
+    let website = document.getElementById("editWebsite").value.trim();
+    if (website) {
+      if (!/^https?:\/\//i.test(website)) website = `https://${website}`;
+      try { new URL(website); }
+      catch {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save";
+        errEl.textContent = "That website address doesn't look right.";
+        return;
+      }
+    }
+
     const { error } = await sb.from("profiles").update({
       display_name: newDisplayName,
       bio: newBio || null,
       is_private: newPrivate,
+      website_url: website || null,
     }).eq("id", ME.id);
 
     saveBtn.disabled = false;
@@ -341,7 +383,7 @@ function wireEditProfile() {
       return;
     }
 
-    Object.assign(ME, { display_name: newDisplayName, username: newUsername, bio: newBio || null, is_private: newPrivate });
+    Object.assign(ME, { display_name: newDisplayName, username: newUsername, bio: newBio || null, is_private: newPrivate, website_url: website || null });
     viewedUser = ME;
     document.getElementById("editPanel").style.display = "none";
     renderProfileHeader();
