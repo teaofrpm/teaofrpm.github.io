@@ -15,7 +15,7 @@
 <link rel="stylesheet" href="css/style.css" />
 <link rel="stylesheet" href="css/app-shell.css" />
 <link rel="stylesheet" href="css/calls.css" />
-<link rel="stylesheet" href="css/discover.css" />
+<link rel="stylesheet" href="css/discover.css?v=2" />
 </head>
 <body>
 
@@ -52,14 +52,12 @@
     <a class="header-icon-btn" id="readerOpen" target="_blank" rel="noopener noreferrer" title="Open in browser" data-icon="link" data-icon-size="17"></a>
   </div>
   <div class="reader-body">
-    <iframe id="readerFrame" referrerpolicy="no-referrer"></iframe>
-    <div class="reader-fallback" id="readerFallback">
-      <div class="reader-fallback-inner">
-        <span data-icon="globe" data-icon-size="34"></span>
-        <b id="fallbackTitle"></b>
-        <p>This publisher doesn't allow their page to be shown inside another app. Open it in your browser to read the full story.</p>
-        <a class="btn" id="fallbackOpen" target="_blank" rel="noopener noreferrer">Open the article</a>
-      </div>
+    <div class="reader-card">
+      <span class="reader-source" id="readerSource"></span>
+      <h2 id="fallbackTitle"></h2>
+      <p class="reader-summary" id="readerSummary"></p>
+      <p class="reader-note">News sites block their pages from opening inside other apps, so the full story opens in your browser.</p>
+      <a class="btn" id="fallbackOpen" target="_blank" rel="noopener noreferrer">Read the full story</a>
     </div>
   </div>
 </div>
@@ -70,6 +68,6 @@
 <script src="js/auth.js"></script>
 <script src="js/app-shell.js"></script>
 <script src="js/calls.js"></script>
-<script src="js/discover.js"></script>
+<script src="js/discover.js?v=2"></script>
 </body>
 </html>
