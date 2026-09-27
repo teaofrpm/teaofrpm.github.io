@@ -1,0 +1,166 @@
+/* ============================================================
+   extras.css — styles for js/extras.js only.
+   Every selector is prefixed .extras- so nothing here can collide
+   with an existing rule. Safe to delete alongside extras.js.
+   ============================================================ */
+
+/* Offline banner */
+.extras-netbar{
+  position:fixed; left:0; right:0;
+  top:env(safe-area-inset-top, 0px);
+  z-index:9000;
+  background:#b00020; color:#fff;
+  font-size:12px; font-weight:600; text-align:center;
+  padding:7px 12px;
+  transform:translateY(-120%);
+  transition:transform .25s ease;
+}
+.extras-netbar.show{ transform:none; }
+
+/* Back to top */
+.extras-totop{
+  position:fixed; right:14px;
+  bottom:calc(var(--nav-space, 64px) + 16px);
+  z-index:70;
+  width:40px; height:40px; border-radius:50%;
+  border:1px solid var(--border-soft);
+  background:var(--white); color:var(--text-dark);
+  font-size:17px; line-height:1; cursor:pointer;
+  box-shadow:0 3px 10px rgba(0,0,0,.14);
+  opacity:0; pointer-events:none;
+  transform:translateY(8px);
+  transition:opacity .2s ease, transform .2s ease;
+}
+.extras-totop.show{ opacity:1; pointer-events:auto; transform:none; }
+
+/* Read more */
+.extras-clamped{
+  display:-webkit-box; -webkit-line-clamp:8; -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.extras-readmore{
+  display:block; margin-top:4px;
+  background:none; border:none; padding:0;
+  color:var(--bright-red); font-size:12px; font-weight:700;
+  cursor:pointer; font-family:inherit;
+}
+
+/* Tap a bubble for its exact time */
+.bubble .msg-time{ transition:max-height .2s ease, opacity .2s ease; }
+.bubble.extras-show-time::after{
+  content:attr(data-exact);
+  display:block; margin-top:4px;
+  font-size:10px; color:var(--text-muted);
+}
+
+/* Double-tap heart */
+.extras-heart{
+  position:absolute; left:50%; top:50%;
+  font-size:30px; pointer-events:none;
+  animation:extrasHeart .7s ease-out forwards;
+}
+@keyframes extrasHeart{
+  0%{ transform:translate(-50%,-50%) scale(.4); opacity:0; }
+  35%{ transform:translate(-50%,-50%) scale(1.25); opacity:1; }
+  100%{ transform:translate(-50%,-160%) scale(.9); opacity:0; }
+}
+
+/* Swipe to reply */
+[data-msg-id]{ transition:transform .16s ease; }
+[data-msg-id].extras-swipe-armed{ opacity:.85; }
+
+/* Command and mention popovers */
+.extras-cmdbox, .extras-mentionbox{
+  position:absolute; left:10px; right:10px; bottom:100%;
+  margin-bottom:8px;
+  background:var(--white);
+  border:1px solid var(--border-soft);
+  border-radius:12px;
+  box-shadow:0 8px 22px rgba(0,0,0,.16);
+  overflow:hidden; z-index:80;
+  display:none;
+  max-height:230px; overflow-y:auto;
+}
+.extras-cmdbox.show, .extras-mentionbox.show{ display:block; }
+.extras-cmdbox button, .extras-mentionbox button{
+  display:flex; flex-direction:column; gap:1px;
+  width:100%; text-align:left;
+  padding:9px 13px;
+  background:none; border:none; cursor:pointer;
+  font-family:inherit;
+  border-bottom:1px solid var(--border-soft);
+}
+.extras-cmdbox button:last-child, .extras-mentionbox button:last-child{ border-bottom:none; }
+.extras-cmdbox button:hover, .extras-mentionbox button:hover{ background:var(--dusty-rose); }
+.extras-cmdbox b, .extras-mentionbox b{ font-size:13px; color:var(--text-dark); }
+.extras-cmdbox span, .extras-mentionbox span{ font-size:11px; color:var(--text-muted); }
+
+/* Emoji quick bar */
+.extras-emojibar{
+  display:none; gap:4px;
+  padding:0 2px 7px;
+  overflow-x:auto; scrollbar-width:none;
+}
+.extras-emojibar::-webkit-scrollbar{ display:none; }
+.extras-emojibar.show{ display:flex; }
+.extras-emojibar button{
+  flex:0 0 auto;
+  width:34px; height:34px;
+  border:none; border-radius:9px;
+  background:var(--warm-cream);
+  font-size:18px; line-height:1; cursor:pointer;
+}
+.extras-emojibar button:active{ transform:scale(.88); }
+
+/* Character counter */
+.extras-charcount{
+  display:none;
+  padding:3px 4px 0;
+  font-size:10.5px; color:var(--text-muted); text-align:right;
+}
+.extras-charcount.show{ display:block; }
+
+/* New messages divider */
+.extras-newline{
+  display:flex; align-items:center; gap:10px;
+  margin:14px 2px;
+  color:var(--bright-red);
+  font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px;
+}
+.extras-newline::before, .extras-newline::after{
+  content:""; flex:1; height:1px; background:currentColor; opacity:.35;
+}
+
+/* Lightbox zoom */
+#lightboxImg{ transition:transform .12s ease-out; transform-origin:center center; }
+
+/* Text size control */
+.extras-textsize{ padding:12px 4px 4px; }
+.extras-textsize label{
+  display:block; margin-bottom:8px;
+  font-size:12px; font-weight:700; color:var(--text-muted);
+  text-transform:uppercase; letter-spacing:.3px;
+}
+.extras-textsize-row{ display:flex; gap:8px; }
+.extras-textsize-row button{
+  flex:1; padding:9px 0;
+  border:1px solid var(--border-soft); border-radius:10px;
+  background:var(--white); color:var(--text-dark);
+  cursor:pointer; font-family:inherit;
+}
+.extras-textsize-row button:nth-child(1){ font-size:12px; }
+.extras-textsize-row button:nth-child(2){ font-size:15px; }
+.extras-textsize-row button:nth-child(3){ font-size:18px; }
+.extras-textsize-row button:nth-child(4){ font-size:21px; }
+.extras-textsize-row button:active{ border-color:var(--gold-deep); }
+
+@media (prefers-reduced-motion:reduce){
+  .extras-heart{ animation:none; display:none; }
+}
+
+.copy-link-btn{
+  background:none; border:none; cursor:pointer;
+  font-size:12px; line-height:1; padding:2px 3px;
+  opacity:.75;
+}
+.copy-link-btn:hover{ opacity:1; }

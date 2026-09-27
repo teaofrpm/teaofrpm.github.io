@@ -1,0 +1,33 @@
+/* Shared by the public room (chat.html) and group chats (room.html). */
+
+/* ===== Group bot ===== */
+.bot-msg-row{
+  display:flex; align-items:flex-start; gap:8px;
+  margin:10px 0;
+  padding:9px 12px;
+  border-radius:12px;
+  background:var(--warm-cream);
+  border:1px solid var(--border-soft);
+  border-left:3px solid var(--gold-deep);
+}
+.bot-avatar{
+  flex-shrink:0;
+  width:26px; height:26px;
+  border-radius:50%;
+  display:block;
+}
+.bot-msg-head{ display:flex; align-items:center; gap:6px; margin-bottom:3px; }
+.bot-msg-head b{ font-size:12.5px; color:var(--text-dark); }
+.bot-badge{
+  flex-shrink:0;
+  background:linear-gradient(135deg, var(--gold-warm), var(--gold-deep));
+  color:#3a2400;
+  font-size:9px; font-weight:800; letter-spacing:.5px;
+  padding:1px 5px; border-radius:4px;
+}
+.bot-msg-body{ flex:1; min-width:0; }
+.bot-msg-text{
+  font-size:13px; line-height:1.5; color:var(--text-dark);
+  white-space:pre-wrap; word-break:break-word;
+}
+.bot-msg-time{ font-size:10.5px; color:var(--text-muted); }
