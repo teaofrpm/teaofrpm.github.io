@@ -1,0 +1,59 @@
+/* ============================================================
+   extras2.css — styles for js/extras2.js only. Prefixed so nothing
+   here can collide with an existing rule. Safe to delete alongside
+   extras2.js.
+   ============================================================ */
+
+/* Star / pin / report / forward buttons riding along the existing
+   action bar */
+.star-btn, .pin-msg-btn, .report-msg-btn, .forward-btn{
+  background:none; border:none; cursor:pointer;
+  font-size:13px; line-height:1; padding:2px 3px;
+  opacity:.75;
+}
+.star-btn:hover, .pin-msg-btn:hover, .report-msg-btn:hover, .forward-btn:hover{ opacity:1; }
+.star-btn.starred{ opacity:1; color:var(--gold-deep); }
+
+/* Pinned message banner */
+.extras2-pin-banner{
+  display:flex; align-items:center; gap:8px;
+  padding:8px 12px;
+  background:var(--warm-cream);
+  border-bottom:1px solid var(--border-soft);
+  font-size:12.5px;
+}
+.pin-icon{ flex-shrink:0; }
+.pin-text{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pin-goto, .pin-clear{
+  background:none; border:none; cursor:pointer;
+  color:var(--text-muted); font-size:14px; padding:2px 4px; flex-shrink:0;
+}
+
+/* "Seen" tag on your own last-read message */
+.extras2-seen{
+  font-size:10px; color:var(--text-muted);
+  text-align:right; margin-top:2px;
+}
+
+/* Multi-select mode */
+.extras2-selectbar{
+  position:fixed; left:0; right:0; bottom:0;
+  z-index:95;
+  display:none; align-items:center; gap:10px;
+  padding:10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
+  background:var(--white);
+  border-top:1px solid var(--border-soft);
+  box-shadow:0 -4px 14px rgba(0,0,0,.08);
+}
+.extras2-selectbar.show{ display:flex; }
+.extras2-selectbar span{ flex:1; font-size:13px; font-weight:600; color:var(--text-dark); }
+.extras2-selectbar button{
+  padding:8px 14px; border-radius:999px; border:none; cursor:pointer;
+  font-size:13px; font-weight:700;
+}
+#extras2-seldelete{ background:#b00020; color:#fff; }
+#extras2-selcancel{ background:var(--border-soft); color:var(--text-dark); }
+body.extras2-selecting [data-msg-id]{ cursor:pointer; }
+[data-msg-id].extras2-selected .bubble{ outline:2px solid var(--gold-deep); outline-offset:2px; }
+
+/* Global search input reuses the sheet's own spacing; nothing else needed */
