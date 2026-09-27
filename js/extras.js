@@ -81,10 +81,39 @@
     bar.textContent = "No internet — messages will send when you're back online";
     document.body.appendChild(bar);
 
-    const sync = () => bar.classList.toggle("show", !navigator.onLine);
-    window.addEventListener("online", () => { sync(); say("Back online"); });
-    window.addEventListener("offline", sync);
-    sync();
+    // navigator.onLine is not trustworthy. On iOS, and especially behind a
+    // VPN, it reports false while the connection is perfectly fine. So it is
+    // only ever treated as a hint: before claiming the user is offline we make
+    // a real request and see whether it actually succeeds.
+    async function reallyOffline() {
+      try {
+        await fetch(location.pathname + "?ping=" + Date.now(), {
+          method: "HEAD",
+          cache: "no-store",
+        });
+        return false;                 // the request went through, so we're online
+      } catch {
+        return true;
+      }
+    }
+
+    let checking = false;
+    async function check() {
+      if (checking) return;
+      checking = true;
+      const off = await reallyOffline();
+      bar.classList.toggle("show", off);
+      checking = false;
+    }
+
+    window.addEventListener("offline", check);
+    window.addEventListener("online", () => {
+      bar.classList.remove("show");
+    });
+
+    // Never show it on load from the flag alone — only verify if the flag is
+    // already claiming we're offline, and even then confirm it first.
+    if (!navigator.onLine) check();
   }
 
   /* 3. Escape closes whatever is open, innermost first. */
@@ -351,7 +380,13 @@
   function makePopover(cls, anchor) {
     const el = document.createElement("div");
     el.className = cls;
-    (anchor.closest(".composer") || document.body).appendChild(el);
+
+    // The popover is positioned with bottom:100%, which resolves against the
+    // nearest POSITIONED ancestor. .composer is static, so the box was being
+    // placed against the fixed page shell and landed off-screen entirely.
+    const host = anchor.closest(".composer") || document.body;
+    if (getComputedStyle(host).position === "static") host.style.position = "relative";
+    host.appendChild(el);
     return {
       el,
       show: () => el.classList.add("show"),
