@@ -33,12 +33,25 @@
       </a>
       <button class="header-icon-btn room-call-btn" id="callAudioBtn" data-icon="phone" data-icon-size="17" title="Voice call" style="display:none;"></button>
       <button class="header-icon-btn room-call-btn" id="callVideoBtn" data-icon="video" data-icon-size="18" title="Video call" style="display:none;"></button>
+      <button class="header-icon-btn" id="searchToggle" title="Search messages" data-icon="search" data-icon-size="16"></button>
       <button class="header-icon-btn" id="roomInfoBtn" data-icon="more" data-icon-size="18" title="Details"></button>
+
+      <div class="search-panel" id="searchPanel">
+        <input type="text" id="searchInput" placeholder="Search messages…" autocomplete="off" />
+        <div class="search-results" id="searchResults"></div>
+      </div>
     </div>
 
     <div class="messages" id="messages"></div>
 
+    <div class="typing-indicator" id="typingIndicator"></div>
+
     <div class="composer">
+      <div class="reply-bar" id="replyBar">
+        <span>Replying to <b id="replyToName"></b>: <span id="replyToText"></span></span>
+        <button id="cancelReply" data-icon="close" data-icon-size="14"></button>
+      </div>
+
       <div class="attach-preview" id="attachPreview">
         <img id="attachImg" />
         <span id="attachName" style="font-size:12.5px; color:var(--text-muted);"></span>
@@ -48,7 +61,10 @@
         <audio id="audioPreviewPlayer" controls></audio>
         <button id="removeAudioAttach">Remove</button>
       </div>
+      <div class="sticker-panel" id="stickerPanel"></div>
+
       <div class="composer-row">
+        <button class="icon-btn" id="stickerToggle" title="Stickers" data-icon="sticker" data-icon-size="19"></button>
         <label class="icon-btn" id="imageBtn" for="imageInput" title="Send image" data-icon="image" data-icon-size="19"></label>
         <input type="file" id="imageInput" accept="image/*" style="display:none;" />
         <button class="icon-btn" id="voiceBtn" title="Record voice note" data-icon="mic" data-icon-size="19"></button>
