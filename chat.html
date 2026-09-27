@@ -13,7 +13,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script>(function(){var t=localStorage.getItem("teaofrpm_theme");if(t==="dark")document.documentElement.setAttribute("data-theme","dark");var f=localStorage.getItem("teaofrpm_font");if(f&&f!=="default")document.documentElement.setAttribute("data-font",f);})();</script>
 <link rel="stylesheet" href="css/style.css" />
-<link rel="stylesheet" href="css/app-shell.css" />
+<link rel="stylesheet" href="css/app-shell.css?v=3" />
 <link rel="stylesheet" href="css/calls.css" />
 </head>
 <body>
@@ -96,12 +96,38 @@
 
 <div class="lightbox" id="lightbox"><img id="lightboxImg" /></div>
 
+<script>
+/* On a phone there is no console to open, so any script error is painted
+   straight onto the page. Runs before every other script so it can catch
+   failures in them too. Remove this block once the bug is found. */
+(function () {
+  function banner(msg) {
+    var el = document.getElementById("__err");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "__err";
+      el.style.cssText = "position:fixed;top:0;left:0;right:0;z-index:99999;" +
+        "background:#b00020;color:#fff;font:12px/1.45 monospace;padding:10px 12px;" +
+        "white-space:pre-wrap;word-break:break-word;max-height:45vh;overflow:auto;";
+      el.addEventListener("click", function () { el.remove(); });
+      (document.body || document.documentElement).appendChild(el);
+    }
+    el.textContent += msg + "\n\n";
+  }
+  window.addEventListener("error", function (e) {
+    banner("ERROR: " + e.message + "\nfile: " + (e.filename || "?").split("/").pop() + "  line: " + e.lineno);
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    banner("PROMISE: " + ((e.reason && (e.reason.message || e.reason)) || "unknown"));
+  });
+})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/config.js"></script>
-<script src="js/supabase-client.js"></script>
+<script src="js/supabase-client.js?v=3"></script>
 <script src="js/auth.js"></script>
 <script src="js/app-shell.js"></script>
 <script src="js/calls.js"></script>
-<script src="js/chat.js"></script>
+<script src="js/chat.js?v=3"></script>
 </body>
 </html>
