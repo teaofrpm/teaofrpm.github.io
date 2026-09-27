@@ -186,8 +186,16 @@ body.has-app-nav.nav-hidden .home-shell{ bottom:0; }
 @keyframes mtnPop{ 0%{ transform:scale(.88); } 55%{ transform:scale(1.06); } 100%{ transform:scale(1); } }
 @keyframes mtnSlideLeft{ from{ opacity:0; transform:translateX(-14px); } to{ opacity:1; transform:none; } }
 
-.profile-scroll > *,
-.chat-main{ animation:mtnRise .28s cubic-bezier(.22,.9,.3,1) both; }
+/* Content blocks only. A layout shell like .chat-main must NOT be animated:
+   it is a full-height flex column holding a scroll area and the composer, and
+   putting a transform on it clips and mis-sizes its children. Entrance
+   animations belong on things inside a layout, never on the layout itself. */
+.profile-scroll > *{ animation:mtnRise .28s cubic-bezier(.22,.9,.3,1) both; }
+
+/* Belt and braces: whatever else lands in this file later, the public room's
+   column and its composer stay laid out and visible. */
+.chat-main{ animation:none !important; transform:none !important; }
+.chat-main > .composer{ opacity:1 !important; visibility:visible !important; flex-shrink:0; }
 
 /* --- Staggered list entry: each row lands a beat after the one above --- */
 .thread-list .thread-row,
