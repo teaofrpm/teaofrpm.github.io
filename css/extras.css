@@ -6,13 +6,16 @@
 
 /* Offline banner */
 .extras-netbar{
-  position:fixed; left:0; right:0;
-  top:env(safe-area-inset-top, 0px);
+  position:fixed; left:0; right:0; top:0;
   z-index:9000;
   background:#b00020; color:#fff;
   font-size:12px; font-weight:600; text-align:center;
   padding:7px 12px;
+  /* must come AFTER the shorthand, or the shorthand resets it back to 7px
+     and the bar sits underneath the phone's status bar */
+  padding-top:calc(7px + env(safe-area-inset-top, 0px));
   transform:translateY(-120%);
+  pointer-events:none;
   transition:transform .25s ease;
 }
 .extras-netbar.show{ transform:none; }
