@@ -189,7 +189,7 @@
   /* ---------- 3. Pin a message to the top of a group/DM ---------- */
 
   function pinMessage() {
-    if (page !== "room.html") return;
+    if (!isChat) return;   // public room and groups get the same feature
 
     watchMessages(() => {
       document.querySelectorAll("[data-msg-id]").forEach((row) => {
@@ -208,22 +208,20 @@
     renderPinnedBanner();
 
     // keep the banner in step with anyone else pinning/unpinning
-    const convo = currentConvoId();
-    if (convo) {
-      sb.channel(`extras2-pin:${convo}`)
-        .on("postgres_changes", {
+    const convo = currentConvoId();   // null on the public room
+    const channel = convo
+      ? sb.channel(`extras2-pin:${convo}`).on("postgres_changes", {
           event: "UPDATE", schema: "public", table: "conversations", filter: `id=eq.${convo}`,
-        }, (payload) => {
-          if ("pinned_message_id" in (payload.new || {})) renderPinnedBanner();
-        })
-        .subscribe();
-    }
+        }, (payload) => { if ("pinned_message_id" in (payload.new || {})) renderPinnedBanner(); })
+      : sb.channel("extras2-pin:room").on("postgres_changes", {
+          event: "UPDATE", schema: "public", table: "bot_room_settings", filter: "id=eq.1",
+        }, (payload) => { if ("pinned_message_id" in (payload.new || {})) renderPinnedBanner(); });
+    channel.subscribe();
   }
 
   async function pinThisMessage(messageId) {
-    const convo = currentConvoId();
-    if (!convo) return;
-    const { error } = await sb.rpc("set_pinned_message", { p_conversation: convo, p_message: messageId });
+    const convo = currentConvoId();     // null on the public room — that's a valid target, not "no chat open"
+    const { error } = await sb.rpc("set_pinned_message", { p_conversation: convo || null, p_message: messageId });
     if (error) { say(error.message || "Could not pin."); return; }
     say("Pinned");
     renderPinnedBanner();
@@ -231,14 +229,20 @@
 
   async function renderPinnedBanner() {
     const convo = currentConvoId();
-    if (!convo) return;
     document.querySelector(".extras2-pin-banner")?.remove();
 
-    const { data: c } = await sb.from("conversations").select("pinned_message_id").eq("id", convo).maybeSingle();
-    if (!c?.pinned_message_id) return;
+    let pinnedId;
+    if (convo) {
+      const { data: c } = await sb.from("conversations").select("pinned_message_id").eq("id", convo).maybeSingle();
+      pinnedId = c?.pinned_message_id;
+    } else {
+      const { data: s } = await sb.from("bot_room_settings").select("pinned_message_id").eq("id", 1).maybeSingle();
+      pinnedId = s?.pinned_message_id;
+    }
+    if (!pinnedId) return;
 
     const { data: m } = await sb.from("messages").select("content,user_id")
-      .eq("id", c.pinned_message_id).maybeSingle();
+      .eq("id", pinnedId).maybeSingle();
     if (!m) return;
 
     const author = await getProfile(m.user_id);
@@ -251,11 +255,11 @@
       <button class="pin-clear" title="Unpin">✕</button>`;
 
     banner.querySelector(".pin-goto").addEventListener("click", () => {
-      document.querySelector(`[data-msg-id="${c.pinned_message_id}"]`)
+      document.querySelector(`[data-msg-id="${pinnedId}"]`)
         ?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
     banner.querySelector(".pin-clear").addEventListener("click", async () => {
-      await sb.rpc("set_pinned_message", { p_conversation: convo, p_message: null });
+      await sb.rpc("set_pinned_message", { p_conversation: convo || null, p_message: null });
       banner.remove();
     });
 
