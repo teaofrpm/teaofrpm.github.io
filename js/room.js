@@ -156,6 +156,11 @@ function appendMessage(m, container) {
     return;
   }
 
+  if (m.is_bot) {
+    container.appendChild(buildBotRow(m));
+    return;
+  }
+
   // "Riya changed the group name to …" — written by a database trigger, never
   // by a client, so it can't be faked or sent as an ordinary message.
   if (m.is_system) {
@@ -465,6 +470,21 @@ async function getSharedPostAuthor(postId) {
   return data ? getProfile(data.user_id) : null;
 }
 
+// The bot's replies. It borrows the commanding user's id on the row (messages
+// must belong to a real account) but is_bot is what decides how it looks.
+function buildBotRow(m) {
+  const row = document.createElement("div");
+  row.className = "bot-msg-row";
+  row.dataset.msgId = m.id;
+  row.innerHTML = `
+    <span class="bot-badge">BOT</span>
+    <div class="bot-msg-body">
+      <div class="bot-msg-text">${linkify(escapeHTML(m.content || ""))}</div>
+      <span class="bot-msg-time">${formatTime(m.created_at)}</span>
+    </div>`;
+  return row;
+}
+
 function buildSystemRow(m) {
   const row = document.createElement("div");
   row.className = "system-row";
@@ -749,7 +769,11 @@ async function sendMessage({ sticker } = {}) {
     clearReply();
     sendTypingState(false);
   } catch (err) {
-    toast(err.message || "Message failed to send.");
+    const raw = err.message || "";
+    if (raw.startsWith("muted:")) toast(raw.replace("muted: ", ""));
+    else if (raw.startsWith("antilink:")) toast("Links aren't allowed in this group.");
+    else if (raw.startsWith("rate_limited:")) toast("Slow down a little.");
+    else toast(raw || "Message failed to send.");
   } finally {
     refreshSendState();
   }

@@ -143,43 +143,34 @@ function buildNewsCard(item) {
   return card;
 }
 
-/* ---------- In-app reader ----------
-   Most news sites send X-Frame-Options / frame-ancestors headers that forbid
-   being embedded. There is no way around that from the browser, so we try the
-   frame, and if nothing loads within a couple of seconds we show a card that
-   opens the publisher's own page instead. */
+/* ---------- Article reader ----------
+   The stored links are Google News redirects, and news sites send
+   X-Frame-Options / frame-ancestors headers that forbid being shown inside
+   another page. No amount of frontend code defeats that — it is enforced by
+   the browser. So the panel shows the headline properly and hands the reader
+   to the publisher, which is also what keeps this fair to them. */
 
 function wireReader() {
-  const layer = document.getElementById("readerLayer");
   document.getElementById("readerClose").addEventListener("click", () => AppNav.exitFullscreen());
-
-  document.getElementById("readerFrame").addEventListener("load", () => {
-    clearTimeout(layer._frameTimer);
-    layer.classList.remove("blocked");
-  });
 }
 
 function openReader(item) {
   const layer = document.getElementById("readerLayer");
-  const frame = document.getElementById("readerFrame");
 
   document.getElementById("readerTitle").textContent = item.source || "Article";
+  document.getElementById("readerSource").textContent =
+    `${item.source || "News"} · ${timeAgo(item.published_at)}`;
   document.getElementById("fallbackTitle").textContent = item.title;
+
+  const summary = document.getElementById("readerSummary");
+  summary.textContent = item.summary || "";
+  summary.style.display = item.summary ? "block" : "none";
+
   document.getElementById("readerOpen").href = item.url;
   document.getElementById("fallbackOpen").href = item.url;
 
-  layer.classList.add("blocked"); // assume blocked until the frame proves otherwise
   layer.classList.add("show");
-  frame.src = item.url;
-
-  clearTimeout(layer._frameTimer);
-  layer._frameTimer = setTimeout(() => layer.classList.add("blocked"), 2500);
-
-  AppNav.enterFullscreen(() => {
-    layer.classList.remove("show");
-    clearTimeout(layer._frameTimer);
-    frame.src = "about:blank";
-  });
+  AppNav.enterFullscreen(() => layer.classList.remove("show"));
 }
 
 /* ---------- People search ---------- */
