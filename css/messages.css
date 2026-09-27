@@ -177,3 +177,6 @@
 
 .member-admin-tag{ color:var(--gold-deep); font-weight:700; }
 .settings-list-row button + button{ margin-left:6px; }
+
+/* Header subtitle turns green while the other person is in the chat */
+#roomSubtitle.is-online{ color:#16a34a; font-weight:600; }
