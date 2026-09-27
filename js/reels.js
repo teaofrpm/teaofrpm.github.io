@@ -52,7 +52,7 @@ async function init() {
   moreObserver.observe(document.getElementById("reelsSentinel"));
 
   await loadMoreReels();
-  document.getElementById("loadingOverlay").classList.add("hide");
+  document.getElementById("loadingOverlay")?.classList.add("hide");
 }
 
 async function loadMoreReels() {
