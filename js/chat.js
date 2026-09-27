@@ -225,6 +225,7 @@ async function loadOlderMessages() {
 }
 
 async function renderMessage(m, reactions = [], grouped = false) {
+  if (m.is_bot) return buildBotRow(m);
   const author = await getProfile(m.user_id);
   const isOwn = m.user_id === ME.id;
   const isOwnerMsg = author && author.role === "owner";
@@ -346,6 +347,23 @@ async function renderMessage(m, reactions = [], grouped = false) {
     lastOwnMessageAt = m.created_at;
   }
 
+  return row;
+}
+
+// The bot's replies. It has no profile of its own (profiles are tied to real
+// auth accounts), so the row carries the commanding user's id and is_bot is
+// what the UI reads.
+function buildBotRow(m) {
+  const row = document.createElement("div");
+  row.className = "bot-msg-row";
+  row.dataset.msgId = m.id;
+  row.innerHTML = `
+    <img class="bot-avatar" src="images/bot.png" alt="" width="26" height="26" loading="lazy" />
+    <div class="bot-msg-body">
+      <div class="bot-msg-head"><b>teaBot</b><span class="bot-badge">BOT</span></div>
+      <div class="bot-msg-text">${linkify(escapeHTML(m.content || ""))}</div>
+      <span class="bot-msg-time">${formatTime(m.created_at)}</span>
+    </div>`;
   return row;
 }
 
@@ -747,7 +765,13 @@ async function sendMessage({ sticker }) {
     clearTimeout(typingClearTimer);
     sendTypingState(false);
   } catch (e) {
-    toast(e.message || "Message failed to send.");
+    // The database refuses muted users and blocked links; turn its raw
+    // exception text into something a person can act on.
+    const raw = e.message || "";
+    if (raw.startsWith("muted:")) toast(raw.replace("muted: ", ""));
+    else if (raw.startsWith("antilink:")) toast("Links aren't allowed here right now.");
+    else if (raw.startsWith("rate_limited:")) toast("Slow down a little.");
+    else toast(raw || "Message failed to send.");
   } finally {
     sendBtn.disabled = !(input.value.trim() || pendingImageFile || pendingAudioBlob);
   }
