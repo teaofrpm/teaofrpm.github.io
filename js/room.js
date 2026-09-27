@@ -476,9 +476,13 @@ function buildBotRow(m) {
   const row = document.createElement("div");
   row.className = "bot-msg-row";
   row.dataset.msgId = m.id;
+  // A fixed file in the repo, not a database lookup: the bot has no profile
+  // row (profiles are tied to real auth users), and a static asset the browser
+  // caches once beats fetching the same avatar for every reply.
   row.innerHTML = `
-    <span class="bot-badge">BOT</span>
+    <img class="bot-avatar" src="images/bot.png" alt="" width="26" height="26" loading="lazy" />
     <div class="bot-msg-body">
+      <div class="bot-msg-head"><b>teaBot</b><span class="bot-badge">BOT</span></div>
       <div class="bot-msg-text">${linkify(escapeHTML(m.content || ""))}</div>
       <span class="bot-msg-time">${formatTime(m.created_at)}</span>
     </div>`;
