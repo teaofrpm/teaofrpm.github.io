@@ -12,6 +12,15 @@ let mediaRecorder = null;
 let recordedChunks = [];
 let recordingTimer = null;
 let lastRenderedDay = null;
+let replyingTo = null;
+let STICKER_URLS = [];
+let presenceChannel = null;
+let typingClearTimer = null;
+let isTypingBroadcasted = false;
+let searchDebounceTimer = null;
+const typingUsers = new Map();
+const messageCache = new Map();   // id -> message, so a reply preview needn't refetch
+const reactionsByMsg = new Map(); // message id -> its reaction rows
 
 async function init() {
   const session = await requireSession("index.html");
@@ -46,9 +55,13 @@ async function init() {
   wireInfoSheet();
   document.getElementById("lightbox").addEventListener("click", () => document.getElementById("lightbox").classList.remove("show"));
 
+  wireSearch();
+  loadStickers();
+
   Skeleton.show("chat", "messages", 6);
   await loadMessages();
   subscribeMessages();
+  subscribePresence();
   markRead();
 
   document.addEventListener("visibilitychange", () => { if (!document.hidden) markRead(); });
@@ -114,7 +127,12 @@ async function loadMessages() {
   if (error) { toast("Could not load messages."); return; }
 
   const ordered = [...(data || [])].reverse();
+  ordered.forEach(m => messageCache.set(m.id, m));
   await getProfiles(ordered.map(m => m.user_id));
+
+  // One query for every reaction on screen, not one per message.
+  const map = await fetchReactions(ordered.map(m => m.id));
+  map.forEach((v, k) => reactionsByMsg.set(k, v));
 
   const container = document.getElementById("messages");
   container.innerHTML = "";
@@ -135,11 +153,6 @@ function appendMessage(m, container) {
 
   if (m.call_id) {
     container.appendChild(buildCallLogRow(m));
-    return;
-  }
-
-  if (m.is_system) {
-    container.appendChild(buildSystemRow(m));
     return;
   }
 
@@ -173,6 +186,29 @@ function appendMessage(m, container) {
 
   const bubble = document.createElement("div");
   bubble.className = "bubble";
+  if (m.sticker_url && !m.content && !m.image_url) bubble.classList.add("sticker-only");
+
+  if (m.reply_to) {
+    const replyPrev = document.createElement("div");
+    replyPrev.className = "reply-preview";
+    replyPrev.textContent = "Original message";
+    findMessageById(m.reply_to).then(async (original) => {
+      if (!original) return;
+      const origAuthor = await getProfile(original.user_id);
+      replyPrev.innerHTML = `<b>${escapeHTML(origAuthor?.display_name || "…")}</b>: ${escapeHTML(previewText(original))}`;
+    });
+    replyPrev.addEventListener("click", () => jumpToMessage(m.reply_to));
+    bubble.appendChild(replyPrev);
+  }
+
+  if (m.sticker_url) {
+    const img = document.createElement("img");
+    img.className = "sticker-img";
+    img.src = m.sticker_url;
+    img.loading = "lazy";
+    img.addEventListener("click", () => openLightbox(m.sticker_url));
+    bubble.appendChild(img);
+  }
 
   if (m.audio_url) {
     const audio = document.createElement("audio");
@@ -209,27 +245,219 @@ function appendMessage(m, container) {
   if (m.content) {
     const txt = document.createElement("div");
     txt.className = "msg-text";
-    txt.textContent = m.content;
-    if (m.image_url || m.audio_url) txt.style.marginTop = "6px";
+    txt.innerHTML = linkify(escapeHTML(m.content)) + (m.edited_at ? ` <span class="edited-tag">(edited)</span>` : "");
+    if (m.image_url || m.audio_url || m.sticker_url) txt.style.marginTop = "6px";
     bubble.appendChild(txt);
   }
 
-  if (isOwn) {
-    const actions = document.createElement("div");
-    actions.className = "msg-actions";
-    actions.innerHTML = `<button class="delete-btn" title="Delete">${svgIcon("trash", 14)}</button>`;
-    actions.querySelector("button").addEventListener("click", async () => {
-      if (!confirm("Delete this message?")) return;
-      const { error } = await sb.from("messages").update({ deleted: true }).eq("id", m.id).eq("user_id", ME.id);
-      if (error) { toast(error.message || "Could not delete."); return; }
-      row.remove();
+  const actions = document.createElement("div");
+  actions.className = "msg-actions";
+  actions.innerHTML = `
+    <button class="react-btn" title="React">${svgIcon("smilePlus", 14)}</button>
+    <button class="reply-btn" title="Reply">${svgIcon("reply", 14)}</button>
+    ${m.content ? `<button class="copy-btn" title="Copy text">${svgIcon("copy", 14)}</button>` : ""}
+    ${isOwn && m.content ? `<button class="edit-btn" title="Edit">${svgIcon("edit", 14)}</button>` : ""}
+    ${isOwn ? `<button class="delete-btn" title="Delete">${svgIcon("trash", 14)}</button>` : ""}
+  `;
+  bubble.appendChild(actions);
+
+  actions.querySelector(".reply-btn").addEventListener("click", () => startReply(m, author));
+  actions.querySelector(".react-btn").addEventListener("click", () => openEmojiPicker(bubble, m.id));
+  if (m.content) {
+    actions.querySelector(".copy-btn").addEventListener("click", () => {
+      navigator.clipboard.writeText(m.content).then(() => toast("Copied"));
     });
-    bubble.appendChild(actions);
+  }
+  if (isOwn && m.content) {
+    actions.querySelector(".edit-btn").addEventListener("click", () => startEditMessage(m, bubble));
+  }
+  if (isOwn) {
+    actions.querySelector(".delete-btn").addEventListener("click", () => deleteMessage(m.id, row));
   }
 
   wrap.appendChild(bubble);
+
+  const reactRow = document.createElement("div");
+  reactRow.className = "reactions-row";
+  wrap.appendChild(reactRow);
+  renderReactions(reactRow, m.id, reactionsByMsg.get(m.id) || []);
+
   row.appendChild(wrap);
   container.appendChild(row);
+}
+
+/* ---------- Message actions ---------- */
+
+function linkify(safeText) {
+  return safeText.replace(/(https?:\/\/[^\s]+)/g, (url) => {
+    const trimmed = url.replace(/[.,!?)\]]+$/, "");
+    return `<a href="${trimmed}" target="_blank" rel="noopener noreferrer">${trimmed}</a>${url.slice(trimmed.length)}`;
+  });
+}
+
+function previewText(m) {
+  if (m.content) return m.content.slice(0, 60);
+  if (m.image_url) return "Photo";
+  if (m.sticker_url) return "Sticker";
+  if (m.audio_url) return "Voice note";
+  return "message";
+}
+
+async function findMessageById(id) {
+  if (messageCache.has(id)) return messageCache.get(id);
+  const { data } = await sb.from("messages").select("*").eq("id", id).maybeSingle();
+  if (data) messageCache.set(id, data);
+  return data;
+}
+
+function jumpToMessage(id) {
+  const target = document.querySelector(`[data-msg-id="${id}"]`);
+  if (!target) { toast("That message is further up — scroll back to see it."); return; }
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
+  const bubble = target.querySelector(".bubble");
+  bubble.classList.add("highlight-flash");
+  setTimeout(() => bubble.classList.remove("highlight-flash"), 1500);
+}
+
+function openLightbox(src) {
+  document.getElementById("lightboxImg").src = src;
+  document.getElementById("lightbox").classList.add("show");
+}
+
+async function deleteMessage(id, row) {
+  if (!confirm("Delete this message?")) return;
+  const { error } = await sb.from("messages").update({ deleted: true })
+    .eq("id", id).eq("user_id", ME.id);
+  if (error) { toast(error.message || "Could not delete."); return; }
+  row.remove();
+}
+
+function startEditMessage(m, bubble) {
+  const textEl = bubble.querySelector(".msg-text");
+  if (!textEl || bubble.querySelector(".edit-box")) return;
+
+  const editBox = document.createElement("textarea");
+  editBox.className = "edit-box";
+  editBox.rows = 2;
+  editBox.value = m.content || "";
+  textEl.replaceWith(editBox);
+  editBox.focus();
+  editBox.setSelectionRange(editBox.value.length, editBox.value.length);
+
+  const bar = document.createElement("div");
+  bar.className = "edit-actions";
+  bar.innerHTML = `<button class="edit-cancel">Cancel</button><button class="edit-save">Save</button>`;
+  editBox.insertAdjacentElement("afterend", bar);
+
+  function restore(content) {
+    const restored = document.createElement("div");
+    restored.className = "msg-text";
+    restored.innerHTML = linkify(escapeHTML(content)) + (m.edited_at ? ` <span class="edited-tag">(edited)</span>` : "");
+    editBox.replaceWith(restored);
+    bar.remove();
+  }
+
+  bar.querySelector(".edit-cancel").addEventListener("click", () => restore(m.content));
+  bar.querySelector(".edit-save").addEventListener("click", async () => {
+    const newText = editBox.value.trim();
+    if (!newText) { toast("Message can't be empty."); return; }
+    if (newText === m.content) { restore(m.content); return; }
+    const editedAt = new Date().toISOString();
+    const { error } = await sb.from("messages")
+      .update({ content: newText, edited_at: editedAt })
+      .eq("id", m.id).eq("user_id", ME.id);
+    if (error) { toast(error.message || "Could not edit."); return; }
+    m.content = newText;
+    m.edited_at = editedAt;
+    restore(newText);
+  });
+}
+
+/* ---------- Reactions ---------- */
+
+async function fetchReactions(ids) {
+  if (!ids.length) return new Map();
+  const { data } = await sb.from("message_reactions").select("*").in("message_id", ids);
+  const map = new Map();
+  for (const r of data || []) {
+    if (!map.has(r.message_id)) map.set(r.message_id, []);
+    map.get(r.message_id).push(r);
+  }
+  return map;
+}
+
+function renderReactions(container, messageId, reactions) {
+  container.innerHTML = "";
+  const grouped = {};
+  for (const r of reactions) (grouped[r.emoji] = grouped[r.emoji] || []).push(r);
+
+  for (const [emoji, rows] of Object.entries(grouped)) {
+    const mine = rows.some(r => r.user_id === ME.id);
+    const chip = document.createElement("span");
+    chip.className = `reaction-chip ${mine ? "mine" : ""}`;
+    chip.textContent = `${emoji} ${rows.length}`;
+    chip.addEventListener("click", () => toggleReaction(messageId, emoji, mine));
+    container.appendChild(chip);
+  }
+}
+
+async function toggleReaction(messageId, emoji, alreadyMine) {
+  if (alreadyMine) {
+    await sb.from("message_reactions").delete()
+      .eq("message_id", messageId).eq("user_id", ME.id).eq("emoji", emoji);
+  } else {
+    await sb.from("message_reactions").insert({ message_id: messageId, user_id: ME.id, emoji });
+  }
+  await refreshReactionsFor(messageId);
+}
+
+async function refreshReactionsFor(messageId) {
+  const row = document.querySelector(`[data-msg-id="${messageId}"] .reactions-row`);
+  if (!row) return;
+  const map = await fetchReactions([messageId]);
+  reactionsByMsg.set(messageId, map.get(messageId) || []);
+  renderReactions(row, messageId, reactionsByMsg.get(messageId));
+}
+
+function openEmojiPicker(bubble, messageId) {
+  document.querySelectorAll(".emoji-picker").forEach(e => e.remove());
+  const quick = ["❤️", "😂", "👍", "👎", "😮", "😢", "🙏", "🔥", "🎉", "😍", "😡", "👏"];
+
+  const picker = document.createElement("div");
+  picker.className = "emoji-picker";
+  picker.innerHTML = quick.map(e => `<span>${e}</span>`).join("");
+  bubble.appendChild(picker);
+
+  picker.querySelectorAll("span").forEach(span => {
+    span.addEventListener("click", async () => {
+      await toggleReaction(messageId, span.textContent, false);
+      picker.remove();
+    });
+  });
+
+  setTimeout(() => {
+    document.addEventListener("click", function closeOnce(e) {
+      if (!picker.contains(e.target)) {
+        picker.remove();
+        document.removeEventListener("click", closeOnce);
+      }
+    });
+  }, 10);
+}
+
+/* ---------- Reply ---------- */
+
+function startReply(m, author) {
+  replyingTo = { id: m.id, name: author?.display_name || "Unknown", text: previewText(m) };
+  document.getElementById("replyToName").textContent = replyingTo.name;
+  document.getElementById("replyToText").textContent = replyingTo.text;
+  document.getElementById("replyBar").classList.add("show");
+  document.getElementById("msgInput").focus();
+}
+
+function clearReply() {
+  replyingTo = null;
+  document.getElementById("replyBar").classList.remove("show");
 }
 
 async function getSharedPostAuthor(postId) {
@@ -256,20 +484,6 @@ function buildSystemRow(m) {
 
 // Written by the database itself whenever the group name, photo or theme
 // changes, so the record of who changed what can't be faked by a client.
-function buildSystemRow(m) {
-  const who = profileCache.get(m.user_id);
-  const name = who ? (who.id === ME.id ? "You" : who.display_name) : "Someone";
-
-  const row = document.createElement("div");
-  row.className = "system-msg-row";
-  row.dataset.msgId = m.id;
-  row.innerHTML = `<span class="system-msg-chip">
-      <b>${escapeHTML(name)}</b> ${escapeHTML(m.content || "made a change")}
-      <small>${formatTime(m.created_at)}</small>
-    </span>`;
-  return row;
-}
-
 function buildCallLogRow(m) {
   const row = document.createElement("div");
   row.className = "call-log-row";
@@ -312,7 +526,9 @@ function subscribeMessages() {
       filter: `conversation_id=eq.${convo.id}`,
     }, async ({ new: m }) => {
       if (document.querySelector(`[data-msg-id="${m.id}"]`)) return;
+      messageCache.set(m.id, m);
       await getProfile(m.user_id);
+      clearTypingUser(m.user_id);
       const container = document.getElementById("messages");
       const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 160;
       appendMessage(m, container);
@@ -323,7 +539,20 @@ function subscribeMessages() {
       event: "UPDATE", schema: "public", table: "messages",
       filter: `conversation_id=eq.${convo.id}`,
     }, ({ new: m }) => {
-      if (m.deleted) document.querySelector(`[data-msg-id="${m.id}"]`)?.remove();
+      const row = document.querySelector(`[data-msg-id="${m.id}"]`);
+      if (m.deleted) { row?.remove(); return; }
+      messageCache.set(m.id, m);
+      const txt = row?.querySelector(".msg-text");
+      if (txt && !row.querySelector(".edit-box")) {
+        txt.innerHTML = linkify(escapeHTML(m.content || "")) +
+          (m.edited_at ? ` <span class="edited-tag">(edited)</span>` : "");
+      }
+    })
+    .on("postgres_changes", {
+      event: "*", schema: "public", table: "message_reactions",
+    }, ({ new: n, old: o }) => {
+      const id = n?.message_id || o?.message_id;
+      if (id && document.querySelector(`[data-msg-id="${id}"]`)) refreshReactionsFor(id);
     })
     .subscribe();
 
@@ -343,15 +572,6 @@ function subscribeMessages() {
     })
     .subscribe();
 
-  sb.channel(`convo:${convo.id}`)
-    .on("postgres_changes", {
-      event: "UPDATE", schema: "public", table: "conversations",
-      filter: `id=eq.${convo.id}`,
-    }, ({ new: c }) => {
-      convo = { ...convo, ...c };
-      renderHeader();
-    })
-    .subscribe();
 }
 
 async function markRead() {
@@ -405,7 +625,7 @@ function wireComposer() {
     if (file) await handlePickedImage(file, "Pasted photo");
   });
 
-  sendBtn.addEventListener("click", sendMessage);
+  sendBtn.addEventListener("click", () => sendMessage());
 
   document.getElementById("imageInput").addEventListener("change", async (e) => {
     const file = e.target.files[0];
@@ -415,6 +635,14 @@ function wireComposer() {
   document.getElementById("removeAttach").addEventListener("click", () => { clearPendingImage(); refreshSendState(); });
   document.getElementById("removeAudioAttach").addEventListener("click", () => { clearPendingAudio(); refreshSendState(); });
   document.getElementById("voiceBtn").addEventListener("click", toggleVoiceRecording);
+
+  document.getElementById("cancelReply").addEventListener("click", clearReply);
+
+  document.getElementById("stickerToggle").addEventListener("click", () => {
+    document.getElementById("stickerPanel").classList.toggle("show");
+  });
+
+  wireTypingBroadcast(input);
 }
 
 async function handlePickedImage(file, label) {
@@ -476,11 +704,11 @@ async function toggleVoiceRecording() {
   }
 }
 
-async function sendMessage() {
+async function sendMessage({ sticker } = {}) {
   const input = document.getElementById("msgInput");
   const sendBtn = document.getElementById("sendBtn");
   const text = input.value.trim();
-  if (!text && !pendingImageFile && !pendingAudioBlob) return;
+  if (!text && !pendingImageFile && !pendingAudioBlob && !sticker) return;
 
   sendBtn.disabled = true;
 
@@ -509,6 +737,8 @@ async function sendMessage() {
       content: text || null,
       image_url,
       audio_url,
+      sticker_url: sticker || null,
+      reply_to: replyingTo?.id || null,
     });
     if (error) throw error;
 
@@ -516,10 +746,236 @@ async function sendMessage() {
     input.style.height = "auto";
     clearPendingImage();
     clearPendingAudio();
+    clearReply();
+    sendTypingState(false);
   } catch (err) {
     toast(err.message || "Message failed to send.");
   } finally {
     refreshSendState();
+  }
+}
+
+/* ---------- Stickers ---------- */
+
+const RECENT_STICKERS_KEY = "teaofrpm_recent_stickers";
+
+async function loadStickers() {
+  const { data, error } = await sb.from("stickers").select("*")
+    .order("created_at", { ascending: false });
+
+  STICKER_URLS = error ? [] : (data || []).map(st => ({
+    url: sb.storage.from("stickers").getPublicUrl(st.storage_path).data.publicUrl,
+    label: st.label || "sticker",
+  }));
+  buildStickerPanel();
+}
+
+function getRecentStickers() {
+  try { return JSON.parse(localStorage.getItem(RECENT_STICKERS_KEY)) || []; }
+  catch { return []; }
+}
+
+function saveRecentSticker(sticker) {
+  const recents = getRecentStickers().filter(st => st.url !== sticker.url);
+  recents.unshift(sticker);
+  localStorage.setItem(RECENT_STICKERS_KEY, JSON.stringify(recents.slice(0, 8)));
+}
+
+function buildStickerPanel() {
+  const panel = document.getElementById("stickerPanel");
+  if (!panel) return;
+
+  if (!STICKER_URLS.length) {
+    panel.innerHTML = `<span style="grid-column:1/-1; font-size:12.5px; color:var(--text-muted); padding:8px;">No stickers yet.</span>`;
+    return;
+  }
+
+  const recents = getRecentStickers().filter(r => STICKER_URLS.some(st => st.url === r.url));
+  const asImg = st => `<img src="${st.url}" alt="${escapeHTML(st.label)}" title="${escapeHTML(st.label)}" loading="lazy" />`;
+
+  let html = "";
+  if (recents.length) {
+    html += `<span class="sticker-section-label">Recently used</span>${recents.map(asImg).join("")}`;
+    html += `<span class="sticker-section-label">All stickers</span>`;
+  }
+  html += STICKER_URLS.map(asImg).join("");
+  panel.innerHTML = html;
+
+  panel.querySelectorAll("img").forEach((el) => {
+    el.addEventListener("click", () => {
+      const sticker = STICKER_URLS.find(st => st.url === el.src);
+      if (!sticker) return;
+      saveRecentSticker(sticker);
+      buildStickerPanel();
+      panel.classList.remove("show");
+      sendMessage({ sticker: sticker.url });
+    });
+  });
+}
+
+/* ---------- Typing indicator and presence ----------
+   Typing is a broadcast, not a table write: it changes many times a second
+   and nobody needs it after the moment has passed, so storing it would be
+   pure waste. Presence is Supabase's own tracker on the same channel. */
+
+function subscribePresence() {
+  presenceChannel = sb.channel(`room-presence:${convo.id}`, {
+    config: { presence: { key: ME.id } },
+  });
+
+  presenceChannel
+    .on("broadcast", { event: "typing" }, ({ payload }) => handleTypingBroadcast(payload))
+    .on("presence", { event: "sync" }, () => renderPresence())
+    .subscribe(async (status) => {
+      if (status === "SUBSCRIBED") {
+        await presenceChannel.track({ user_id: ME.id, online_at: new Date().toISOString() });
+      }
+    });
+
+  window.addEventListener("beforeunload", () => sendTypingState(false));
+}
+
+function renderPresence() {
+  const sub = document.getElementById("roomSubtitle");
+  if (!sub) return;
+
+  const state = presenceChannel?.presenceState() || {};
+  const onlineIds = new Set(Object.keys(state));
+
+  if (convo.kind === "dm") {
+    const other = members.find(m => m.user_id !== ME.id);
+    const isOnline = other && onlineIds.has(other.user_id);
+    sub.textContent = isOnline ? "Online" : (otherUser ? `@${otherUser.username}` : "");
+    sub.classList.toggle("is-online", !!isOnline);
+    return;
+  }
+
+  // In a group, count everyone currently in the room besides yourself.
+  const othersOnline = members.filter(m => m.user_id !== ME.id && onlineIds.has(m.user_id)).length;
+  sub.textContent = othersOnline
+    ? `${members.length} members · ${othersOnline} online`
+    : `${members.length} members`;
+  sub.classList.toggle("is-online", othersOnline > 0);
+}
+
+function wireTypingBroadcast(input) {
+  input.addEventListener("input", () => {
+    if (!input.value.trim()) { sendTypingState(false); return; }
+    sendTypingState(true);
+    clearTimeout(typingClearTimer);
+    typingClearTimer = setTimeout(() => sendTypingState(false), 2000);
+  });
+}
+
+function sendTypingState(typing) {
+  if (typing === isTypingBroadcasted) return;
+  isTypingBroadcasted = typing;
+  presenceChannel?.send({
+    type: "broadcast",
+    event: "typing",
+    payload: { user_id: ME.id, display_name: ME.display_name, typing },
+  });
+}
+
+function handleTypingBroadcast(payload) {
+  if (!payload || payload.user_id === ME.id) return;
+
+  if (!payload.typing) { clearTypingUser(payload.user_id); return; }
+
+  const existing = typingUsers.get(payload.user_id);
+  if (existing) clearTimeout(existing.timeoutId);
+  // If the sender's "stopped" broadcast never arrives, drop it ourselves.
+  const timeoutId = setTimeout(() => clearTypingUser(payload.user_id), 4000);
+  typingUsers.set(payload.user_id, { display_name: payload.display_name, timeoutId });
+  renderTypingIndicator();
+}
+
+function clearTypingUser(userId) {
+  const existing = typingUsers.get(userId);
+  if (!existing) return;
+  clearTimeout(existing.timeoutId);
+  typingUsers.delete(userId);
+  renderTypingIndicator();
+}
+
+function renderTypingIndicator() {
+  const el = document.getElementById("typingIndicator");
+  if (!el) return;
+  const names = [...typingUsers.values()].map(t => t.display_name);
+
+  if (!names.length) { el.textContent = ""; el.classList.remove("show"); return; }
+
+  el.textContent = names.length === 1
+    ? `${names[0]} is typing…`
+    : names.length === 2
+      ? `${names[0]} and ${names[1]} are typing…`
+      : `${names.slice(0, 2).join(", ")} and ${names.length - 2} others are typing…`;
+  el.classList.add("show");
+}
+
+/* ---------- Search inside this conversation ---------- */
+
+function wireSearch() {
+  const toggle = document.getElementById("searchToggle");
+  const panel = document.getElementById("searchPanel");
+  const input = document.getElementById("searchInput");
+  const results = document.getElementById("searchResults");
+  if (!toggle) return;
+
+  toggle.addEventListener("click", () => {
+    const open = panel.classList.toggle("show");
+    if (open) input.focus();
+    else { input.value = ""; results.innerHTML = ""; }
+  });
+
+  input.addEventListener("input", () => {
+    clearTimeout(searchDebounceTimer);
+    const term = input.value.trim();
+    if (!term) { results.innerHTML = ""; return; }
+    searchDebounceTimer = setTimeout(() => runMessageSearch(term), 320);
+  });
+}
+
+async function runMessageSearch(term) {
+  const results = document.getElementById("searchResults");
+  results.innerHTML = `<div class="search-hint">Searching…</div>`;
+
+  // % and _ are wildcards in ilike, so a literal one must be escaped
+  const safe = term.replace(/[%_]/g, m => `\\${m}`);
+  const { data, error } = await sb.from("messages").select("*")
+    .eq("conversation_id", convo.id)
+    .eq("deleted", false)
+    .ilike("content", `%${safe}%`)
+    .order("created_at", { ascending: false })
+    .limit(30);
+
+  if (error) { results.innerHTML = `<div class="search-hint">Search failed.</div>`; return; }
+  if (!data.length) { results.innerHTML = `<div class="search-hint">No messages found.</div>`; return; }
+
+  await getProfiles(data.map(m => m.user_id));
+  results.innerHTML = "";
+
+  for (const m of data) {
+    const author = profileCache.get(m.user_id);
+    const row = document.createElement("div");
+    row.className = "search-result-row";
+
+    const av = document.createElement("div");
+    av.className = "avatar";
+    av.style.width = "26px"; av.style.height = "26px"; av.style.fontSize = "10px";
+    setAvatarContent(av, author);
+    row.appendChild(av);
+
+    const text = document.createElement("div");
+    text.className = "search-result-text";
+    text.innerHTML = `<b>${escapeHTML(author?.display_name || "Unknown")}</b> · <span>${formatTime(m.created_at)}</span><br>${escapeHTML(m.content)}`;
+    row.appendChild(text);
+
+    row.addEventListener("click", () => {
+      document.getElementById("searchPanel").classList.remove("show");
+      jumpToMessage(m.id);
+    });
+    results.appendChild(row);
   }
 }
 
