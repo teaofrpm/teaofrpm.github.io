@@ -97,12 +97,23 @@ let myNote = null;
 
 async function loadNotes() {
   const rail = document.getElementById("notesRail");
+  if (!rail) return;
+
+  // Draw "Leave a note" straight away, before the network call. If the
+  // request is slow or fails, the user still sees something to tap instead
+  // of an empty strip that looks like the feature was never added.
+  rail.innerHTML = "";
+  rail.appendChild(buildNote(ME, null, true));
 
   const { data, error } = await sb.from("notes")
     .select("user_id,content,created_at")
     .order("created_at", { ascending: false });
 
-  if (error) { rail.innerHTML = ""; return; }
+  if (error) {
+    console.error("notes load failed:", error);
+    toast("Couldn't load notes.");
+    return;
+  }
 
   const notes = data || [];
   myNote = notes.find(n => n.user_id === ME.id) || null;
