@@ -248,3 +248,28 @@
 .note-counter{ margin-top:7px; font-size:11.5px; color:var(--text-muted); }
 .note-sheet-actions{ display:flex; gap:9px; margin-top:14px; }
 .note-sheet-actions .btn, .note-sheet-actions .btn-outline{ flex:1; }
+
+/* ===== Group bot ===== */
+.bot-msg-row{
+  display:flex; align-items:flex-start; gap:8px;
+  margin:10px 0;
+  padding:9px 12px;
+  border-radius:12px;
+  background:var(--warm-cream);
+  border:1px solid var(--border-soft);
+  border-left:3px solid var(--gold-deep);
+}
+.bot-badge{
+  flex-shrink:0;
+  background:linear-gradient(135deg, var(--gold-warm), var(--gold-deep));
+  color:#3a2400;
+  font-size:9px; font-weight:800; letter-spacing:.5px;
+  padding:2px 6px; border-radius:5px;
+  margin-top:1px;
+}
+.bot-msg-body{ flex:1; min-width:0; }
+.bot-msg-text{
+  font-size:13px; line-height:1.5; color:var(--text-dark);
+  white-space:pre-wrap; word-break:break-word;
+}
+.bot-msg-time{ font-size:10.5px; color:var(--text-muted); }
