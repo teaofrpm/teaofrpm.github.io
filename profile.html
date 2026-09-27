@@ -75,6 +75,15 @@
       <div class="field">
         <label>Bio</label>
         <textarea id="editBio" rows="3" maxlength="160" style="resize:none; font-family:var(--sans); font-size:15px; padding:12px 14px; border-radius:8px; border:1px solid var(--border-soft); background:var(--white); outline:none;"></textarea>
+        <div class="field-counter"><span id="bioCount">0</span>/160</div>
+      </div>
+      <div class="field">
+        <label>Website</label>
+        <input id="editWebsite" type="url" maxlength="120" placeholder="https://example.com" autocapitalize="off" />
+      </div>
+      <div class="field">
+        <label>Profile photo</label>
+        <button class="btn-outline btn btn-small" id="removePfpBtn" type="button" style="width:100%;">Remove current photo</button>
       </div>
       <label class="private-toggle-row">
         <input type="checkbox" id="editPrivate" />

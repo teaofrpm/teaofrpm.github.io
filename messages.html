@@ -34,6 +34,9 @@
   </div>
 
   <div class="profile-scroll" id="inboxScroll">
+
+    <div class="notes-rail" id="notesRail"></div>
+
     <a class="thread-row pinned" href="chat.html">
       <span class="avatar thread-avatar">RPM</span>
       <div class="thread-text">
@@ -45,6 +48,21 @@
   </div>
 
   <nav id="appNav" data-active="messages" data-scroll-el="inboxScroll"></nav>
+</div>
+
+<div class="app-sheet-backdrop" id="noteSheet">
+  <div class="app-sheet">
+    <div class="app-sheet-handle"></div>
+    <div class="app-sheet-title">Leave a note</div>
+    <div class="note-sheet-body">
+      <textarea id="noteInput" rows="2" maxlength="60" placeholder="Share a thought…"></textarea>
+      <div class="note-counter"><span id="noteCount">0</span>/60 · disappears in 24 hours</div>
+      <div class="note-sheet-actions">
+        <button class="btn-outline btn btn-small" id="noteDeleteBtn" style="display:none;">Delete note</button>
+        <button class="btn btn-small" id="noteSaveBtn">Share</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="app-sheet-backdrop" id="newDmSheet">
