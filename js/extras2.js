@@ -43,7 +43,6 @@
     feature("multi-select delete", multiSelectDelete);
     feature("forward message", forwardMessage);
     feature("global message search", globalMessageSearch);
-    feature("export chat", exportChat);
     feature("unread count in tab title", unreadTabTitle);
   }
 
@@ -64,10 +63,9 @@
   // A small menu is added to every message's action bar, next to the
   // existing reply/react/copy buttons, without touching the code that
   // builds those buttons.
-  function addToActionBar(row, build) {
+  function addToActionBar(row, cls, build) {
     const bar = row.querySelector(".msg-actions");
-    if (!bar || bar.dataset.extras2) return;
-    bar.dataset.extras2 = "1";
+    if (!bar || bar.querySelector("." + cls)) return;   // this feature's own button, not a shared flag
     build(bar, row);
   }
 
@@ -89,7 +87,7 @@
     watchMessages(() => {
       document.querySelectorAll("[data-msg-id]").forEach((row) => {
         if (row.classList.contains("bot-msg-row") || row.classList.contains("system-msg-row")) return;
-        addToActionBar(row, (bar) => {
+        addToActionBar(row, "star-btn", (bar) => {
           const b = document.createElement("button");
           b.className = "star-btn";
           b.title = "Save message";
@@ -196,7 +194,7 @@
     watchMessages(() => {
       document.querySelectorAll("[data-msg-id]").forEach((row) => {
         if (row.classList.contains("bot-msg-row") || row.classList.contains("system-msg-row")) return;
-        addToActionBar(row, (bar) => {
+        addToActionBar(row, "pin-msg-btn", (bar) => {
           const b = document.createElement("button");
           b.className = "pin-msg-btn";
           b.title = "Pin this message";
@@ -314,7 +312,7 @@
       watchMessages(() => {
         document.querySelectorAll("[data-msg-id]").forEach((row) => {
           if (row.classList.contains("bot-msg-row") || row.classList.contains("system-msg-row")) return;
-          addToActionBar(row, (bar) => {
+          addToActionBar(row, "report-msg-btn", (bar) => {
             const b = document.createElement("button");
             b.className = "report-msg-btn";
             b.title = "Report";
@@ -480,7 +478,7 @@
     watchMessages(() => {
       document.querySelectorAll("[data-msg-id]").forEach((row) => {
         if (row.classList.contains("bot-msg-row") || row.classList.contains("system-msg-row")) return;
-        addToActionBar(row, (bar) => {
+        addToActionBar(row, "forward-btn", (bar) => {
           const b = document.createElement("button");
           b.className = "forward-btn";
           b.title = "Forward";
@@ -602,48 +600,6 @@
         results.appendChild(row);
       }
     }
-  }
-
-  /* ---------- 10. Export the open conversation as a text file ---------- */
-
-  function exportChat() {
-    if (!isChat) return;
-    const host = document.querySelector(".room-topbar, .chat-topbar, .profile-topbar");
-    if (!host) return;
-
-    const btn = document.createElement("button");
-    btn.className = "header-icon-btn";
-    btn.title = "Export chat as text";
-    btn.textContent = "⬇";
-    host.appendChild(btn);
-
-    btn.addEventListener("click", async () => {
-      const convo = currentConvoId();
-      let query = sb.from("messages")
-        .select("content,user_id,created_at,is_bot,is_system")
-        .eq("deleted", false)
-        .order("created_at", { ascending: true })
-        .limit(5000);
-      query = convo ? query.eq("conversation_id", convo) : query.is("conversation_id", null);
-      const { data, error } = await query;
-
-      if (error || !data) { say("Could not export."); return; }
-      await getProfiles(data.map(m => m.user_id).filter(Boolean));
-
-      const lines = data.map(m => {
-        const who = m.is_bot ? "teaBot" : m.is_system ? "System" : (profileCache.get(m.user_id)?.display_name || "Unknown");
-        const when = new Date(m.created_at).toLocaleString();
-        return `[${when}] ${who}: ${m.content || "(media)"}`;
-      });
-
-      const blob = new Blob([lines.join("\n")], { type: "text/plain" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `teaofrpm-chat-${convo || "public-room"}.txt`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-      say("Chat exported");
-    });
   }
 
   /* ---------- 11. Unread count shows in the browser tab title ---------- */
