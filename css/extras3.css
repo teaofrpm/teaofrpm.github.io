@@ -214,3 +214,106 @@
 @media (prefers-reduced-motion:reduce){
   .x3-streak.at-risk, .x3-dictate.listening, .x3-catchup{ animation:none; }
 }
+
+/* ============================================================
+   The + menu (replaces the old ✨ and Aa buttons)
+   ============================================================ */
+.x3-plus-btn svg{ transition:transform .28s cubic-bezier(.34,1.56,.64,1); }
+.x3-plus-btn.open{ background:var(--gold-deep) !important; color:#3a2400 !important; }
+.x3-plus-btn.open svg{ transform:rotate(135deg); }          /* + turns into × */
+
+.x3-plus{
+  position:absolute; left:10px; bottom:calc(100% + 8px);
+  width:min(340px, calc(100vw - 20px));
+  padding:12px;
+  background:var(--white);
+  border:1px solid var(--border-soft);
+  border-radius:20px;
+  box-shadow:0 14px 34px rgba(0,0,0,.22);
+  z-index:60;
+  opacity:0; pointer-events:none;
+  transform:translateY(10px) scale(.94);
+  transform-origin:bottom left;
+  transition:opacity .18s ease, transform .24s cubic-bezier(.34,1.4,.64,1);
+}
+.x3-plus.show{ opacity:1; pointer-events:auto; transform:none; }
+
+.x3-plus-emoji{
+  display:flex; justify-content:space-between;
+  padding-bottom:10px; margin-bottom:10px;
+  border-bottom:1px solid var(--border-soft);
+}
+.x3-plus-emoji button{
+  width:34px; height:34px; border:none; border-radius:10px;
+  background:none; font-size:20px; line-height:1; cursor:pointer;
+  transition:transform .18s cubic-bezier(.34,1.56,.64,1), background .15s ease;
+}
+.x3-plus-emoji button:active{ transform:scale(.8); }
+
+.x3-plus-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(62px, 1fr)); gap:6px 4px; }
+.x3-tile{
+  display:flex; flex-direction:column; align-items:center; gap:6px;
+  padding:6px 2px; border:none; border-radius:14px;
+  background:none; cursor:pointer; font-family:inherit;
+  opacity:0; transform:translateY(8px);
+  transition:background .15s ease;
+}
+.x3-plus.show .x3-tile{ animation:x5TileIn .32s cubic-bezier(.34,1.4,.64,1) forwards; animation-delay:calc(var(--i) * 35ms); }
+@keyframes x5TileIn{ to{ opacity:1; transform:none; } }
+.x3-tile-ic{
+  width:46px; height:46px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  color:#fff;
+  box-shadow:0 4px 10px rgba(0,0,0,.14);
+  transition:transform .22s cubic-bezier(.34,1.56,.64,1);
+}
+.x3-tile-label{ font-size:11px; font-weight:600; color:var(--text-dark); white-space:nowrap; }
+.x3-t-poll  .x3-tile-ic{ background:linear-gradient(135deg,#8b5cf6,#6d28d9); }
+.x3-t-cd    .x3-tile-ic{ background:linear-gradient(135deg,#fbbf24,#d97706); }
+.x3-t-sch   .x3-tile-ic{ background:linear-gradient(135deg,#38bdf8,#0284c7); }
+.x3-t-top   .x3-tile-ic{ background:linear-gradient(135deg,#facc15,#ca8a04); }
+.x3-t-voice .x3-tile-ic{ background:linear-gradient(135deg,#f87171,#dc2626); }
+.x3-tile:active .x3-tile-ic{ transform:scale(.88); }
+
+.x3-plus-lang{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  margin-top:10px; padding-top:10px;
+  border-top:1px solid var(--border-soft);
+  font-size:11.5px; color:var(--text-muted);
+}
+.x3-seg{ display:flex; padding:2px; border-radius:999px; background:var(--warm-cream); border:1px solid var(--border-soft); }
+.x3-seg button{
+  padding:5px 11px; border:none; border-radius:999px; background:none;
+  font-size:11.5px; font-weight:700; color:var(--text-muted); cursor:pointer; font-family:inherit;
+  transition:background .18s ease, color .18s ease;
+}
+.x3-seg button.on{ background:var(--gold-deep); color:#3a2400; }
+
+/* listening pill (voice typing) */
+.x3-listening{
+  position:absolute; left:50%; bottom:calc(100% + 8px);
+  display:flex; align-items:center; gap:9px;
+  padding:7px 8px 7px 12px;
+  border-radius:999px;
+  background:#dc2626; color:#fff;
+  box-shadow:0 8px 20px rgba(220,38,38,.35);
+  font-size:12.5px; font-weight:600;
+  z-index:61;
+  opacity:0; pointer-events:none;
+  transform:translate(-50%, 8px);
+  transition:opacity .18s ease, transform .22s cubic-bezier(.34,1.4,.64,1);
+}
+.x3-listening.show{ opacity:1; pointer-events:auto; transform:translate(-50%, 0); }
+.x3-listening-ic{ display:flex; animation:x5Pulse 1.1s ease-in-out infinite; }
+.x3-listening-stop{
+  padding:4px 11px; border:none; border-radius:999px; cursor:pointer;
+  background:#fff; color:#dc2626; font-weight:800; font-size:12px; font-family:inherit;
+}
+
+/* icons inside cards and badges */
+.x3-inline-ic{ display:inline-flex; vertical-align:-2px; margin-right:6px; color:var(--gold-deep); }
+.x3-streak{ display:inline-flex; align-items:center; gap:2px; }
+.x3-streak svg{ flex-shrink:0; }
+.x3-streak svg:first-child{ fill:currentColor; fill-opacity:.3; }
+.x3-catchup-list small{ display:inline-flex; align-items:center; gap:3px; }
+.x3-catchup-list small svg{ fill:currentColor; fill-opacity:.3; }

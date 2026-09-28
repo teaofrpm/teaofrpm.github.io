@@ -108,3 +108,67 @@
 @media (prefers-reduced-motion:reduce){
   .x4-active.show, .x4-welcome, .x4-edit-av.uploading{ animation:none; }
 }
+
+/* ============================================================
+   Icon motion — every SVG button in the add-on layer.
+   Hover effects only fire on a real mouse (hover:hover + pointer:fine):
+   on a phone, :hover gets stuck after a tap, which is exactly the bug
+   that once left the message action bar stuck open. Touch devices get
+   the press feedback (:active) instead.
+   ============================================================ */
+.x3-plus-btn svg, .more-msg-btn svg, .x2-more-item svg, .x3-tile-ic svg,
+.x2-ic-star svg, .x2-ic-search svg, .x2-ic-flag svg, .x2-ic-share svg,
+.x2-ic-close svg, .x2-ic-arrowDown svg, .x4-room-edit svg, .extras-totop svg,
+.x3-catchup-x svg, .x4-install-x svg{
+  transition:transform .26s cubic-bezier(.34,1.56,.64,1);
+}
+
+/* press feedback — works on touch */
+.more-msg-btn:active svg, .x2-ic-star:active svg, .x2-ic-search:active svg,
+.x2-ic-flag:active svg, .x2-ic-share:active svg, .x4-room-edit:active svg,
+.extras-totop:active svg, .x3-catchup-x:active svg, .x4-install-x:active svg{ transform:scale(.82); }
+
+@media (hover:hover) and (pointer:fine){
+  .x3-plus-btn:not(.open):hover svg{ transform:rotate(90deg) scale(1.08); }
+  .more-msg-btn:hover svg{ animation:x5Dots .5s ease; }
+
+  .x2-more-item:hover{ background:var(--dusty-rose); }
+  .x2-more-item.x2-ic-star:hover svg{ transform:rotate(72deg) scale(1.2); color:var(--gold-deep); }
+  .x2-more-item.x2-ic-pin:hover svg{ transform:rotate(-22deg) translateY(-2px); color:var(--gold-deep); }
+  .x2-more-item.x2-ic-forward:hover svg{ transform:translateX(4px); color:var(--gold-deep); }
+  .x2-more-item.x2-ic-link:hover svg{ transform:rotate(-25deg) scale(1.1); color:var(--gold-deep); }
+  .x2-more-item.x2-ic-flag:hover svg{ animation:x5Wave .6s ease; }
+
+  .x3-tile:hover{ background:var(--warm-cream); }
+  .x3-tile:hover .x3-tile-ic{ transform:translateY(-3px) scale(1.06); }
+  .x3-t-poll:hover  .x3-tile-ic svg{ animation:x5Bars .6s ease; }
+  .x3-t-cd:hover    .x3-tile-ic svg{ transform:rotate(180deg); }
+  .x3-t-sch:hover   .x3-tile-ic svg{ transform:rotate(360deg); transition-duration:.6s; }
+  .x3-t-top:hover   .x3-tile-ic svg{ animation:x5Wobble .6s ease; }
+  .x3-t-voice:hover .x3-tile-ic svg{ animation:x5Pulse .7s ease infinite; }
+  .x3-plus-emoji button:hover{ background:var(--warm-cream); transform:scale(1.22); }
+
+  .x2-ic-star:hover svg{ transform:rotate(72deg) scale(1.15); }
+  .x2-ic-search:hover svg{ transform:scale(1.18) rotate(-8deg); }
+  .x2-ic-flag:hover svg{ animation:x5Wave .6s ease; }
+  .x2-ic-share:hover svg{ transform:translateY(-3px); }
+  .x2-ic-arrowDown:hover svg{ animation:x5Bounce .5s ease; }
+  .x2-ic-close:hover svg, .x3-catchup-x:hover svg, .x4-install-x:hover svg{ transform:rotate(90deg); }
+  .x4-room-edit:hover svg{ animation:x5Wiggle .5s ease; }
+  .extras-totop:hover svg{ animation:x5Rise .5s ease; }
+}
+
+@keyframes x5Wave{ 0%,100%{ transform:none; } 25%{ transform:rotate(-12deg); } 60%{ transform:rotate(9deg); } }
+@keyframes x5Wobble{ 0%,100%{ transform:none; } 25%{ transform:rotate(-14deg) scale(1.1); } 60%{ transform:rotate(10deg) scale(1.1); } }
+@keyframes x5Wiggle{ 0%,100%{ transform:none; } 30%{ transform:rotate(-15deg); } 65%{ transform:rotate(10deg); } }
+@keyframes x5Bounce{ 0%,100%{ transform:none; } 50%{ transform:translateY(3px); } }
+@keyframes x5Rise{ 0%,100%{ transform:none; } 50%{ transform:translateY(-4px); } }
+@keyframes x5Bars{ 0%,100%{ transform:none; } 50%{ transform:scaleY(1.25); transform-origin:bottom; } }
+@keyframes x5Dots{ 0%,100%{ transform:none; } 50%{ transform:scale(1.3); } }
+@keyframes x5Pulse{ 0%,100%{ transform:none; opacity:1; } 50%{ transform:scale(1.15); opacity:.75; } }
+
+@media (prefers-reduced-motion:reduce){
+  .x3-plus, .x3-listening, .x2-more, .x3-tile, .x2-more-item{ transition:none !important; animation:none !important; opacity:1 !important; transform:none !important; }
+  .x3-listening:not(.show), .x3-plus:not(.show){ opacity:0 !important; }
+  [class*="x2-ic-"] svg, [class*="x3-t-"] svg, .x3-plus-btn svg, .more-msg-btn svg{ animation:none !important; transition:none !important; }
+}
