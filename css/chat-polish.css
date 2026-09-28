@@ -1,0 +1,189 @@
+/* ============================================================
+   chat-polish.css — loaded last on chat.html and room.html, so the
+   public room and groups look and behave identically.
+
+   1. One rounded composer box (Instagram-style)
+   2. A chat header that never wraps onto three lines
+   3. Touch polish for message bubbles
+   ============================================================ */
+
+/* ---------- 1. Composer ----------
+   Only applies once extras3.js adds .x-pill, so if that script ever fails
+   to load, the old composer still works exactly as before. */
+
+.composer{
+  padding:8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+}
+
+.composer-row.x-pill{
+  align-items:flex-end;
+  gap:0;
+  padding:4px;
+  min-height:48px;
+  box-sizing:border-box;
+  border-radius:26px;
+  background:var(--warm-cream);
+  border:1px solid var(--border-soft);
+  transition:border-color .18s ease, box-shadow .18s ease;
+}
+.composer-row.x-pill:focus-within{
+  border-color:var(--gold-deep);
+  box-shadow:0 0 0 3px rgba(216,165,61,.14);
+}
+
+/* order inside the box: [+] [message ………] [sticker] [photo] [mic] [send] */
+.composer-row.x-pill > .x3-plus-btn{ order:0; }
+.composer-row.x-pill > #msgInput{ order:1; }
+.composer-row.x-pill > #stickerToggle{ order:2; }
+.composer-row.x-pill > #imageBtn{ order:3; }
+.composer-row.x-pill > #voiceBtn{ order:4; }
+.composer-row.x-pill > #sendBtn{ order:5; }
+
+/* every icon inside is flat — the box is the only outline */
+.composer-row.x-pill .icon-btn{
+  width:38px; height:38px;
+  border:none;
+  background:transparent;
+  box-shadow:none;
+  color:var(--text-muted);
+  transition:color .15s ease, transform .15s cubic-bezier(.34,1.56,.64,1), opacity .15s ease;
+}
+.composer-row.x-pill .icon-btn:hover{ transform:none; color:var(--gold-deep); border:none; }
+.composer-row.x-pill .icon-btn:active{ transform:scale(.86); }
+
+/* the + is the one coloured circle on the left, like Instagram's camera */
+.composer-row.x-pill .x3-plus-btn{
+  width:38px; height:38px;
+  background:linear-gradient(135deg, var(--gold-warm), var(--gold-deep));
+  color:#3a2400;
+}
+.composer-row.x-pill .x3-plus-btn:hover{ color:#3a2400; }
+.composer-row.x-pill .x3-plus-btn.open{ background:var(--gold-deep); }
+
+.composer-row.x-pill #msgInput{
+  flex:1; min-width:0;
+  align-self:center;
+  margin:0;
+  padding:9px 10px;
+  border:none;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+  color:var(--text-dark);
+  font-size:16px;              /* anything under 16px makes iPhone zoom the page in */
+  line-height:20px;
+  max-height:120px;
+}
+.composer-row.x-pill #msgInput:focus{ border:none; box-shadow:none; }
+
+/* while you type, sticker / photo / mic step aside — unless the mic is
+   mid-recording, because then it is the stop button */
+.composer-row.x-pill.has-text #stickerToggle,
+.composer-row.x-pill.has-text #imageBtn,
+.composer-row.x-pill.has-text #voiceBtn:not(.recording){ display:none; }
+
+.composer-row.x-pill #voiceBtn.recording{
+  background:#e63946;
+  color:#fff;
+}
+
+/* send only exists when there is something to send */
+.composer-row.x-pill #sendBtn{
+  display:none;
+  width:38px; height:38px;
+  box-shadow:none;
+}
+.composer-row.x-pill.can-send #sendBtn{
+  display:flex;
+  animation:xpSendIn .24s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes xpSendIn{ from{ transform:scale(.4) rotate(-40deg); opacity:0; } to{ transform:none; opacity:1; } }
+.composer-row.x-pill.can-send #sendBtn:active{ transform:scale(.86); }
+
+/* the + popup and listening pill sit above the box, lined up with its edge */
+.x3-plus{ left:0; }
+
+/* ---------- 2. Header: one line, always ----------
+   The public room title used to wrap onto three lines and "2 online" onto
+   two, taking over a quarter of a phone screen. */
+
+.chat-header{ gap:8px; }
+.chat-header > div{ min-width:0; }
+.chat-header > div:first-child{ flex:1; }
+.chat-header > div:last-child{ flex-shrink:0; }
+#headerRoomName{
+  flex:1; min-width:0;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  font-size:clamp(16px, 4.6vw, 20px);
+  line-height:1.2;
+}
+.chat-header .online-count{
+  margin:0;
+  white-space:nowrap;
+  font-size:12px;
+}
+.chat-header .x4-room-av{ width:32px; height:32px; font-size:10px; }
+
+@media (max-width:760px){
+  .chat-header{ padding:10px 12px; }
+  .chat-header > div:first-child{ gap:6px !important; }
+}
+
+/* ---------- 3. Touch polish ---------- */
+
+/* On a phone, long-press on a bubble belongs to the app (select messages),
+   not to the browser's own "copy / look up" popup. Copy is in the ⋯ menu. */
+@media (hover:none){
+  .bubble{ -webkit-touch-callout:none; -webkit-user-select:none; user-select:none; }
+}
+
+/* double-tap heart */
+.bubble{ position:relative; }
+.x2-heart{
+  position:absolute; left:50%; top:50%;
+  font-size:34px; pointer-events:none; z-index:3;
+  animation:xpHeart .75s ease-out forwards;
+}
+@keyframes xpHeart{
+  0%{ transform:translate(-50%,-50%) scale(.3); opacity:0; }
+  30%{ transform:translate(-50%,-50%) scale(1.25); opacity:1; }
+  100%{ transform:translate(-50%,-150%) scale(.9); opacity:0; }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .composer-row.x-pill.can-send #sendBtn, .x2-heart{ animation:none; }
+}
+
+/* ---------- 4. Shared pieces the public room was missing ----------
+   These lived only in messages.css, which chat.html never loads, so the
+   public room showed "You pinned a message" as bare text. */
+
+.system-msg-row{ display:flex; justify-content:center; margin:10px 0; }
+.system-msg-chip{
+  max-width:86%;
+  padding:6px 13px;
+  border-radius:999px;
+  background:var(--warm-cream);
+  border:1px solid var(--border-soft);
+  color:var(--text-muted);
+  font-size:11.5px; line-height:1.45; text-align:center;
+}
+.system-msg-chip b{ color:var(--text-dark); font-weight:700; }
+.system-msg-chip small{ opacity:.75; margin-left:5px; font-size:10.5px; }
+
+/* public room header: name on top, "N online" underneath */
+.x4-title-wrap{ display:flex; flex-direction:column; justify-content:center; flex:1; min-width:0; }
+.x4-title-wrap #headerRoomName{ flex:none; }
+.x4-title-wrap .online-count{ font-size:11.5px; font-weight:700; line-height:1.2; margin-top:1px; }
+
+.extras2-seen{ text-align:right; margin-top:3px; font-size:10.5px; color:var(--text-muted); }
+
+/* your own reaction chip had a hard-coded light background, so in dark mode
+   it was a pale blob with unreadable text */
+:root[data-theme="dark"] .reaction-chip.mine{
+  background:rgba(6,182,212,.16);
+  border-color:rgba(6,182,212,.55);
+  color:#7ee6f5;
+}
