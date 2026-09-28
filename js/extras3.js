@@ -120,52 +120,102 @@
     await waitFor(() => typeof sb !== "undefined");
 
     if (isChat) {
-      feature("create menu", createMenu);
+      feature("plus menu", plusMenu);
       feature("polls", polls);
       feature("countdowns", countdowns);
       feature("message effects", messageEffects);
-      feature("voice typing", voiceTyping);
       feature("catch-up", catchUp);
     }
     if (isInbox || page === "room.html") feature("streaks", streaks);
   }
 
   /* ============================================================
-     1. ✨ Create menu — one button in the composer that opens
-        Poll / Countdown / Schedule / Leaderboard.
+     1. The + menu
+        Everything this layer adds to the composer sits behind ONE button,
+        so the text box keeps its width: quick emoji, poll, countdown,
+        scheduled message, leaderboard and voice typing.
      ============================================================ */
 
   let pollSheet, countdownSheet, scheduleSheet;
+  const QUICK_EMOJI = ["😂", "❤️", "🔥", "👍", "🙏", "😭", "💯", "🎉"];
 
-  async function createMenu() {
+  async function plusMenu() {
     const row = document.querySelector(".composer-row");
-    if (!row || row.querySelector(".x3-create-btn")) return;
+    const composer = row?.closest(".composer");
+    const input = document.getElementById("msgInput");
+    if (!row || !composer || row.querySelector(".x3-plus-btn")) return;
     await waitFor(hasMe);
+    if (getComputedStyle(composer).position === "static") composer.style.position = "relative";
 
     const btn = document.createElement("button");
-    btn.className = "icon-btn x3-create-btn";
     btn.type = "button";
-    btn.title = "Create poll, countdown, schedule…";
-    btn.textContent = "✨";
+    btn.className = "icon-btn x3-plus-btn";
+    btn.title = "More: poll, countdown, schedule, voice typing…";
+    btn.setAttribute("aria-expanded", "false");
+    btn.innerHTML = svgIcon("plus", 20);
     row.insertBefore(btn, row.firstChild);
 
-    const menu = makeSheet("Create", `
-      <div class="x3-menu">
-        <button data-act="poll"><span>📊</span><div><b>Poll</b><small>Let everyone vote</small></div></button>
-        <button data-act="countdown"><span>⏳</span><div><b>Countdown</b><small>Live timer to exams, events, results</small></div></button>
-        <button data-act="schedule"><span>🕒</span><div><b>Schedule message</b><small>Send it later — like a midnight birthday wish</small></div></button>
-        <button data-act="top"><span>🏆</span><div><b>Leaderboard</b><small>Most active people this week</small></div></button>
-      </div>`);
+    const dictation = setupDictation(composer, input);
 
-    btn.addEventListener("click", () => menu.open());
-    menu.body.addEventListener("click", async (e) => {
-      const b = e.target.closest("[data-act]");
-      if (!b) return;
-      menu.close();
-      if (b.dataset.act === "poll") openPollSheet();
-      if (b.dataset.act === "countdown") openCountdownSheet();
-      if (b.dataset.act === "schedule") openScheduleSheet();
-      if (b.dataset.act === "top") sendRaw("/top");
+    const tiles = [
+      ["poll", "Poll", "x3-t-poll", () => openPollSheet()],
+      ["hourglass", "Countdown", "x3-t-cd", () => openCountdownSheet()],
+      ["clock", "Schedule", "x3-t-sch", () => openScheduleSheet()],
+      ["trophy", "Leaderboard", "x3-t-top", () => sendRaw("/top")],
+      ...(dictation ? [["voiceType", "Voice typing", "x3-t-voice", () => dictation.toggle()]] : []),
+    ];
+
+    const menu = document.createElement("div");
+    menu.className = "x3-plus";
+    menu.setAttribute("role", "menu");
+    menu.innerHTML = `
+      <div class="x3-plus-emoji">${QUICK_EMOJI.map((e) => `<button type="button" data-emoji="${e}">${e}</button>`).join("")}</div>
+      <div class="x3-plus-grid">
+        ${tiles.map(([icon, label, cls], i) => `
+          <button type="button" class="x3-tile ${cls}" data-tile="${i}" style="--i:${i}">
+            <span class="x3-tile-ic">${svgIcon(icon, 20)}</span><span class="x3-tile-label">${label}</span>
+          </button>`).join("")}
+      </div>
+      ${dictation ? `<div class="x3-plus-lang">
+          <span>Voice typing language</span>
+          <div class="x3-seg" role="radiogroup">
+            <button type="button" data-lang="en-IN">English</button>
+            <button type="button" data-lang="hi-IN">हिंदी</button>
+          </div>
+        </div>` : ""}`;
+    composer.appendChild(menu);
+
+    const syncLang = () => menu.querySelectorAll("[data-lang]").forEach((b) =>
+      b.classList.toggle("on", b.dataset.lang === dictation.getLang()));
+    if (dictation) syncLang();
+
+    const open = () => { menu.classList.add("show"); btn.classList.add("open"); btn.setAttribute("aria-expanded", "true"); };
+    const close = () => { menu.classList.remove("show"); btn.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); };
+
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      menu.classList.contains("show") ? close() : open();
+    });
+    document.addEventListener("click", (e) => {
+      if (menu.classList.contains("show") && !menu.contains(e.target) && e.target !== btn) close();
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
+
+    menu.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const em = e.target.closest("[data-emoji]");
+      if (em && input) {
+        // several emoji in a row is normal, so the menu stays open for these
+        const pos = input.selectionStart ?? input.value.length;
+        input.value = input.value.slice(0, pos) + em.dataset.emoji + input.value.slice(pos);
+        input.setSelectionRange(pos + em.dataset.emoji.length, pos + em.dataset.emoji.length);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        return;
+      }
+      const lang = e.target.closest("[data-lang]");
+      if (lang && dictation) { dictation.setLang(lang.dataset.lang); syncLang(); return; }
+      const tile = e.target.closest("[data-tile]");
+      if (tile) { close(); tiles[Number(tile.dataset.tile)][3](); }
     });
 
     buildPollSheet();
@@ -439,7 +489,7 @@
     textEl.classList.add("x3-has-card");
     textEl.innerHTML = `
       <div class="x3-poll" data-poll="${p.id}">
-        <div class="x3-poll-q">📊 ${esc(p.question)}</div>
+        <div class="x3-poll-q"><span class="x3-inline-ic">${svgIcon("poll", 15)}</span>${esc(p.question)}</div>
         <div class="x3-poll-opts">
           ${p.options.map((o, i) => `
             <button type="button" class="x3-poll-opt" data-i="${i}">
@@ -510,7 +560,7 @@
         textEl.classList.add("x3-has-card");
         textEl.innerHTML = `
           <div class="x3-cd" data-target="${target.getTime()}">
-            <div class="x3-cd-title">⏳ ${esc(title)}</div>
+            <div class="x3-cd-title"><span class="x3-inline-ic">${svgIcon("hourglass", 15)}</span>${esc(title)}</div>
             <div class="x3-cd-time"></div>
             <div class="x3-cd-date">${esc(target.toLocaleString([], {
               weekday: "short", day: "numeric", month: "short", year: "numeric",
@@ -638,45 +688,29 @@
 
   /* ============================================================
      5. Voice typing — speak and it types, in English or Hindi.
-        Different from the existing mic button, which records a voice
-        note. Long-press switches language. Hidden where unsupported.
+        Started from the + menu. While it listens, a small pill above the
+        composer shows it and stops it. Returns null where the browser
+        has no speech recognition, and the menu then hides the option.
      ============================================================ */
 
-  function voiceTyping() {
+  function setupDictation(composer, input) {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const row = document.querySelector(".composer-row");
-    const input = document.getElementById("msgInput");
-    if (!SR || !row || !input || row.querySelector(".x3-dictate")) return;
+    if (!SR || !input) return null;
 
     let lang = localStorage.getItem("teaofrpm_dictlang") || "en-IN";
     let rec = null;
 
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "icon-btn x3-dictate";
-    btn.title = "Voice typing (hold to switch English / Hindi)";
-    btn.textContent = lang === "hi-IN" ? "अ" : "Aa";
-    const create = row.querySelector(".x3-create-btn");
-    row.insertBefore(btn, create ? create.nextSibling : row.firstChild);
+    const pill = document.createElement("div");
+    pill.className = "x3-listening";
+    pill.innerHTML = `<span class="x3-listening-ic">${svgIcon("mic", 15)}</span>
+      <span class="x3-listening-text"></span>
+      <button type="button" class="x3-listening-stop">Stop</button>`;
+    composer.appendChild(pill);
+    pill.querySelector(".x3-listening-stop").addEventListener("click", () => rec && rec.stop());
 
-    let pressTimer, longPressed = false;
-    btn.addEventListener("pointerdown", () => {
-      longPressed = false;
-      pressTimer = setTimeout(() => {
-        longPressed = true;
-        lang = lang === "en-IN" ? "hi-IN" : "en-IN";
-        localStorage.setItem("teaofrpm_dictlang", lang);
-        btn.textContent = lang === "hi-IN" ? "अ" : "Aa";
-        say(lang === "hi-IN" ? "Voice typing: Hindi" : "Voice typing: English");
-      }, 600);
-    });
-    ["pointerup", "pointerleave", "pointercancel"].forEach((ev) =>
-      btn.addEventListener(ev, () => clearTimeout(pressTimer)));
+    const label = () => (lang === "hi-IN" ? "हिंदी" : "English");
 
-    btn.addEventListener("click", () => {
-      if (longPressed) return;
-      if (rec) { rec.stop(); return; }
-
+    function start() {
       rec = new SR();
       rec.lang = lang;
       rec.interimResults = true;
@@ -693,16 +727,27 @@
         if (e.error === "not-allowed" || e.error === "service-not-allowed") say("Allow microphone access to use voice typing.");
         else if (e.error !== "no-speech" && e.error !== "aborted") say("Voice typing stopped.");
       };
-      rec.onend = () => { rec = null; btn.classList.remove("listening"); input.focus(); };
+      rec.onend = () => { rec = null; pill.classList.remove("show"); input.focus(); };
 
       try {
         rec.start();
-        btn.classList.add("listening");
+        pill.querySelector(".x3-listening-text").textContent = `Listening… ${label()}`;
+        pill.classList.add("show");
       } catch {
         rec = null;
         say("Voice typing isn't available right now.");
       }
-    });
+    }
+
+    return {
+      toggle: () => (rec ? rec.stop() : start()),
+      getLang: () => lang,
+      setLang: (l) => {
+        lang = l;
+        localStorage.setItem("teaofrpm_dictlang", l);
+        say(`Voice typing: ${label()}`);
+      },
+    };
   }
 
   /* ============================================================
@@ -750,15 +795,15 @@
     card.className = "x3-catchup";
     card.innerHTML = `
       <div class="x3-catchup-head">
-        <b>👋 While you were away</b>
+        <b><span class="x3-inline-ic">${svgIcon("clock", 14)}</span>While you were away</b>
         <span>${missed.length >= 150 ? "150+" : missed.length} new messages</span>
-        <button type="button" class="x3-catchup-x" aria-label="Dismiss">✕</button>
+        <button type="button" class="x3-catchup-x" aria-label="Dismiss">${svgIcon("close", 14)}</button>
       </div>
       ${top.length ? `<div class="x3-catchup-list">${top.map((m) => {
         const who = profileCache.get(m.user_id)?.display_name || "Someone";
         const what = m.content || (m.image_url ? "📷 Photo" : m.sticker_url ? "Sticker" : "Message");
         return `<button type="button" data-jump="${m.id}">
-          <small>🔥 ${counts.get(m.id)}</small><span><b>${esc(who)}</b>: ${esc(what.slice(0, 90))}</span>
+          <small>${svgIcon("flame", 12)}${counts.get(m.id)}</small><span><b>${esc(who)}</b>: ${esc(what.slice(0, 90))}</span>
         </button>`;
       }).join("")}</div>` : ""}`;
 
@@ -798,7 +843,8 @@
     function badgeFor(s) {
       const b = document.createElement("span");
       b.className = `x3-streak${s.alive_today ? "" : " at-risk"}`;
-      b.textContent = `🔥${s.streak}${s.alive_today ? "" : "⏳"}`;
+      b.dataset.key = `${s.streak}:${s.alive_today ? 1 : 0}`;
+      b.innerHTML = `${svgIcon("flame", 12)}${s.streak}${s.alive_today ? "" : svgIcon("hourglass", 11)}`;
       b.title = s.alive_today
         ? `${s.streak}-day streak`
         : `${s.streak}-day streak — message today or it resets`;
@@ -816,7 +862,7 @@
           const existing = host.querySelector(".x3-streak");
           if (!s || s.streak < 2) { existing?.remove(); return; }
           const fresh = badgeFor(s);
-          if (existing?.textContent === fresh.textContent) return;
+          if (existing?.dataset.key === fresh.dataset.key) return;
           existing?.remove();
           host.appendChild(fresh);
         });
@@ -826,7 +872,7 @@
         const existing = document.querySelector(".chat-header .x3-streak");
         if (!title || !s || s.streak < 2) { existing?.remove(); return; }
         const fresh = badgeFor(s);
-        if (existing?.textContent === fresh.textContent) return;
+        if (existing?.dataset.key === fresh.dataset.key) return;
         existing?.remove();
         title.insertAdjacentElement("afterend", fresh);
       }

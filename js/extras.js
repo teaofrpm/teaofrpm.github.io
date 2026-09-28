@@ -48,7 +48,6 @@
     feature("swipe to reply", swipeToReply);
     feature("slash autocomplete", slashAutocomplete);
     feature("mention autocomplete", mentionAutocomplete);
-    feature("emoji bar", emojiBar);
     feature("draft saving", draftSaving);
     feature("unsent draft guard", unsentDraftGuard);
     feature("long message counter", longMessageCounter);
@@ -138,7 +137,7 @@
     const btn = document.createElement("button");
     btn.className = "extras-totop";
     btn.setAttribute("aria-label", "Back to top");
-    btn.innerHTML = "&#8593;";
+    btn.innerHTML = svgIcon("arrowUp", 18);
     document.body.appendChild(btn);
 
     btn.addEventListener("click", () => scroller.scrollTo({ top: 0, behavior: "smooth" }));
@@ -487,26 +486,7 @@
   function copyLink() {
     if (!isChat) return;
 
-    // Add the button to every message's action bar as messages appear.
-    const addButtons = () => document.querySelectorAll(".msg-actions").forEach((bar) => {
-      if (bar.querySelector(".copy-link-btn")) return;
-      const b = document.createElement("button");
-      b.className = "copy-link-btn";
-      b.title = "Copy link to this message";
-      b.textContent = "🔗";
-      bar.appendChild(b);
-    });
-    addButtons();
-    watchMessages(addButtons);
-
-    on("click", ".copy-link-btn", async (e, btn) => {
-      const id = btn.closest("[data-msg-id]")?.dataset.msgId;
-      if (!id) return;
-      const url = `${location.origin}${location.pathname}${location.search}#m=${id}`;
-      try { await navigator.clipboard.writeText(url); say("Link copied"); }
-      catch { say("Could not copy"); }
-    });
-
+    // The copy-link button itself is in the ⋯ menu now (extras2.js).
     // open at the linked message if we arrived with one
     const m = location.hash.match(/m=([\w-]+)/);
     if (m) setTimeout(() => {
@@ -535,7 +515,8 @@
       b.className = "header-icon-btn";
       b.title = "Share profile";
       b.dataset.share = location.href;
-      b.textContent = "↗";
+      b.classList.add("x2-ic-share");
+      b.innerHTML = svgIcon("share", 17);
       header.appendChild(b);
     }
   }

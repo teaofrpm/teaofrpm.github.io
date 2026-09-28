@@ -82,59 +82,121 @@
 
   /* ---------- 1 & 2. Star / save a message, and a panel to view them ---------- */
 
+  // One ⋯ button per message now opens Save / Pin / Forward / Copy link /
+  // Report. They used to be five separate icons, which pushed the action bar
+  // wider than the bubble on a phone.
   function starMessage() {
     if (!isChat) return;
-
     watchMessages(() => {
       document.querySelectorAll("[data-msg-id]").forEach((row) => {
         if (row.classList.contains("bot-msg-row") || row.classList.contains("system-msg-row")) return;
-        addToActionBar(row, "star-btn", (bar) => {
+        addToActionBar(row, "more-msg-btn", (bar) => {
           const b = document.createElement("button");
-          b.className = "star-btn";
-          b.title = "Save message";
-          b.textContent = "☆";
+          b.type = "button";
+          b.className = "more-msg-btn";
+          b.title = "More";
+          b.innerHTML = svgIcon("more", 15);
           bar.appendChild(b);
-          b.addEventListener("click", () => toggleStar(row.dataset.msgId, b));
-          pendingStarChecks.set(row.dataset.msgId, b);
+          b.addEventListener("click", (e) => { e.stopPropagation(); openMoreMenu(row, b); });
+          if (!starredIds.has(row.dataset.msgId)) pendingStarChecks.add(row.dataset.msgId);
         });
       });
       flushStarChecks();
     });
   }
 
-  // Previously this ran one database query PER MESSAGE on screen — opening a
-  // chat with 50 messages fired 50 requests. Now every new button is queued
-  // and the whole batch is answered by a single query.
-  const pendingStarChecks = new Map();
+  // Which of the messages on screen you've saved — learnt in one batched
+  // query per render, never one query per message.
+  const starredIds = new Set();
+  const pendingStarChecks = new Set();
   async function flushStarChecks() {
     if (!pendingStarChecks.size || typeof ME === "undefined" || !ME) return;
-    const batch = new Map(pendingStarChecks);
+    const batch = [...pendingStarChecks];
     pendingStarChecks.clear();
     const { data } = await sb.from("message_stars").select("message_id")
-      .eq("user_id", ME.id).in("message_id", [...batch.keys()]);
-    const starred = new Set((data || []).map((r) => r.message_id));
-    batch.forEach((btn, id) => {
-      btn.textContent = starred.has(id) ? "★" : "☆";
-      btn.classList.toggle("starred", starred.has(id));
-    });
+      .eq("user_id", ME.id).in("message_id", batch);
+    (data || []).forEach((r) => starredIds.add(r.message_id));
   }
 
-  async function toggleStar(messageId, btn) {
-    const starred = btn.classList.contains("starred");
-    btn.textContent = starred ? "☆" : "★";     // flip first, feels instant
-    btn.classList.toggle("starred", !starred);
+  async function toggleStar(messageId) {
+    const starred = starredIds.has(messageId);
+    if (starred) starredIds.delete(messageId); else starredIds.add(messageId);   // flip first, feels instant
 
     const { error } = starred
       ? await sb.from("message_stars").delete().eq("message_id", messageId).eq("user_id", ME.id)
       : await sb.from("message_stars").insert({ message_id: messageId, user_id: ME.id });
 
     if (error) {
-      btn.textContent = starred ? "★" : "☆";     // undo on failure
-      btn.classList.toggle("starred", starred);
+      if (starred) starredIds.add(messageId); else starredIds.delete(messageId);  // undo on failure
       say("Could not update.");
     } else {
       say(starred ? "Removed from saved" : "Saved");
     }
+  }
+
+  /* ---------- the ⋯ menu itself ---------- */
+
+  let moreMenu = null;
+  function closeMoreMenu() {
+    if (!moreMenu) return;
+    moreMenu.classList.remove("show");
+    const m = moreMenu; moreMenu = null;
+    setTimeout(() => m.remove(), 160);
+  }
+  document.addEventListener("click", (e) => { if (moreMenu && !moreMenu.contains(e.target)) closeMoreMenu(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMoreMenu(); });
+  document.addEventListener("scroll", closeMoreMenu, true);
+
+  function openMoreMenu(row, anchor) {
+    const wasOpenHere = moreMenu && moreMenu.dataset.for === row.dataset.msgId;
+    closeMoreMenu();
+    if (wasOpenHere) return;
+
+    const id = row.dataset.msgId;
+    const own = row.classList.contains("own");
+    const saved = starredIds.has(id);
+    const items = [
+      ["star", saved ? "Unsave" : "Save", () => toggleStar(id), saved ? "is-on" : ""],
+      ["pin", "Pin", () => pinThisMessage(id)],
+      ["forward", "Forward", () => openForwardSheetRef && openForwardSheetRef(id)],
+      ["link", "Copy link", () => copyMessageLink(id)],
+      ...(own ? [] : [["flag", "Report", () => submitReport("message", id), "is-danger"]]),
+    ];
+
+    const menu = document.createElement("div");
+    menu.className = "x2-more";
+    menu.dataset.for = id;
+    menu.innerHTML = items.map(([icon, label, , cls], i) => `
+      <button type="button" class="x2-more-item x2-ic-${icon} ${cls || ""}" data-i="${i}" style="--i:${i}">
+        ${svgIcon(icon, 17)}<span>${label}</span>
+      </button>`).join("");
+    document.body.appendChild(menu);
+
+    // place it next to the ⋯ button, flipped/clamped so it never leaves the screen
+    const r = anchor.getBoundingClientRect();
+    const w = menu.offsetWidth || 180, h = menu.offsetHeight || 220;
+    const left = Math.min(Math.max(8, r.right - w), window.innerWidth - w - 8);
+    const below = r.bottom + 6 + h < window.innerHeight - 8;
+    menu.style.left = `${left}px`;
+    menu.style.top = `${below ? r.bottom + 6 : Math.max(8, r.top - h - 6)}px`;
+    menu.style.transformOrigin = below ? "top right" : "bottom right";
+
+    menu.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-i]");
+      if (!b) return;
+      e.stopPropagation();
+      closeMoreMenu();
+      items[Number(b.dataset.i)][2]();
+    });
+
+    moreMenu = menu;
+    requestAnimationFrame(() => menu.classList.add("show"));
+  }
+
+  async function copyMessageLink(id) {
+    const url = `${location.origin}${location.pathname}${location.search}#m=${id}`;
+    try { await navigator.clipboard.writeText(url); say("Link copied"); }
+    catch { say("Could not copy"); }
   }
 
   function starredPanel() {
@@ -143,9 +205,9 @@
     if (!nav) return;
 
     const btn = document.createElement("button");
-    btn.className = "header-icon-btn extras2-starred-entry";
+    btn.className = "header-icon-btn extras2-starred-entry x2-ic-star";
     btn.title = "Saved messages";
-    btn.textContent = "★";
+    btn.innerHTML = svgIcon("star", 18);
     document.querySelector(".profile-topbar")?.appendChild(btn);
 
     const sheet = document.createElement("div");
@@ -170,7 +232,7 @@
         .limit(100);
 
       if (error || !data?.length) {
-        list.innerHTML = `<div class="settings-empty">Nothing saved yet — tap ☆ on any message.</div>`;
+        list.innerHTML = `<div class="settings-empty">Nothing saved yet — tap ⋯ → Save on any message.</div>`;
         return;
       }
 
@@ -201,21 +263,6 @@
 
   function pinMessage() {
     if (!isChat) return;   // public room and groups get the same feature
-
-    watchMessages(() => {
-      document.querySelectorAll("[data-msg-id]").forEach((row) => {
-        if (row.classList.contains("bot-msg-row") || row.classList.contains("system-msg-row")) return;
-        addToActionBar(row, "pin-msg-btn", (bar) => {
-          const b = document.createElement("button");
-          b.className = "pin-msg-btn";
-          b.title = "Pin this message";
-          b.textContent = "📌";
-          bar.appendChild(b);
-          b.addEventListener("click", () => pinThisMessage(row.dataset.msgId));
-        });
-      });
-    });
-
     renderPinnedBanner();
 
     // keep the banner in step with anyone else pinning/unpinning
@@ -260,10 +307,10 @@
     const banner = document.createElement("div");
     banner.className = "extras2-pin-banner";
     banner.innerHTML = `
-      <span class="pin-icon">📌</span>
+      <span class="pin-icon">${svgIcon("pin", 15)}</span>
       <div class="pin-text"><b>${escapeHTML(author?.display_name || "Someone")}</b>: ${escapeHTML((m.content || "media").slice(0, 80))}</div>
-      <button class="pin-goto" title="Jump to message">↓</button>
-      <button class="pin-clear" title="Unpin">✕</button>`;
+      <button class="pin-goto x2-ic-arrowDown" title="Jump to message">${svgIcon("arrowDown", 15)}</button>
+      <button class="pin-clear x2-ic-close" title="Unpin">${svgIcon("close", 14)}</button>`;
 
     banner.querySelector(".pin-goto").addEventListener("click", () => {
       document.querySelector(`[data-msg-id="${pinnedId}"]`)
@@ -323,29 +370,13 @@
   /* ---------- 5. Report a message or a person ---------- */
 
   function reportFeature() {
-    if (isChat) {
-      watchMessages(() => {
-        document.querySelectorAll("[data-msg-id]").forEach((row) => {
-          if (row.classList.contains("bot-msg-row") || row.classList.contains("system-msg-row")) return;
-          addToActionBar(row, "report-msg-btn", (bar) => {
-            const b = document.createElement("button");
-            b.className = "report-msg-btn";
-            b.title = "Report";
-            b.textContent = "⚑";
-            bar.appendChild(b);
-            b.addEventListener("click", () => submitReport("message", row.dataset.msgId));
-          });
-        });
-      });
-    }
-
     if (page === "profile.html") {
       const header = document.querySelector(".profile-topbar");
       if (!header || header.querySelector(".extras2-report-user")) return;
       const btn = document.createElement("button");
-      btn.className = "header-icon-btn extras2-report-user";
+      btn.className = "header-icon-btn extras2-report-user x2-ic-flag";
       btn.title = "Report this account";
-      btn.textContent = "⚑";
+      btn.innerHTML = svgIcon("flag", 17);
       header.appendChild(btn);
       btn.addEventListener("click", () => {
         const uid = (typeof viewedUser !== "undefined" && viewedUser) ? viewedUser.id : null;
@@ -483,22 +514,10 @@
 
   /* ---------- 8. Forward a message to another chat ---------- */
 
+  let openForwardSheetRef = null;
   function forwardMessage() {
     if (!isChat) return;
-
-    watchMessages(() => {
-      document.querySelectorAll("[data-msg-id]").forEach((row) => {
-        if (row.classList.contains("bot-msg-row") || row.classList.contains("system-msg-row")) return;
-        addToActionBar(row, "forward-btn", (bar) => {
-          const b = document.createElement("button");
-          b.className = "forward-btn";
-          b.title = "Forward";
-          b.textContent = "➦";
-          bar.appendChild(b);
-          b.addEventListener("click", () => openForwardSheet(row.dataset.msgId));
-        });
-      });
-    });
+    openForwardSheetRef = (id) => openForwardSheet(id);
 
     const sheet = document.createElement("div");
     sheet.className = "app-sheet-backdrop";
@@ -553,9 +572,9 @@
     if (!header) return;
 
     const btn = document.createElement("button");
-    btn.className = "header-icon-btn";
+    btn.className = "header-icon-btn x2-ic-search";
     btn.title = "Search all messages";
-    btn.textContent = "🔍";
+    btn.innerHTML = svgIcon("search", 17);
     header.appendChild(btn);
 
     const sheet = document.createElement("div");

@@ -138,7 +138,7 @@
     btn.className = "header-icon-btn x4-room-edit";
     btn.type = "button";
     btn.title = "Edit room name and photo (owner)";
-    btn.textContent = "✎";
+    btn.innerHTML = svgIcon("edit", 16);
     title.insertAdjacentElement("afterend", btn);
 
     const bd = document.createElement("div");
@@ -466,7 +466,7 @@
       bar.className = "x4-install";
       bar.innerHTML = `<span class="x4-install-text">${html}</span>
         ${onGo ? `<button type="button" class="x4-install-go">Install</button>` : ""}
-        <button type="button" class="x4-install-x" aria-label="Not now">✕</button>`;
+        <button type="button" class="x4-install-x" aria-label="Not now">${svgIcon("close", 14)}</button>`;
       bar.querySelector(".x4-install-x").addEventListener("click", () => {
         localStorage.setItem("teaofrpm_install_snooze", String(Date.now() + 7 * 86400000));
         bar.remove();
@@ -477,7 +477,7 @@
 
     window.addEventListener("beforeinstallprompt", (e) => {
       e.preventDefault();
-      show("📲 <b>Install teaofrpm</b> — opens like an app, faster", async () => {
+      show(`<span class="x4-inline-ic">${svgIcon("download", 15)}</span><b>Install teaofrpm</b> — opens like an app, faster`, async () => {
         e.prompt();
         const { outcome } = await e.userChoice;
         document.querySelector(".x4-install")?.remove();
@@ -488,7 +488,7 @@
     const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
     if (isIOS && !localStorage.getItem("teaofrpm_ios_hint")) {
       localStorage.setItem("teaofrpm_ios_hint", "1");
-      show("📲 <b>Use it like an app:</b> tap <b>Share</b> → <b>Add to Home Screen</b>");
+      show(`<span class="x4-inline-ic">${svgIcon("share", 15)}</span><b>Use it like an app:</b> tap <b>Share</b> → <b>Add to Home Screen</b>`);
     }
   }
 })();
