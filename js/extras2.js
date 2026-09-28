@@ -44,6 +44,7 @@
     feature("forward message", forwardMessage);
     feature("global message search", globalMessageSearch);
     feature("unread count in tab title", unreadTabTitle);
+    feature("tap toggles action bar", tapToggleActions);
   }
 
   function waitFor(cond, timeoutMs = 4000) {
@@ -604,6 +605,30 @@
         results.appendChild(row);
       }
     }
+  }
+
+  /* ---------- 12. Deliberate tap-to-reveal for the action bar on touch ----------
+     style.css now only shows .msg-actions on a real :hover (a mouse). On a
+     phone the buttons are unreachable unless something opens them on purpose
+     — this is that something: tap a bubble to reveal its icons, tap anywhere
+     else to close whichever one is open. Only one is ever open at a time. */
+  function tapToggleActions() {
+    if (!isChat) return;
+
+    on("click", ".bubble", (e, bubble) => {
+      if (e.target.closest("button, a, textarea, input, .reaction-chip, .emoji-picker")) return;
+      const row = bubble.closest("[data-msg-id]");
+      if (!row || row.classList.contains("bot-msg-row") || row.classList.contains("system-msg-row")) return;
+
+      const wasOpen = row.classList.contains("show-actions");
+      document.querySelectorAll(".show-actions").forEach(r => r.classList.remove("show-actions"));
+      if (!wasOpen) row.classList.add("show-actions");
+    });
+
+    document.addEventListener("click", (e) => {
+      if (e.target.closest(".bubble")) return;   // handled above
+      document.querySelectorAll(".show-actions").forEach(r => r.classList.remove("show-actions"));
+    });
   }
 
   /* ---------- 11. Unread count shows in the browser tab title ---------- */
