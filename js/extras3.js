@@ -120,6 +120,7 @@
     await waitFor(() => typeof sb !== "undefined");
 
     if (isChat) {
+      feature("pill composer", pillComposer);
       feature("plus menu", plusMenu);
       feature("polls", polls);
       feature("countdowns", countdowns);
@@ -127,6 +128,35 @@
       feature("catch-up", catchUp);
     }
     if (isInbox || page === "room.html") feature("streaks", streaks);
+  }
+
+  /* ============================================================
+     0. Instagram-style composer
+        chat-polish.css turns the composer row into one rounded box once
+        this adds .x-pill (without JS it stays the old, working layout).
+        Here we only keep two flags in sync with what the page is doing:
+          .has-text  → hide sticker / photo / mic, like Instagram
+          .can-send  → show the send button (text OR a pending photo/voice)
+        can-send follows the page's own sendBtn.disabled, so the rules for
+        "is there anything to send" stay in one place: chat.js / room.js.
+     ============================================================ */
+
+  function pillComposer() {
+    const row = document.querySelector(".composer-row");
+    const input = document.getElementById("msgInput");
+    const send = document.getElementById("sendBtn");
+    if (!row || !input || !send) return;
+
+    row.classList.add("x-pill");
+    const sync = () => {
+      row.classList.toggle("has-text", input.value.trim().length > 0);
+      row.classList.toggle("can-send", !send.disabled);
+    };
+    input.addEventListener("input", sync);
+    // the page flips sendBtn.disabled itself (after sending, when a photo is
+    // attached, after a voice note) — follow it instead of guessing
+    new MutationObserver(sync).observe(send, { attributes: true, attributeFilter: ["disabled"] });
+    sync();
   }
 
   /* ============================================================

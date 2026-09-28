@@ -50,6 +50,7 @@
     await waitFor(() => typeof sb !== "undefined");
 
     if (isRoomPage || isInbox) feature("public room profile", roomProfile);
+    if (isChat) feature("stay at latest", stickToBottom);
     if (isChat) feature("gap-fill", gapFill);
     if (isChat) feature("welcome card", welcomeCard);
     feature("active now", activeNow);
@@ -98,6 +99,21 @@
     }
   }
 
+  // Stack the room name and "N online" in one column — the same shape as a
+  // group's header — instead of "online" squeezing the title from the right
+  // until it wrapped onto three lines.
+  function titleWrap(title) {
+    let wrap = title.closest(".x4-title-wrap");
+    if (wrap) return wrap;
+    wrap = document.createElement("div");
+    wrap.className = "x4-title-wrap";
+    title.parentNode.insertBefore(wrap, title);
+    wrap.appendChild(title);
+    const online = document.getElementById("headerOnline");
+    if (online) wrap.appendChild(online);
+    return wrap;
+  }
+
   function applyRoomProfile() {
     const name = roomState.room_name;
 
@@ -106,11 +122,12 @@
       if (title) {
         if (!title.dataset.original) title.dataset.original = title.textContent;
         title.textContent = name || title.dataset.original;
+        const wrap = titleWrap(title);
         let av = document.querySelector(".x4-room-av");
         if (!av) {
           av = document.createElement("span");
           av.className = "avatar x4-room-av";
-          title.insertAdjacentElement("beforebegin", av);
+          wrap.insertAdjacentElement("beforebegin", av);
         }
         paintAvatar(av, roomState.room_pfp_url, "RPM");
       }
@@ -139,7 +156,7 @@
     btn.type = "button";
     btn.title = "Edit room name and photo (owner)";
     btn.innerHTML = svgIcon("edit", 16);
-    title.insertAdjacentElement("afterend", btn);
+    (title.closest(".x4-title-wrap") || title).insertAdjacentElement("afterend", btn);
 
     const bd = document.createElement("div");
     bd.className = "app-sheet-backdrop x4-sheet";
@@ -238,6 +255,49 @@
       paintAvatar(editAv, null, "RPM");
       bd.querySelector("#x4RoomPhotoRemove").style.display = "none";
     });
+  }
+
+  /* ============================================================
+     1b. Stay at the latest message
+        The page scrolls to the newest message once, then the welcome card,
+        catch-up card, poll/countdown cards and photos all load in and push
+        the content — so the chat opened half a message short of the bottom.
+        While you are at the bottom, this keeps you there through any layout
+        change. Scroll up to read history and it leaves you alone.
+     ============================================================ */
+
+  function stickToBottom() {
+    const box = document.getElementById("messages");
+    if (!box || !("ResizeObserver" in window)) return;
+    let pinned = true;
+    const nearBottom = () => box.scrollHeight - box.scrollTop - box.clientHeight < 90;
+    // Your own new message always brings you to the bottom, wherever you
+    // were reading — the same as Instagram and WhatsApp.
+    let lastRowId = null;
+    const keep = () => {
+      const rows = box.querySelectorAll("[data-msg-id]");
+      const last = rows[rows.length - 1];
+      if (last && last.dataset.msgId !== lastRowId) {
+        if (lastRowId && last.classList.contains("own")) pinned = true;
+        lastRowId = last.dataset.msgId;
+      }
+      if (pinned) box.scrollTop = box.scrollHeight;
+    };
+
+    // Only a real finger / wheel / key counts as "the user scrolled away".
+    // Layout shifts also fire scroll events, and treating those as intent is
+    // what left the public room 124px short of the newest message.
+    let lastInput = 0;
+    ["touchstart", "touchmove", "wheel", "keydown", "mousedown"].forEach((ev) =>
+      box.addEventListener(ev, () => { lastInput = Date.now(); }, { passive: true }));
+    box.addEventListener("scroll", () => {
+      if (Date.now() - lastInput < 1200) pinned = nearBottom();
+    }, { passive: true });
+    new ResizeObserver(keep).observe(box);                       // cards inserted above shrink the list
+    let raf;
+    new MutationObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(keep); })
+      .observe(box, { childList: true, subtree: true, characterData: true });  // polls, clamps, new rows
+    box.addEventListener("load", keep, true);                    // photos finishing loading
   }
 
   /* ============================================================

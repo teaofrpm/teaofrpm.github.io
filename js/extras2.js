@@ -412,7 +412,7 @@
       const mine = [...document.querySelectorAll(".msg-row.own[data-msg-id]")];
       const lastOwn = mine[mine.length - 1];
       document.querySelectorAll(".extras2-seen").forEach((el) => {
-        if (el.parentElement !== lastOwn) el.remove();
+        if (!lastOwn || !lastOwn.contains(el)) el.remove();
       });
       if (!lastOwn) return;
 
@@ -429,7 +429,13 @@
       if (!seenBy) { tag?.remove(); return; }
       const text = others.length === 1 ? "Seen" : `Seen by ${seenBy}`;
       if (tag && tag.textContent === text) return;
-      if (!tag) { tag = document.createElement("div"); tag.className = "extras2-seen"; lastOwn.appendChild(tag); }
+      if (!tag) {
+        tag = document.createElement("div");
+        tag.className = "extras2-seen";
+        // under the bubble, not beside it: the row is a left-to-right flexbox,
+        // the bubble's own wrapper is the column it belongs in
+        (lastOwn.querySelector(".bubble")?.parentElement || lastOwn).appendChild(tag);
+      }
       tag.textContent = text;
       lastPaintedFor = lastOwn.dataset.msgId;
     }
@@ -484,14 +490,19 @@
     ["touchend", "touchmove"].forEach(ev =>
       document.addEventListener(ev, () => clearTimeout(pressTimer), { passive: true }));
 
+    let startedAt = 0;
     on("click", "[data-msg-id]", (e, row) => {
       if (!selecting) return;
       if (!row.classList.contains("own")) return;
+      // lifting the finger after a long-press sends one click; without this
+      // it immediately un-selected the message the long-press just selected
+      if (Date.now() - startedAt < 700) return;
       e.stopPropagation();
       toggleSelect(row);
     });
 
     function startSelecting(row) {
+      startedAt = Date.now();
       selecting = true;
       document.body.classList.add("extras2-selecting");
       bar.classList.add("show");
@@ -637,23 +648,64 @@
      phone the buttons are unreachable unless something opens them on purpose
      — this is that something: tap a bubble to reveal its icons, tap anywhere
      else to close whichever one is open. Only one is ever open at a time. */
+  /* ONE owner for every tap on a message bubble.
+
+     Before, three features listened to the same tap independently: the
+     action bar, a double-tap heart, and a timestamp toggle. A double tap
+     opened the action bar on the first tap and shut it on the second, so it
+     flashed — tested and seen in a real browser. Now:
+       single tap  → opens that message's actions (after a 260ms pause, so it
+                     can tell a single tap from the start of a double tap)
+       double tap  → ❤️ react, through the page's own toggleReaction()
+       after a swipe-to-reply, or in select mode → the tap is ignored          */
   function tapToggleActions() {
     if (!isChat) return;
+    const DOUBLE_MS = 280;
+    let pending = null, lastRow = null, lastAt = 0;
+
+    const closeAll = () => document.querySelectorAll(".show-actions").forEach((r) => r.classList.remove("show-actions"));
 
     on("click", ".bubble", (e, bubble) => {
-      if (e.target.closest("button, a, textarea, input, .reaction-chip, .emoji-picker")) return;
+      if (e.target.closest("button, a, textarea, input, audio, video, img, label, .reaction-chip, .emoji-picker, .x3-poll, .x3-cd")) return;
+      if (document.body.classList.contains("extras2-selecting")) return;
+      if (Date.now() - Number(document.documentElement.dataset.xSwipeAt || 0) < 450) return;
+
       const row = bubble.closest("[data-msg-id]");
       if (!row || row.classList.contains("bot-msg-row") || row.classList.contains("system-msg-row")) return;
 
-      const wasOpen = row.classList.contains("show-actions");
-      document.querySelectorAll(".show-actions").forEach(r => r.classList.remove("show-actions"));
-      if (!wasOpen) row.classList.add("show-actions");
+      const now = Date.now();
+      if (row === lastRow && now - lastAt < DOUBLE_MS) {
+        clearTimeout(pending); pending = null; lastRow = null; lastAt = 0;
+        heartReact(row, bubble);
+        return;
+      }
+      lastRow = row; lastAt = now;
+      clearTimeout(pending);
+      pending = setTimeout(() => {
+        pending = null;
+        const wasOpen = row.classList.contains("show-actions");
+        closeAll();
+        if (!wasOpen) row.classList.add("show-actions");
+      }, DOUBLE_MS);
     });
 
     document.addEventListener("click", (e) => {
-      if (e.target.closest(".bubble")) return;   // handled above
-      document.querySelectorAll(".show-actions").forEach(r => r.classList.remove("show-actions"));
+      if (e.target.closest(".bubble, .x2-more")) return;
+      closeAll();
     });
+  }
+
+  async function heartReact(row, bubble) {
+    const id = row.dataset.msgId;
+    const mine = [...row.querySelectorAll(".reaction-chip.mine")].some((c) => c.textContent.includes("❤️"));
+    const burst = document.createElement("span");
+    burst.className = "x2-heart";
+    burst.textContent = "❤️";
+    bubble.appendChild(burst);
+    setTimeout(() => burst.remove(), 750);
+    if (navigator.vibrate) { try { navigator.vibrate(12); } catch {} }
+    // the page's own reaction function: same database write, same chip refresh
+    if (typeof toggleReaction === "function") await toggleReaction(id, "❤️", mine);
   }
 
   /* ---------- 11. Unread count shows in the browser tab title ---------- */

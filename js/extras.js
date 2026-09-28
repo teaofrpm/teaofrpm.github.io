@@ -27,6 +27,11 @@
     try { fn(); } catch (err) { console.error(`[extras] ${name} failed:`, err); }
   }
 
+  /* Removed after browser testing, because each one fought another feature:
+     double-tap + tap-for-timestamp (gestures now owned by extras2.js),
+     the unsent-draft confirm() (drafts already auto-save), and
+     double-back-to-exit (it hijacked the back button on pages with sheets). */
+
   const page = location.pathname.split("/").pop() || "index.html";
   const isChat = page === "chat.html" || page === "room.html";
 
@@ -43,13 +48,16 @@
     feature("esc closes layers", escClosesLayers);
     feature("scroll to top", scrollToTop);
     feature("read more", readMore);
-    feature("tap for timestamp", tapForTimestamp);
-    feature("double tap to like", doubleTapToLike);
+    // removed: tap for timestamp — see note at top of file
+    // feature("tap for timestamp", tapForTimestamp);
+    // removed: double tap to like — see note at top of file
+    // feature("double tap to like", doubleTapToLike);
     feature("swipe to reply", swipeToReply);
     feature("slash autocomplete", slashAutocomplete);
     feature("mention autocomplete", mentionAutocomplete);
     feature("draft saving", draftSaving);
-    feature("unsent draft guard", unsentDraftGuard);
+    // removed: unsent draft guard — see note at top of file
+    // feature("unsent draft guard", unsentDraftGuard);
     feature("long message counter", longMessageCounter);
     feature("copy link", copyLink);
     feature("native share", nativeShare);
@@ -61,7 +69,8 @@
     feature("quick scroll bottom", quickScrollBottom);
     feature("text size control", textSizeControl);
     feature("connection quality", connectionQuality);
-    feature("double back to exit", doubleBackToExit);
+    // removed: double back to exit — see note at top of file
+    // feature("double back to exit", doubleBackToExit);
   }
 
   /* 1. Haptic feedback — a short buzz on real actions, where supported. */
@@ -150,10 +159,12 @@
         the whole screen. */
   function readMore() {
     if (!isChat) return;
-    const LIMIT = 420;
+    const MAX_LINES = 9;
 
     const apply = (el) => {
-      if (el.dataset.rm || (el.textContent || "").length < LIMIT) return;
+      if (el.dataset.rm || el.classList.contains("x3-has-card")) return;
+      const lh = parseFloat(getComputedStyle(el).lineHeight) || 20;
+      if (el.scrollHeight <= lh * (MAX_LINES + 0.5)) return;
       el.dataset.rm = "1";
       el.classList.add("extras-clamped");
       const more = document.createElement("button");
@@ -266,6 +277,7 @@
     }, { passive: true });
 
     document.addEventListener("touchend", () => {
+      if (row && dragging) document.documentElement.dataset.xSwipeAt = String(Date.now());
       if (row && dragging && row.classList.contains("extras-swipe-armed")) {
         row.querySelector(".reply-btn")?.click();
         if (navigator.vibrate) { try { navigator.vibrate(12); } catch {} }
