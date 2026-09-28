@@ -653,7 +653,19 @@ a:hover{ color:var(--bright-red); }
 }
 .msg-row.own .msg-actions{ right:0; }
 .msg-row:not(.own) .msg-actions{ left:0; }
-.msg-row:hover .msg-actions{ opacity:1; }
+.msg-actions{ pointer-events:none; }
+
+/* :hover only ever means something on a real mouse. iOS Safari fakes a
+   "hover" the moment you tap something and never turns it back off until
+   you tap elsewhere — which is exactly why this bar was getting stuck open
+   on top of every message on a phone. Gating it behind (hover:hover) keeps
+   the old behaviour for a mouse and stops it from ever firing on a touch
+   screen; .show-actions (below) is the deliberate, tap-controlled way in on
+   touch devices instead. */
+@media (hover:hover) and (pointer:fine){
+  .msg-row:hover .msg-actions{ opacity:1; pointer-events:auto; }
+}
+.msg-row.show-actions .msg-actions{ opacity:1; pointer-events:auto; }
 .msg-actions button{
   background:none; border:none; cursor:pointer;
   font-size:14px; padding:3px 6px; border-radius:999px; color:var(--text-muted);
