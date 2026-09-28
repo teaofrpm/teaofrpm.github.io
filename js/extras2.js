@@ -95,18 +95,28 @@
           b.textContent = "☆";
           bar.appendChild(b);
           b.addEventListener("click", () => toggleStar(row.dataset.msgId, b));
-          refreshStarIcon(row.dataset.msgId, b);
+          pendingStarChecks.set(row.dataset.msgId, b);
         });
       });
+      flushStarChecks();
     });
   }
 
-  async function refreshStarIcon(messageId, btn) {
-    if (typeof ME === "undefined" || !ME) return;
+  // Previously this ran one database query PER MESSAGE on screen — opening a
+  // chat with 50 messages fired 50 requests. Now every new button is queued
+  // and the whole batch is answered by a single query.
+  const pendingStarChecks = new Map();
+  async function flushStarChecks() {
+    if (!pendingStarChecks.size || typeof ME === "undefined" || !ME) return;
+    const batch = new Map(pendingStarChecks);
+    pendingStarChecks.clear();
     const { data } = await sb.from("message_stars").select("message_id")
-      .eq("message_id", messageId).eq("user_id", ME.id).maybeSingle();
-    btn.textContent = data ? "★" : "☆";
-    btn.classList.toggle("starred", !!data);
+      .eq("user_id", ME.id).in("message_id", [...batch.keys()]);
+    const starred = new Set((data || []).map((r) => r.message_id));
+    batch.forEach((btn, id) => {
+      btn.textContent = starred.has(id) ? "★" : "☆";
+      btn.classList.toggle("starred", starred.has(id));
+    });
   }
 
   async function toggleStar(messageId, btn) {
@@ -264,7 +274,7 @@
       banner.remove();
     });
 
-    const host = document.querySelector(".room-topbar, .chat-topbar, .profile-topbar");
+    const host = document.querySelector(".chat-header, .profile-topbar");
     host?.insertAdjacentElement("afterend", banner);
   }
 
@@ -356,54 +366,50 @@
 
   /* ---------- 6. "Seen" receipt in a DM ---------- */
 
+  // The old version stamped each message with the moment it was DRAWN on
+  // screen, then compared that with when the other person last read the
+  // chat — so "Seen" was essentially random. This uses the message's real
+  // send time, in one query, and says "Seen by N" in a group.
   function seenReceipt() {
     if (page !== "room.html") return;
     const convo = currentConvoId();
     if (!convo) return;
+    let lastPaintedFor = null;
 
     async function paint() {
-      if (typeof ME === "undefined" || !ME || typeof convo === "undefined") return;
-      const { data } = await sb.from("conversation_members")
-        .select("user_id,last_read_at").eq("conversation_id", convo);
-      if (!data) return;
+      if (typeof ME === "undefined" || !ME) return;
+      const mine = [...document.querySelectorAll(".msg-row.own[data-msg-id]")];
+      const lastOwn = mine[mine.length - 1];
+      document.querySelectorAll(".extras2-seen").forEach((el) => {
+        if (el.parentElement !== lastOwn) el.remove();
+      });
+      if (!lastOwn) return;
 
-      const others = data.filter(r => r.user_id !== ME.id);
-      if (!others.length) return;
-      const latestOtherRead = others.reduce((max, r) =>
-        (r.last_read_at && r.last_read_at > max ? r.last_read_at : max), "");
+      const [{ data: msg }, { data: members }] = await Promise.all([
+        sb.from("messages").select("created_at").eq("id", lastOwn.dataset.msgId).maybeSingle(),
+        sb.from("conversation_members").select("user_id,last_read_at").eq("conversation_id", convo),
+      ]);
+      if (!msg || !members) return;
 
-      document.querySelectorAll(".msg-row.own [data-msg-id], [data-msg-id].own").forEach(() => {});
-      const mine = [...document.querySelectorAll("[data-msg-id]")]
-        .filter(r => !r.classList.contains("bot-msg-row") && !r.classList.contains("system-msg-row"));
+      const others = members.filter((m) => m.user_id !== ME.id);
+      const seenBy = others.filter((m) => m.last_read_at && m.last_read_at >= msg.created_at).length;
 
-      document.querySelector(".extras2-seen")?.remove();
-      if (!latestOtherRead) return;
-
-      // find the last of OUR OWN messages that is at or before their last read time
-      let lastSeenRow = null;
-      for (const row of mine) {
-        const stamp = row.querySelector(".msg-time")?.dataset?.iso;
-        if (!row.classList.contains("own")) continue;
-        if (stamp && stamp <= latestOtherRead) lastSeenRow = row;
-      }
-      if (!lastSeenRow) return;
-
-      const tag = document.createElement("div");
-      tag.className = "extras2-seen";
-      tag.textContent = "Seen";
-      lastSeenRow.appendChild(tag);
+      let tag = lastOwn.querySelector(".extras2-seen");
+      if (!seenBy) { tag?.remove(); return; }
+      const text = others.length === 1 ? "Seen" : `Seen by ${seenBy}`;
+      if (tag && tag.textContent === text) return;
+      if (!tag) { tag = document.createElement("div"); tag.className = "extras2-seen"; lastOwn.appendChild(tag); }
+      tag.textContent = text;
+      lastPaintedFor = lastOwn.dataset.msgId;
     }
 
-    // stamp each own message with a sortable ISO time once, from its
-    // already-rendered human time — no change to how room.js builds rows.
     watchMessages(() => {
-      document.querySelectorAll("[data-msg-id]").forEach((row) => {
-        const t = row.querySelector(".msg-time");
-        if (t && !t.dataset.iso) t.dataset.iso = new Date().toISOString();
-      });
-      paint();
+      const mine = document.querySelectorAll(".msg-row.own[data-msg-id]");
+      const lastId = mine[mine.length - 1]?.dataset.msgId;
+      if (lastId !== lastPaintedFor) paint();
     });
 
+    // conversation_members is now in the realtime publication, so this fires
     sb.channel(`extras2-seen:${convo}`)
       .on("postgres_changes", {
         event: "UPDATE", schema: "public", table: "conversation_members", filter: `conversation_id=eq.${convo}`,
@@ -635,25 +641,16 @@
 
   function unreadTabTitle() {
     const baseTitle = document.title;
+    // my_conversations() already returns an unread count for every chat, so
+    // this is one request every 30s — it used to be one request PER CHAT.
     setInterval(async () => {
       if (typeof ME === "undefined" || !ME || document.visibilityState === "visible") {
         document.title = baseTitle;
         return;
       }
-      const { data } = await sb.from("conversation_members")
-        .select("conversation_id,last_read_at").eq("user_id", ME.id);
-      if (!data?.length) return;
-
-      let unread = 0;
-      for (const row of data) {
-        const { count } = await sb.from("messages")
-          .select("id", { count: "exact", head: true })
-          .eq("conversation_id", row.conversation_id)
-          .eq("deleted", false)
-          .gt("created_at", row.last_read_at || "1970-01-01");
-        unread += count || 0;
-      }
+      const { data } = await sb.rpc("my_conversations");
+      const unread = (data || []).reduce((n, c) => n + (c.unread || 0), 0);
       document.title = unread ? `(${unread}) ${baseTitle}` : baseTitle;
-    }, 20000);
+    }, 30000);
   }
 })();

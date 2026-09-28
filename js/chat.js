@@ -226,6 +226,7 @@ async function loadOlderMessages() {
 
 async function renderMessage(m, reactions = [], grouped = false) {
   if (m.is_bot) return buildBotRow(m);
+  if (m.is_system) return buildSystemRow(m);
   const author = await getProfile(m.user_id);
   const isOwn = m.user_id === ME.id;
   const isOwnerMsg = author && author.role === "owner";
@@ -347,6 +348,20 @@ async function renderMessage(m, reactions = [], grouped = false) {
     lastOwnMessageAt = m.created_at;
   }
 
+  return row;
+}
+
+// "Garv pinned a message", "Garv renamed the room to …" — written by the
+// database, never typed by a person, so they render as a small centred note
+// exactly like they do in groups, not as a chat bubble from that person.
+async function buildSystemRow(m) {
+  const who = await getProfile(m.user_id);
+  const name = who ? (who.id === ME.id ? "You" : who.display_name) : "Someone";
+  const row = document.createElement("div");
+  row.className = "system-msg-row";
+  row.dataset.msgId = m.id;
+  row.innerHTML = `<span class="system-msg-chip"><b>${escapeHTML(name)}</b> ${escapeHTML(m.content || "made a change")}
+    <small>${formatTime(m.created_at)}</small></span>`;
   return row;
 }
 

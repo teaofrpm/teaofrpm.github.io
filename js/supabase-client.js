@@ -5,6 +5,46 @@
       "[teaofrpm] Supabase is not configured yet "
     );
   }
+  /* Every database/storage request goes through this instead of plain fetch.
+
+     On a patchy mobile connection a request can hang forever: no error, no
+     data, and the screen sits on a skeleton until the user gives up. Reads
+     (GET/HEAD) now give up after 15s and are retried once — a second attempt
+     rescues most dropped requests on Jio/Airtel data.
+
+     Writes (sending a message, uploading a photo, voting) are deliberately
+     left alone: no timeout, so a slow photo upload is never cut off, and no
+     retry, because repeating a write that actually reached the server would
+     send the message twice. */
+  const nativeFetch = window.fetch.bind(window);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function resilientFetch(input, init = {}) {
+    const method = String(init.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
+    if (method !== "GET" && method !== "HEAD") return nativeFetch(input, init);
+
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 15000);
+      // still honour the caller's own cancel signal, if it passed one
+      if (init.signal) {
+        if (init.signal.aborted) ctrl.abort();
+        else init.signal.addEventListener("abort", () => ctrl.abort(), { once: true });
+      }
+      try {
+        const res = await nativeFetch(input, { ...init, signal: ctrl.signal });
+        clearTimeout(timer);
+        if (res.status >= 500 && attempt === 0) { await sleep(600); continue; }  // transient server hiccup
+        return res;
+      } catch (err) {
+        clearTimeout(timer);
+        if (init.signal && init.signal.aborted) throw err;   // cancelled on purpose — don't retry
+        if (attempt === 1) throw err;
+        await sleep(700);
+      }
+    }
+  }
+
   window.sb = window.supabase.createClient(cfg.SUPABASE_URL, cfg.SUPABASE_ANON_KEY, {
     auth: {
       persistSession: true,
@@ -14,7 +54,17 @@
     realtime: {
       params: { eventsPerSecond: 10 },
     },
+    global: { fetch: resilientFetch },
   });
+
+  // The service worker keeps the app shell available when the network drops
+  // and makes the site installable as a real app on Android. HTTPS only —
+  // browsers refuse to run one anywhere else.
+  if ("serviceWorker" in navigator && location.protocol === "https:") {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
 })();
 
 

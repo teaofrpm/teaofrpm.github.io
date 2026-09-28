@@ -291,6 +291,9 @@
 
     const CMDS = [
       ["/help", "show every command"],
+      ["/poll Question | A | B", "start a poll"],
+      ["/countdown Exams 2026-10-15", "live countdown card"],
+      ["/top", "most active people this week"],
       ["/rules", "show the rules"],
       ["/warns @user", "how many warnings someone has"],
       ["/info @user", "their standing here"],
@@ -303,6 +306,7 @@
       ["/unmute @user", "admin — let them talk"],
       ["/kick @user", "admin — remove from group"],
       ["/antilink on", "admin — block links"],
+      ["/slowmode 30", "admin — gap between messages"],
     ];
 
     const box = makePopover("extras-cmdbox", input);
@@ -650,7 +654,7 @@
   /* 22. Long-press the header to jump to the newest message. */
   function quickScrollBottom() {
     if (!isChat) return;
-    const header = document.querySelector(".chat-topbar, .room-topbar, .profile-topbar");
+    const header = document.querySelector(".chat-header");
     const msgs = document.getElementById("messages");
     if (!header || !msgs) return;
 
