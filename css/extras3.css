@@ -1,0 +1,216 @@
+/* ============================================================
+   extras3.css — styles for js/extras3.js only. Every selector is
+   prefixed .x3- so nothing here can collide with an existing rule.
+   Safe to delete alongside extras3.js.
+   ============================================================ */
+
+/* ---------- composer buttons ---------- */
+.x3-create-btn, .x3-dictate{ font-size:17px; line-height:1; }
+.x3-dictate{ font-size:14px; font-weight:800; font-family:var(--sans); }
+.x3-dictate.listening{
+  color:#fff !important;
+  background:#e63946 !important;
+  animation:x3Pulse 1.1s ease-in-out infinite;
+}
+@keyframes x3Pulse{
+  0%,100%{ box-shadow:0 0 0 0 rgba(230,57,70,.5); }
+  50%{ box-shadow:0 0 0 7px rgba(230,57,70,0); }
+}
+
+/* ---------- sheets ---------- */
+.x3-sheet-body{ display:flex; flex-direction:column; gap:10px; padding-bottom:6px; }
+.x3-input{
+  width:100%;
+  box-sizing:border-box;
+  padding:11px 13px;
+  border:1px solid var(--border-soft);
+  border-radius:12px;
+  background:var(--white);
+  color:var(--text-dark);
+  font-size:16px;                 /* 16px stops iOS zooming into the field */
+  font-family:var(--sans);
+  outline:none;
+  resize:none;
+}
+.x3-input:focus{ border-color:var(--gold-deep); }
+.x3-opt{ margin-top:8px; }
+.x3-row{ display:flex; gap:8px; }
+.x3-row .x3-input{ flex:1; min-width:0; }
+.x3-full{ width:100%; }
+.x3-link{
+  align-self:flex-start;
+  background:none; border:none; padding:2px 0; cursor:pointer;
+  color:var(--bright-red); font-weight:700; font-size:13px; font-family:inherit;
+}
+.x3-hint{ margin:0; font-size:11.5px; color:var(--text-muted); line-height:1.45; }
+.x3-subhead{
+  margin-top:8px;
+  font-size:11px; font-weight:800; letter-spacing:.4px; text-transform:uppercase;
+  color:var(--text-muted);
+}
+.x3-empty{ font-size:12.5px; color:var(--text-muted); padding:4px 0; }
+
+.x3-chips{ display:flex; gap:7px; flex-wrap:wrap; }
+.x3-chips button{
+  padding:7px 12px;
+  border-radius:999px;
+  border:1px solid var(--border-soft);
+  background:var(--warm-cream);
+  color:var(--text-dark);
+  font-size:12.5px; font-weight:600; cursor:pointer; font-family:inherit;
+}
+.x3-chips button:active{ transform:scale(.95); }
+
+/* create menu */
+.x3-menu{ display:flex; flex-direction:column; gap:8px; }
+.x3-menu button{
+  display:flex; align-items:center; gap:13px;
+  width:100%; text-align:left;
+  padding:12px 14px;
+  border-radius:14px;
+  border:1px solid var(--border-soft);
+  background:var(--white);
+  color:var(--text-dark);
+  cursor:pointer; font-family:inherit;
+  transition:transform .12s ease, border-color .15s ease;
+}
+.x3-menu button:active{ transform:scale(.98); }
+.x3-menu button:hover{ border-color:var(--gold-deep); }
+.x3-menu button > span{ font-size:24px; line-height:1; }
+.x3-menu b{ display:block; font-size:14.5px; }
+.x3-menu small{ display:block; margin-top:2px; font-size:12px; color:var(--text-muted); }
+
+/* scheduled list */
+.x3-schlist{ display:flex; flex-direction:column; gap:7px; }
+.x3-sch{
+  display:flex; align-items:center; gap:10px;
+  padding:9px 11px;
+  border-radius:11px;
+  border:1px solid var(--border-soft);
+  background:var(--white);
+}
+.x3-sch.failed{ border-color:#e6394666; }
+.x3-sch-main{ flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+.x3-sch-main b{ font-size:12px; color:var(--gold-deep); }
+.x3-sch-main span{ font-size:13px; color:var(--text-dark); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.x3-sch-main small{ font-size:11px; color:#e63946; }
+.x3-sch button{
+  flex-shrink:0;
+  padding:6px 11px; border-radius:999px;
+  border:none; background:var(--border-soft); color:var(--text-dark);
+  font-size:12px; font-weight:700; cursor:pointer; font-family:inherit;
+}
+
+/* ---------- cards inside a message bubble ---------- */
+.msg-text.x3-has-card{ min-width:min(250px, 62vw); }
+
+/* poll */
+.x3-poll{ display:flex; flex-direction:column; gap:7px; }
+.x3-poll-q{ font-weight:700; font-size:14.5px; line-height:1.35; }
+.x3-poll-opts{ display:flex; flex-direction:column; gap:6px; }
+.x3-poll-opt{
+  position:relative; overflow:hidden;
+  display:flex; align-items:center; gap:8px;
+  width:100%; text-align:left;
+  padding:9px 11px;
+  border-radius:10px;
+  border:1px solid var(--border-soft);
+  background:var(--white);
+  color:var(--text-dark);
+  font-size:13.5px; font-family:inherit; cursor:pointer;
+  transition:border-color .15s ease, transform .1s ease;
+}
+.x3-poll-opt:active{ transform:scale(.98); }
+.x3-poll-bar{
+  position:absolute; left:0; top:0; bottom:0; width:0;
+  background:rgba(216,165,61,.22);
+  transition:width .45s cubic-bezier(.22,.9,.3,1);
+  z-index:0;
+}
+.x3-poll-label, .x3-poll-count{ position:relative; z-index:1; }
+.x3-poll-label{ flex:1; min-width:0; }
+.x3-poll-count{ font-size:12px; font-weight:700; color:var(--text-muted); }
+.x3-poll-opt.mine{ border-color:var(--gold-deep); }
+.x3-poll-opt.mine .x3-poll-label::after{ content:"  ✓"; font-weight:800; color:var(--gold-deep); }
+.x3-poll-opt.mine .x3-poll-bar{ background:rgba(216,165,61,.38); }
+.x3-poll.busy{ opacity:.6; pointer-events:none; }
+.x3-poll.closed .x3-poll-opt{ cursor:default; }
+.x3-poll-foot{
+  display:flex; align-items:center; justify-content:space-between; gap:8px;
+  font-size:11.5px; color:var(--text-muted);
+}
+.x3-poll-close{
+  background:none; border:none; padding:0; cursor:pointer;
+  color:var(--bright-red); font-size:11.5px; font-weight:700; font-family:inherit;
+}
+
+/* countdown */
+.x3-cd{ display:flex; flex-direction:column; align-items:center; gap:6px; padding:4px 2px; text-align:center; }
+.x3-cd-title{ font-weight:700; font-size:14.5px; }
+.x3-cd-time{ display:flex; gap:10px; justify-content:center; }
+.x3-cd-time b{
+  display:block;
+  font-size:24px; font-weight:800; line-height:1;
+  font-variant-numeric:tabular-nums;     /* digits don't jiggle as they tick */
+  color:var(--gold-deep);
+}
+.x3-cd-time small{ display:block; margin-top:3px; font-size:10px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.4px; }
+.x3-cd-time > *{ display:inline-block; }
+.x3-cd-date{ font-size:11.5px; color:var(--text-muted); }
+.x3-cd.done .x3-cd-time{ font-size:18px; font-weight:800; color:var(--gold-deep); }
+
+/* ---------- catch-up card ---------- */
+.x3-catchup{
+  margin:8px 12px 0;
+  padding:10px 12px;
+  border-radius:14px;
+  background:var(--warm-cream);
+  border:1px solid var(--border-soft);
+  border-left:3px solid var(--gold-deep);
+  animation:x3Drop .3s cubic-bezier(.22,.9,.3,1);
+}
+@keyframes x3Drop{ from{ opacity:0; transform:translateY(-6px); } to{ opacity:1; transform:none; } }
+.x3-catchup-head{ display:flex; align-items:center; gap:8px; }
+.x3-catchup-head b{ font-size:13px; color:var(--text-dark); }
+.x3-catchup-head span{ flex:1; font-size:12px; color:var(--text-muted); }
+.x3-catchup-x{ background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:14px; padding:2px 4px; }
+.x3-catchup-list{ display:flex; flex-direction:column; gap:5px; margin-top:8px; }
+.x3-catchup-list button{
+  display:flex; align-items:center; gap:8px;
+  width:100%; text-align:left;
+  padding:7px 9px; border-radius:9px;
+  border:none; background:var(--white);
+  color:var(--text-dark); font-size:12.5px; font-family:inherit; cursor:pointer;
+}
+.x3-catchup-list small{ flex-shrink:0; font-weight:800; color:var(--bright-red); }
+.x3-catchup-list span{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* ---------- streak badge ---------- */
+.x3-streak{
+  display:inline-block;
+  margin-left:6px;
+  padding:1px 6px;
+  border-radius:999px;
+  background:rgba(255,120,40,.14);
+  color:#e8590c;
+  font-size:11px; font-weight:800;
+  vertical-align:middle;
+  white-space:nowrap;
+}
+.x3-streak.at-risk{ background:rgba(230,57,70,.14); color:#e63946; animation:x3Pulse 1.6s ease-in-out infinite; }
+
+/* ---------- effects ---------- */
+.x3-fx{ position:fixed; inset:0; width:100vw; height:100vh; pointer-events:none; z-index:9500; }
+.x3-heart{
+  position:fixed; bottom:-40px; z-index:9500; pointer-events:none;
+  animation:x3Float 2.4s ease-in forwards;
+}
+@keyframes x3Float{
+  0%{ transform:translateY(0) scale(.6); opacity:0; }
+  15%{ opacity:1; }
+  100%{ transform:translateY(-95vh) scale(1.15) rotate(18deg); opacity:0; }
+}
+
+@media (prefers-reduced-motion:reduce){
+  .x3-streak.at-risk, .x3-dictate.listening, .x3-catchup{ animation:none; }
+}
