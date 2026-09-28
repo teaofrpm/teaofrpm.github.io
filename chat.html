@@ -2,120 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<link rel="preconnect" href="https://jfybtgoofxfhjgeyumzl.supabase.co" crossorigin />
-<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-<link rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#8B0000" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<link rel="apple-touch-icon" href="images/logo.png" />
-<title>𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂 — Global Chat Room</title>
-<link rel="icon" href="images/logo.png" />
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script>(function(){var t=localStorage.getItem("teaofrpm_theme");if(t==="dark")document.documentElement.setAttribute("data-theme","dark");var f=localStorage.getItem("teaofrpm_font");if(f&&f!=="default")document.documentElement.setAttribute("data-font",f);})();</script>
-<link rel="stylesheet" href="css/style.css?v=2" />
-<link rel="stylesheet" href="css/app-shell.css?v=3" />
-<link rel="stylesheet" href="css/calls.css" />
-<link rel="stylesheet" href="css/bot.css" />
-<link rel="stylesheet" href="css/extras.css" />
-<link rel="stylesheet" href="css/extras2.css?v=3" />
-<link rel="stylesheet" href="css/extras3.css?v=2" />
-<link rel="stylesheet" href="css/extras4.css?v=2" />
-<link rel="stylesheet" href="css/chat-polish.css?v=4" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>RPM Public Room — teaofrpm</title>
+<!-- The public room is now a normal group (same code as every group and DM).
+     Old links, bookmarks and notifications to chat.html land here and are
+     sent straight to it, keeping any #m=<message> deep link. -->
+<script>location.replace("room.html?c=11111111-1111-4111-8111-111111111111" + location.hash);</script>
 </head>
-<body>
-
-
-<div class="chat-shell">
-
-  <aside class="members-panel" id="membersPanel">
-<button class="panel-close-btn" id="closeMembersPanel" data-icon="close" data-icon-size="16"></button>
-    <div class="brand-mini">𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</div>
-    <div class="room-name" id="roomNameLabel">𝑅𝒫𝑀 𝒫𝓊𝒷𝓁𝒾𝒸 𝑅𝑜𝑜𝓂</div>
-
-    <div class="online-count"><span id="onlineCountText">0 online</span></div>
-
-    <div class="member-list" id="memberList"><!-- filled by chat.js --></div>
-
-    <button class="btn-outline btn btn-small leave-btn" id="logoutBtn">Log out</button>
-  </aside>
-
-
-  <main class="chat-main">
-    <div class="chat-header">
-      <div style="display:flex; align-items:center; gap:10px;">
-        <a href="messages.html" class="header-icon-btn" title="All chats" data-icon="back" data-icon-size="16"></a>
-        <button class="menu-toggle" id="menuToggle" data-icon="menu" data-icon-size="18"></button>
-        <h2 id="headerRoomName">𝑅𝒫𝑀 𝒫𝓊𝒷𝓁𝒾𝒸 𝑅𝑜𝑜𝓂</h2>
-      </div>
-      <div style="display:flex; align-items:center; gap:10px;">
-        <button class="header-icon-btn" id="searchToggle" title="Search messages" data-icon="search" data-icon-size="16"></button>
-        <span class="online-count" id="headerOnline"><span id="headerOnlineText">0 online</span></span>
-      </div>
-
-      <div class="search-panel" id="searchPanel">
-        <input type="text" id="searchInput" placeholder="Search messages…" />
-        <div class="search-results" id="searchResults"></div>
-      </div>
-    </div>
-
-    <button class="load-more-btn" id="loadMoreBtn">Load older messages</button>
-
-    <div class="messages-wrap">
-      <div class="messages" id="messages"></div>
-      <button class="jump-to-latest" id="jumpToLatest"><span data-icon="loadMore" data-icon-size="14"></span> New messages</button>
-    </div>
-
-    <div class="typing-indicator" id="typingIndicator"></div>
-
-    <div class="composer">
-      <div class="reply-bar" id="replyBar">
-        <span>Replying to <b id="replyToName"></b>: <span id="replyToText"></span></span>
-        <button id="cancelReply" data-icon="close" data-icon-size="14"></button>
-      </div>
-
-      <div class="attach-preview" id="attachPreview">
-        <img id="attachImg" />
-        <span id="attachName" style="font-size:12.5px; color:var(--text-muted);"></span>
-        <button id="removeAttach">Remove</button>
-      </div>
-
-      <div class="attach-preview" id="audioPreview">
-        <audio id="audioPreviewPlayer" controls></audio>
-        <button id="removeAudioAttach">Remove</button>
-      </div>
-
-      <div class="sticker-panel" id="stickerPanel"></div>
-
-      <div class="composer-row">
-        <button class="icon-btn" id="stickerToggle" title="Stickers" data-icon="sticker" data-icon-size="19"></button>
-        <label class="icon-btn" id="imageBtn" for="imageInput" title="Send image" data-icon="image" data-icon-size="19"></label>
-        <input type="file" id="imageInput" accept="image/*" style="display:none;" />
-        <button class="icon-btn" id="voiceBtn" title="Record voice note" data-icon="mic" data-icon-size="19"></button>
-        <textarea id="msgInput" rows="1" placeholder="Message…"></textarea>
-        <button class="send-btn" id="sendBtn" disabled data-icon="send" data-icon-size="18"></button>
-      </div>
-    </div>
-
-    <nav id="appNav" data-active="messages" data-hide-on-focus="msgInput"></nav>
-  </main>
-</div>
-
-<div class="lightbox" id="lightbox"><img id="lightboxImg" /></div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js"></script>
-<script src="js/supabase-client.js?v=6"></script>
-<script src="js/auth.js"></script>
-<script src="js/app-shell.js"></script>
-<script src="js/calls.js"></script>
-<script src="js/chat.js?v=5"></script>
-<script src="js/extras.js?v=6"></script>
-<script src="js/extras2.js?v=9"></script>
-<script src="js/extras3.js?v=3"></script>
-<script src="js/extras4.js?v=6"></script>
-</body>
+<body style="background:#141110"></body>
 </html>
