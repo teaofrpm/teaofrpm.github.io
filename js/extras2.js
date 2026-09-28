@@ -246,7 +246,7 @@
         const author = profileCache.get(m.user_id);
         const row = document.createElement("a");
         row.className = "settings-list-row";
-        row.href = m.conversation_id ? `room.html?c=${m.conversation_id}` : "chat.html";
+        row.href = `room.html?c=${m.conversation_id || "11111111-1111-4111-8111-111111111111"}`;
         row.innerHTML = `
           <div style="flex:1; min-width:0;">
             <div class="settings-list-name">${escapeHTML(author?.display_name || "Someone")}</div>
@@ -546,9 +546,12 @@
       const list = document.getElementById("extras2-forward-list");
       list.innerHTML = `<div class="settings-empty">Loading your chats…</div>`;
 
-      const { data, error } = await sb.rpc("my_conversations");
-      if (error || !data?.length) {
-        list.innerHTML = `<div class="settings-empty">No chats to forward to yet.</div>`;
+      const { data: mine, error } = await sb.rpc("my_conversations");
+      // the public room is kept out of the chat list (the inbox pins it), so
+      // offer it here explicitly
+      const data = [{ id: "11111111-1111-4111-8111-111111111111", kind: "group", name: "RPM Public Room" }, ...(mine || [])];
+      if (error) {
+        list.innerHTML = `<div class="settings-empty">Could not load your chats.</div>`;
         return;
       }
 
@@ -633,7 +636,7 @@
         const author = profileCache.get(m.user_id);
         const row = document.createElement("a");
         row.className = "settings-list-row";
-        row.href = m.conversation_id ? `room.html?c=${m.conversation_id}` : "chat.html";
+        row.href = `room.html?c=${m.conversation_id || "11111111-1111-4111-8111-111111111111"}`;
         row.innerHTML = `<div style="flex:1;min-width:0;">
           <div class="settings-list-name">${escapeHTML(author?.display_name || "Someone")}</div>
           <div class="settings-list-sub" style="white-space:normal;">${escapeHTML(m.content).slice(0, 140)}</div>

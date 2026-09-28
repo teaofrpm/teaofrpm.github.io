@@ -66,17 +66,20 @@
   const DEFAULT_ROOM_NAME = "RPM Public Room";
   let roomState = { room_name: null, room_pfp_url: null };
 
+  // The public room is a real group now; its name and photo live on its own
+  // conversations row, exactly like any other group's.
+  const PUBLIC_ROOM_ID = "11111111-1111-4111-8111-111111111111";
   async function roomProfile() {
-    const { data } = await sb.from("bot_room_settings")
-      .select("room_name,room_pfp_url").eq("id", 1).maybeSingle();
-    if (data) roomState = data;
+    const { data } = await sb.from("conversations")
+      .select("name,pfp_url").eq("id", PUBLIC_ROOM_ID).maybeSingle();
+    if (data) roomState = { room_name: data.name, room_pfp_url: data.pfp_url };
     applyRoomProfile();
 
     sb.channel("x4-room-profile")
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "bot_room_settings", filter: "id=eq.1" },
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations", filter: `id=eq.${PUBLIC_ROOM_ID}` },
         ({ new: row }) => {
           if (!row) return;
-          roomState = { room_name: row.room_name, room_pfp_url: row.room_pfp_url };
+          roomState = { room_name: row.name, room_pfp_url: row.pfp_url };
           applyRoomProfile();
         })
       .subscribe();
@@ -135,7 +138,7 @@
     }
 
     if (isInbox) {
-      const row = document.querySelector('a.thread-row.pinned[href="chat.html"]');
+      const row = document.querySelector("a.thread-row.pinned");
       if (!row) return;
       const b = row.querySelector(".thread-text b");
       if (b) {

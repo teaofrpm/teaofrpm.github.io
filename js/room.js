@@ -1032,9 +1032,14 @@ async function renderInfoSheet() {
   // Any member can rename the group or change its photo — the conversations
   // UPDATE policy allows it, and every change is logged into the chat.
   // Adding/removing members stays with admins, which the database enforces.
-  document.getElementById("groupEditArea").style.display = isGroup ? "block" : "none";
-  document.getElementById("leaveGroupBtn").style.display = isGroup ? "block" : "none";
-  document.getElementById("addMemberArea").style.display = isGroup && amAdmin ? "block" : "none";
+  // The public room is an ordinary group everyone belongs to. Only three
+  // things differ, and the database enforces all three: only the owner
+  // renames it, nobody leaves it, nobody is added or removed by hand.
+  const isPublic = !!convo.is_public;
+  const isOwner = ME.role === "owner";
+  document.getElementById("groupEditArea").style.display = isGroup && (!isPublic || isOwner) ? "block" : "none";
+  document.getElementById("leaveGroupBtn").style.display = isGroup && !isPublic ? "block" : "none";
+  document.getElementById("addMemberArea").style.display = isGroup && amAdmin && !isPublic ? "block" : "none";
 
   if (isGroup) {
     document.getElementById("groupNameEdit").value = convo.name || "";
@@ -1091,7 +1096,7 @@ async function renderInfoSheet() {
       });
       row.appendChild(roleBtn);
 
-      if (member.user_id !== ME.id) {
+      if (member.user_id !== ME.id && !convo.is_public) {
         const btn = document.createElement("button");
         btn.textContent = "Remove";
         btn.addEventListener("click", async () => {
