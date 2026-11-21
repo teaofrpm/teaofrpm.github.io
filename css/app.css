@@ -2596,3 +2596,40 @@ html:has(.room-shell), html:has(.room-shell) body{ overflow:hidden; overscroll-b
 .notif-thumb{width:38px;height:38px;border-radius:8px;object-fit:cover;flex:none;margin-left:auto}
 .thread-muted{display:inline-flex;vertical-align:middle;opacity:.55}
 .feed-empty{padding:28px 16px;text-align:center;color:var(--text-muted);font-size:14px}
+
+/* v22: bottom bar that sits still
+   - styled straight from the HTML tag, so it's in place on the very first
+     frame (no late pop-in that shoved the page up)
+   - no extra lift on the active tab, no label "rise" on every page load
+   - phones with a gesture bar get a slimmer gap under the icons */
+:root{
+  --nav-h: 58px;
+  --nav-safe: max(0px, calc(env(safe-area-inset-bottom, 0px) - 10px));
+  --nav-space: calc(var(--nav-h) + var(--nav-safe));
+}
+#appNav{
+  position:fixed; left:0; right:0; bottom:0; z-index:40;
+  height:var(--nav-space);
+  padding-bottom:var(--nav-safe);
+  display:flex; align-items:stretch;
+  background:rgba(255,255,255,.94);
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  border-top:1px solid var(--border-soft);
+  transform:translateZ(0);            /* own layer: no shimmer while the page scrolls */
+}
+:root[data-theme="dark"] #appNav{ background:rgba(23,21,15,.92); }
+.reels-page #appNav{ background:rgba(0,0,0,.55); border-top-color:rgba(255,255,255,.08); }
+body.nav-hidden #appNav{ transform:translateY(100%); }
+#appNav a{ height:var(--nav-h); gap:2px; -webkit-tap-highlight-color:transparent; }
+#appNav a .icon-svg{ display:block; flex:none; }
+#appNav a span{ line-height:1.1; }
+#appNav a.active .icon-svg{ transform:scale(1.08); }
+#appNav a.active span{ animation:none; }
+
+/* space for the bar is reserved from the first frame too */
+body:has(#appNav) .chat-shell,
+body:has(#appNav) .profile-shell,
+body:has(#appNav) .home-shell{ bottom:var(--nav-space); transition:none; }
+body.nav-hidden:has(#appNav) .chat-shell,
+body.nav-hidden:has(#appNav) .profile-shell,
+body.nav-hidden:has(#appNav) .home-shell{ bottom:0; }
