@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>Settings — 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</title>
-<script>(function(){try{var t=localStorage.getItem("teaofrpm_theme");if(t==="dark")document.documentElement.setAttribute("data-theme","dark");var f=localStorage.getItem("teaofrpm_font");if(f&&f!=="default")document.documentElement.setAttribute("data-font",f);}catch(e){}})();</script>
+<script>(function(){try{var t=localStorage.getItem("teaofrpm_theme");if(t==="dark"||(t==="auto"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.setAttribute("data-theme","dark");var a=localStorage.getItem("teaofrpm_accent");if(a&&a!=="royal")document.documentElement.setAttribute("data-accent",a);var f=localStorage.getItem("teaofrpm_font");if(f&&f!=="default")document.documentElement.setAttribute("data-font",f);}catch(e){}})();</script>
 <link rel="preconnect" href="https://jfybtgoofxfhjgeyumzl.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -16,8 +16,8 @@
 <link rel="apple-touch-icon" href="images/icon-192.png" />
 <link rel="icon" href="images/icon-192.png" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
-<link rel="stylesheet" href="css/app.css?v=25" />
-<link rel="stylesheet" href="css/settings.css?v=25" />
+<link rel="stylesheet" href="css/app.css?v=26" />
+<link rel="stylesheet" href="css/settings.css?v=26" />
 </head>
 <body>
 
@@ -111,7 +111,20 @@
       <div class="settings-choice-row" id="themeChoice">
         <button data-value="light">Light</button>
         <button data-value="dark">Dark</button>
+        <button data-value="auto">Auto</button>
       </div>
+      <div class="settings-group-title" style="margin-top:18px;">Accent colour</div>
+      <div class="accent-row" id="accentChoice">
+        <button data-value="royal" title="Royal" style="background:linear-gradient(135deg,#6A1B9A,#4A148C)"></button>
+        <button data-value="ocean" title="Ocean" style="background:linear-gradient(135deg,#0284c7,#0c4a6e)"></button>
+        <button data-value="emerald" title="Emerald" style="background:linear-gradient(135deg,#059669,#065f46)"></button>
+        <button data-value="sunset" title="Sunset" style="background:linear-gradient(135deg,#ea580c,#9a3412)"></button>
+        <button data-value="rose" title="Rose" style="background:linear-gradient(135deg,#e11d48,#9f1239)"></button>
+        <button data-value="midnight" title="Midnight" style="background:linear-gradient(135deg,#4338ca,#1e1b4b)"></button>
+        <button data-value="grape" title="Grape" style="background:linear-gradient(135deg,#9333ea,#581c87)"></button>
+        <button data-value="mono" title="Mono" style="background:linear-gradient(135deg,#3f3f46,#18181b)"></button>
+      </div>
+      <p class="settings-hint">Changes buttons, links and your chat bubbles across the whole app. Each chat can also have its own theme — open a chat → Details → Chat theme.</p>
       <div class="settings-group-title" style="margin-top:18px;">Font</div>
       <div class="settings-choice-row" id="fontChoice">
         <button data-value="default">Default</button>
@@ -161,9 +174,9 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=25"></script>
-<script src="js/core.js?v=25"></script>
-<script src="js/calls.js?v=25"></script>
-<script src="js/settings.js?v=25"></script>
+<script src="js/config.js?v=26"></script>
+<script src="js/core.js?v=26"></script>
+<script src="js/calls.js?v=26"></script>
+<script src="js/settings.js?v=26"></script>
 </body>
 </html>
