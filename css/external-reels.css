@@ -1,12 +1,6 @@
-.ig-reel {
-  position: relative;
-  height: 100vh;
-  height: 100dvh;
-  scroll-snap-align: start;
-  scroll-snap-stop: always;
-  background: #000;
-  overflow: hidden;
-}
+/* External reels (YouTube / Instagram) — only what the existing .reel styles don't cover */
+.ig-reel { position: relative; overflow: hidden; background: #000; }
+
 .ig-reel video,
 .ig-reel .yt-wrap {
   position: absolute;
@@ -15,24 +9,47 @@
   height: 100%;
 }
 .ig-reel video { object-fit: cover; }
-.ig-reel .yt-wrap iframe { width: 100%; height: 100%; border: 0; }
-.ig-mute-btn, .ig-pause {
-  position: absolute;
-  right: 12px;
-  z-index: 5;
-  background: rgba(0,0,0,.55);
-  color: #fff;
+
+.ig-reel .yt-wrap iframe {
+  width: 100%;
+  height: 100%;
   border: 0;
-  border-radius: 999px;
-  padding: 8px 14px;
-  font-size: 13px;
+  pointer-events: none; /* taps/swipes go to our overlay, not YouTube */
 }
-.ig-mute-btn { bottom: 90px; }
-.ig-pause { bottom: 140px; }
-.ig-loading {
+.ig-reel .yt-tap { position: absolute; inset: 0; z-index: 2; }
+
+/* Small pill buttons — reset any older global button/pause styles */
+.ig-reel .ig-mute-btn,
+.ig-reel .ig-pause {
+  position: absolute !important;
+  left: auto !important;
+  top: auto !important;
+  right: 12px !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  margin: 0 !important;
+  transform: none !important;
+  display: block !important;
+  z-index: 6;
+  padding: 8px 14px !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  background: rgba(0, 0, 0, .6) !important;
+  color: #fff !important;
+  font-size: 13px !important;
+  line-height: 1 !important;
+  box-shadow: none !important;
+}
+.ig-reel .ig-mute-btn { bottom: 16px !important; }
+.ig-reel .ig-pause { bottom: 60px !important; }
+
+.ig-reel .ig-loading {
   position: absolute;
   inset: 0;
   display: grid;
   place-items: center;
   color: #fff;
+  pointer-events: none;
 }
