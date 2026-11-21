@@ -2,29 +2,27 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂 — RPM Student Chat</title>
+<meta name="description" content="The official live chat room for every student of RPM." />
 <link rel="preconnect" href="https://jfybtgoofxfhjgeyumzl.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js" />
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#8B0000" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<link rel="apple-touch-icon" href="images/logo.png" />
-<title>𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂 — RPM Student Chat</title>
-<meta name="description" content="The official live chat room for every student of RPM." />
-<link rel="icon" href="images/logo.png" />
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css?v=2" />
+<link rel="apple-touch-icon" href="images/icon-192.png" />
+<link rel="icon" href="images/icon-192.png" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
+<link rel="stylesheet" href="css/app.css?v=20" />
 </head>
 <body>
 
 <div class="landing">
   <div class="logo-frame">
-  
-    <img src="images/logo.png" alt="RPM school logo" onerror="this.src='images/logo-placeholder.svg'" />
+    <img src="images/logo-256.png" alt="RPM school logo" width="256" height="256" fetchpriority="high" onerror="this.onerror=null;this.src='images/logo.png'" />
   </div>
 
   <h1 class="brand">𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</h1>
@@ -41,59 +39,56 @@
     <div id="modalChoice">
       <h1 style="font-size:24px;">Join 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</h1>
       <p class="sub">Choose how you'd like to enter.</p>
-
       <button class="btn" style="width:100%; margin-bottom:12px;" id="showNewForm">I'm new here</button>
       <button class="btn btn-outline" style="width:100%;" id="showLoginForm">I already have an account</button>
     </div>
 
-    <div id="newForm" style="display:none; text-align:left;">
+    <form id="newForm" style="display:none; text-align:left;" novalidate>
       <h1 style="font-size:24px; text-align:center;">Create your account</h1>
-      <p class="sub" style="text-align:center;">No otp mess just remember your username and password , it will not be displayed again screenshot or not it down..</p>
+      <p class="sub" style="text-align:center;">No OTP mess — just remember your username and password. They won't be shown again, so screenshot or note them down.</p>
       <div class="field">
-        <label>Display name (shown in chat)</label>
-        <input id="displayNameInput" type="text" placeholder="name" maxlength="24" />
+        <label for="displayNameInput">Display name (shown in chat)</label>
+        <input id="displayNameInput" type="text" placeholder="name" maxlength="24" autocomplete="nickname" />
       </div>
       <div class="field">
-        <label>Choose a username</label>
-        <input id="newUsername" type="text" placeholder="username" maxlength="20" autocapitalize="off" />
-        <span class="hint"></span>
+        <label for="newUsername">Choose a username</label>
+        <input id="newUsername" type="text" placeholder="username" maxlength="20" autocapitalize="off" autocomplete="username" spellcheck="false" />
+        <span class="hint" id="usernameHint"></span>
       </div>
       <div class="field">
-        <label>Choose a password</label>
-        <input id="newPassword" type="password" placeholder="no fewer than 8" />
+        <label for="newPassword">Choose a password</label>
+        <div class="pw-wrap"><input id="newPassword" type="password" placeholder="no fewer than 8" autocomplete="new-password" /><button type="button" class="pw-eye" aria-label="Show password">Show</button></div>
       </div>
       <div class="field">
-        <label>Confirm password</label>
-        <input id="newPassword2" type="password" placeholder="Re-type password" />
+        <label for="newPassword2">Confirm password</label>
+        <input id="newPassword2" type="password" placeholder="Re-type password" autocomplete="new-password" />
       </div>
       <p class="error-text" id="newFormError"></p>
-      <button class="btn" style="width:100%;" id="createAccountBtn">Create Account</button>
-      <button class="btn-outline btn" style="width:100%; margin-top:10px;" id="backFromNew">Back</button>
-    </div>
+      <button class="btn" type="submit" style="width:100%;" id="createAccountBtn">Create Account</button>
+      <button class="btn-outline btn" type="button" style="width:100%; margin-top:10px;" id="backFromNew">Back</button>
+    </form>
 
-   
-    <div id="loginForm" style="display:none; text-align:left;">
+    <form id="loginForm" style="display:none; text-align:left;" novalidate>
       <h1 style="font-size:24px; text-align:center;">Welcome back</h1>
       <p class="sub" style="text-align:center;">Enter your username & password.</p>
       <div class="field">
-        <label>Username</label>
-        <input id="loginUsername" type="text" placeholder="username" autocapitalize="off" />
+        <label for="loginUsername">Username</label>
+        <input id="loginUsername" type="text" placeholder="username" autocapitalize="off" autocomplete="username" spellcheck="false" />
       </div>
       <div class="field">
-        <label>Password</label>
-        <input id="loginPassword" type="password" placeholder="Your password" />
+        <label for="loginPassword">Password</label>
+        <div class="pw-wrap"><input id="loginPassword" type="password" placeholder="Your password" autocomplete="current-password" /><button type="button" class="pw-eye" aria-label="Show password">Show</button></div>
       </div>
       <p class="error-text" id="loginFormError"></p>
-      <button class="btn" style="width:100%;" id="loginBtn">Log In</button>
-      <button class="btn-outline btn" style="width:100%; margin-top:10px;" id="backFromLogin">Back</button>
-    </div>
+      <button class="btn" type="submit" style="width:100%;" id="loginBtn">Log In</button>
+      <button class="btn-outline btn" type="button" style="width:100%; margin-top:10px;" id="backFromLogin">Back</button>
+    </form>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js"></script>
-<script src="js/supabase-client.js?v=6"></script>
-<script src="js/auth.js"></script>
+<script src="js/config.js?v=20"></script>
+<script src="js/core.js?v=20"></script>
 <script>
   const entryModal = document.getElementById("entryModal");
   const modalChoice = document.getElementById("modalChoice");
@@ -101,17 +96,15 @@
   const loginForm = document.getElementById("loginForm");
 
   function showPane(pane) {
-    [modalChoice, newForm, loginForm].forEach(p => p.style.display = "none");
+    [modalChoice, newForm, loginForm].forEach((p) => (p.style.display = "none"));
     pane.style.display = "block";
+    const first = pane.querySelector("input");
+    if (first) setTimeout(() => first.focus(), 50);
   }
 
   document.getElementById("enterBtn").addEventListener("click", async () => {
-   
     const { data } = await sb.auth.getSession();
-    if (data.session) {
-      await routeAfterAuth();
-      return;
-    }
+    if (data.session) { await routeAfterAuth(); return; }
     entryModal.style.display = "flex";
     showPane(modalChoice);
   });
@@ -121,20 +114,42 @@
   document.getElementById("backFromNew").onclick = () => showPane(modalChoice);
   document.getElementById("backFromLogin").onclick = () => showPane(modalChoice);
 
-  document.getElementById("createAccountBtn").onclick = async () => {
+  document.querySelectorAll(".pw-eye").forEach((b) => b.addEventListener("click", () => {
+    const input = b.previousElementSibling;
+    const show = input.type === "password";
+    input.type = show ? "text" : "password";
+    b.textContent = show ? "Hide" : "Show";
+    b.setAttribute("aria-label", show ? "Hide password" : "Show password");
+  }));
+
+  // live username check while typing
+  const uInput = document.getElementById("newUsername");
+  const uHint = document.getElementById("usernameHint");
+  let uTimer;
+  uInput.addEventListener("input", () => {
+    clearTimeout(uTimer);
+    const u = uInput.value.trim().toLowerCase();
+    uHint.textContent = "";
+    if (!u) return;
+    if (!/^[a-z0-9_]{3,20}$/.test(u)) { uHint.textContent = "3–20 letters, numbers or _"; return; }
+    uTimer = setTimeout(async () => {
+      const { data } = await sb.from("profiles").select("id").eq("username", u).maybeSingle();
+      if (uInput.value.trim().toLowerCase() === u) uHint.textContent = data ? "✕ Already taken" : "✓ Available";
+    }, 400);
+  });
+
+  newForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
     const btn = document.getElementById("createAccountBtn");
     const errEl = document.getElementById("newFormError");
     const name = document.getElementById("displayNameInput").value.trim();
-    const username = document.getElementById("newUsername").value.trim();
+    const username = uInput.value.trim();
     const password = document.getElementById("newPassword").value;
     const password2 = document.getElementById("newPassword2").value;
     errEl.textContent = "";
 
     if (!name) { errEl.textContent = "Please enter a display name."; return; }
-    if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
-      errEl.textContent = "Username must be 3–20 characters: letters, numbers, underscore only.";
-      return;
-    }
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) { errEl.textContent = "Username must be 3–20 characters: letters, numbers, underscore only."; return; }
     if (password.length < 8) { errEl.textContent = "Password must be at least 8 characters."; return; }
     if (password !== password2) { errEl.textContent = "Passwords don't match."; return; }
 
@@ -142,14 +157,15 @@
     try {
       await createNewAccount(name, username, password);
       await routeAfterAuth();
-    } catch (e) {
-      errEl.textContent = e.message || "Something went wrong. Try again.";
+    } catch (err) {
+      errEl.textContent = err.message || "Something went wrong. Try again.";
     } finally {
       btn.disabled = false; btn.textContent = "Create Account";
     }
-  };
+  });
 
-  document.getElementById("loginBtn").onclick = async () => {
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
     const btn = document.getElementById("loginBtn");
     const errEl = document.getElementById("loginFormError");
     const u = document.getElementById("loginUsername").value.trim();
@@ -161,17 +177,19 @@
     try {
       await loginExisting(u, p);
       await routeAfterAuth();
-    } catch (e) {
-      errEl.textContent = "Invalid username or password.";
+    } catch (err) {
+      errEl.textContent = /fetch|network/i.test(err.message || "") ? "No connection — try again." : "Invalid username or password.";
     } finally {
       btn.disabled = false; btn.textContent = "Log In";
     }
-  };
-
+  });
 
   (async () => {
     const { data } = await sb.auth.getSession();
     if (data.session) {
+      // already logged in: skip the network check if we know you're verified
+      const me = store.get("teaofrpm_me");
+      if (me && me.id === data.session.user.id && me.is_verified && !me.banned) { location.replace("home.html"); return; }
       await routeAfterAuth();
       return;
     }

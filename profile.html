@@ -2,38 +2,31 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Profile — 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</title>
+<script>(function(){try{var t=localStorage.getItem("teaofrpm_theme");if(t==="dark")document.documentElement.setAttribute("data-theme","dark");var f=localStorage.getItem("teaofrpm_font");if(f&&f!=="default")document.documentElement.setAttribute("data-font",f);}catch(e){}})();</script>
 <link rel="preconnect" href="https://jfybtgoofxfhjgeyumzl.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js" />
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#8B0000" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<link rel="apple-touch-icon" href="images/logo.png" />
-<title>Profile — 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</title>
-<link rel="icon" href="images/logo.png" />
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script>(function(){var t=localStorage.getItem("teaofrpm_theme");if(t==="dark")document.documentElement.setAttribute("data-theme","dark");var f=localStorage.getItem("teaofrpm_font");if(f&&f!=="default")document.documentElement.setAttribute("data-font",f);})();</script>
-<link rel="stylesheet" href="css/style.css?v=2" />
-<link rel="stylesheet" href="css/app-shell.css" />
-<link rel="stylesheet" href="css/calls.css" />
-<link rel="stylesheet" href="css/social-extras.css" />
-<link rel="stylesheet" href="css/extras.css" />
-<link rel="stylesheet" href="css/extras2.css?v=3" />
-<link rel="stylesheet" href="css/extras3.css?v=2" />
-<link rel="stylesheet" href="css/extras4.css?v=2" />
+<link rel="apple-touch-icon" href="images/icon-192.png" />
+<link rel="icon" href="images/icon-192.png" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
+<link rel="stylesheet" href="css/app.css?v=20" />
+<link rel="stylesheet" href="css/social-extras.css?v=20" />
 </head>
 <body>
-
 
 <div class="profile-shell">
 
   <div class="profile-topbar">
-    <a href="home.html" class="header-icon-btn" title="Back" data-icon="back" data-icon-size="16"></a>
+    <a href="home.html" class="header-icon-btn" title="Back" aria-label="Back" data-icon="back" data-icon-size="16"></a>
     <h2 id="profileTopTitle">Profile</h2>
-    <a href="settings.html" class="header-icon-btn" id="settingsLink" title="Settings" data-icon="gear" data-icon-size="17" style="display:none;"></a>
+    <a href="settings.html" class="header-icon-btn" id="settingsLink" title="Settings" aria-label="Settings" data-icon="gear" data-icon-size="17" style="display:none;"></a>
   </div>
 
   <div class="profile-scroll" id="profileScroll">
@@ -41,7 +34,7 @@
     <div class="profile-head">
       <div class="pfp-wrap">
         <div class="pfp" id="pfpCircle"></div>
-        <label class="pfp-edit-btn" id="pfpEditBtn" for="pfpInput" style="display:none;" data-icon="edit" data-icon-size="13"></label>
+        <label class="pfp-edit-btn" id="pfpEditBtn" for="pfpInput" style="display:none;" data-icon="edit" data-icon-size="13" aria-label="Change photo"></label>
         <input type="file" id="pfpInput" accept="image/*" style="display:none;" />
       </div>
 
@@ -53,12 +46,12 @@
 
       <div class="profile-bio" id="profileBio"></div>
       <a class="profile-website" id="profileWebsite" target="_blank" rel="noopener noreferrer" style="display:none;"></a>
-      <audio class="profile-song" id="profileSong" controls style="display:none;"></audio>
+      <audio class="profile-song" id="profileSong" controls preload="none" style="display:none;"></audio>
 
       <div class="profile-stats">
-        <div class="stat-item" id="statPosts"><b id="postsCount">0</b><span>Posts</span></div>
-        <div class="stat-item" id="statFollowers"><b id="followersCount">0</b><span>Followers</span></div>
-        <div class="stat-item" id="statFollowing"><b id="followingCount">0</b><span>Following</span></div>
+        <button type="button" class="stat-item" id="statPosts"><b id="postsCount">0</b><span>Posts</span></button>
+        <button type="button" class="stat-item" id="statFollowers"><b id="followersCount">0</b><span>Followers</span></button>
+        <button type="button" class="stat-item" id="statFollowing"><b id="followingCount">0</b><span>Following</span></button>
       </div>
 
       <div class="profile-actions" id="profileActions"></div>
@@ -82,7 +75,7 @@
       </div>
       <div class="field">
         <label>Bio</label>
-        <textarea id="editBio" rows="3" maxlength="160" style="resize:none; font-family:var(--sans); font-size:15px; padding:12px 14px; border-radius:8px; border:1px solid var(--border-soft); background:var(--white); outline:none;"></textarea>
+        <textarea id="editBio" rows="3" maxlength="160" style="resize:none; font-family:var(--sans); font-size:15px; padding:12px 14px; border-radius:8px; border:1px solid var(--border-soft); background:var(--white); color:var(--text-dark); outline:none;"></textarea>
         <div class="field-counter"><span id="bioCount">0</span>/160</div>
       </div>
       <div class="field">
@@ -105,21 +98,19 @@
     </div>
 
     <div class="new-post-box" id="newPostBox" style="display:none;">
-      <textarea id="newPostText" rows="2" placeholder="Share something…"></textarea>
+      <textarea id="newPostText" rows="2" maxlength="2000" placeholder="Share something…"></textarea>
       <div class="attach-preview" id="postAttachPreview">
-        <img id="postAttachImg" />
+        <img id="postAttachImg" alt="" />
         <button id="removePostAttach">Remove</button>
       </div>
       <div class="new-post-row">
-        <label class="icon-btn" id="postImageBtn" for="postImageInput" title="Add photo">◉°</label>
+        <label class="icon-btn" id="postImageBtn" for="postImageInput" title="Add photo" aria-label="Add photo"></label>
         <input type="file" id="postImageInput" accept="image/*" style="display:none;" />
         <button class="btn btn-small" id="publishPostBtn" style="margin-left:auto;">Post</button>
       </div>
     </div>
 
-    <div class="locked-posts" id="lockedPosts" style="display:none;">
-      <span data-icon="lock" data-icon-size="14"></span> This account is private. Follow to see their posts.
-    </div>
+    <div class="locked-posts" id="lockedPosts" style="display:none;"></div>
 
     <div class="profile-tabs" id="profileTabs">
       <button class="active" data-tab="posts">Posts</button>
@@ -138,23 +129,17 @@
   <div class="follow-list-card">
     <div class="follow-list-header">
       <span id="followListTitle">Followers</span>
-      <button id="closeFollowList" data-icon="close" data-icon-size="14"></button>
+      <button id="closeFollowList" data-icon="close" data-icon-size="14" aria-label="Close"></button>
     </div>
     <div class="follow-list-body" id="followListBody"></div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js"></script>
-<script src="js/supabase-client.js?v=6"></script>
-<script src="js/auth.js"></script>
-<script src="js/app-shell.js"></script>
-<script src="js/calls.js"></script>
-<script src="js/social-extras.js"></script>
-<script src="js/profile.js"></script>
-<script src="js/extras.js?v=6"></script>
-<script src="js/extras2.js?v=9"></script>
-<script src="js/extras3.js?v=3"></script>
-<script src="js/extras4.js?v=6"></script>
+<script src="js/config.js?v=20"></script>
+<script src="js/core.js?v=20"></script>
+<script src="js/calls.js?v=20"></script>
+<script src="js/social.js?v=20"></script>
+<script src="js/profile.js?v=20"></script>
 </body>
 </html>

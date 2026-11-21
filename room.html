@@ -3,67 +3,63 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Chat — 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</title>
+<script>(function(){try{var t=localStorage.getItem("teaofrpm_theme");if(t==="dark")document.documentElement.setAttribute("data-theme","dark");var f=localStorage.getItem("teaofrpm_font");if(f&&f!=="default")document.documentElement.setAttribute("data-font",f);}catch(e){}})();</script>
 <link rel="preconnect" href="https://jfybtgoofxfhjgeyumzl.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js" />
 <link rel="manifest" href="manifest.json" />
 <meta name="theme-color" content="#8B0000" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<link rel="apple-touch-icon" href="images/logo.png" />
-<title>Chat — 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</title>
-<link rel="icon" href="images/logo.png" />
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script>(function(){var t=localStorage.getItem("teaofrpm_theme");if(t==="dark")document.documentElement.setAttribute("data-theme","dark");var f=localStorage.getItem("teaofrpm_font");if(f&&f!=="default")document.documentElement.setAttribute("data-font",f);})();</script>
-<link rel="stylesheet" href="css/style.css?v=2" />
-<link rel="stylesheet" href="css/app-shell.css" />
-<link rel="stylesheet" href="css/calls.css" />
-<link rel="stylesheet" href="css/messages.css" />
-<link rel="stylesheet" href="css/bot.css" />
-<link rel="stylesheet" href="css/extras.css" />
-<link rel="stylesheet" href="css/extras2.css?v=3" />
-<link rel="stylesheet" href="css/extras3.css?v=2" />
-<link rel="stylesheet" href="css/extras4.css?v=2" />
-<link rel="stylesheet" href="css/chat-polish.css?v=4" />
+<link rel="apple-touch-icon" href="images/icon-192.png" />
+<link rel="icon" href="images/icon-192.png" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
+<link rel="stylesheet" href="css/app.css?v=20" />
+<link rel="stylesheet" href="css/messages.css?v=20" />
+<link rel="stylesheet" href="css/bot.css?v=20" />
+<link rel="stylesheet" href="css/chat-polish.css?v=20" />
 </head>
 <body>
-
 
 <div class="chat-shell room-shell">
   <main class="chat-main">
     <div class="chat-header room-header">
-      <a href="messages.html" class="header-icon-btn" data-icon="back" data-icon-size="16" title="Back"></a>
+      <a href="messages.html" class="header-icon-btn" data-icon="back" data-icon-size="16" title="Back" aria-label="Back"></a>
       <a class="room-title" id="roomTitleLink">
         <span class="avatar" id="roomAvatar"></span>
         <span>
-          <b id="roomTitle">Chat</b>
+          <span class="room-name-line"><b id="roomTitle">Chat</b></span>
           <small id="roomSubtitle"></small>
         </span>
       </a>
-      <button class="header-icon-btn room-call-btn" id="callAudioBtn" data-icon="phone" data-icon-size="17" title="Voice call" style="display:none;"></button>
-      <button class="header-icon-btn room-call-btn" id="callVideoBtn" data-icon="video" data-icon-size="18" title="Video call" style="display:none;"></button>
-      <button class="header-icon-btn" id="searchToggle" title="Search messages" data-icon="search" data-icon-size="16"></button>
-      <button class="header-icon-btn" id="roomInfoBtn" data-icon="more" data-icon-size="18" title="Details"></button>
+      <button class="header-icon-btn room-call-btn" id="callAudioBtn" data-icon="phone" data-icon-size="17" title="Voice call" aria-label="Voice call" style="display:none;"></button>
+      <button class="header-icon-btn room-call-btn" id="callVideoBtn" data-icon="video" data-icon-size="18" title="Video call" aria-label="Video call" style="display:none;"></button>
+      <button class="header-icon-btn" id="searchToggle" title="Search messages" aria-label="Search messages" data-icon="search" data-icon-size="16"></button>
+      <button class="header-icon-btn" id="roomInfoBtn" data-icon="more" data-icon-size="18" title="Details" aria-label="Chat details"></button>
 
       <div class="search-panel" id="searchPanel">
-        <input type="text" id="searchInput" placeholder="Search messages…" autocomplete="off" />
+        <input type="search" id="searchInput" placeholder="Search messages…" autocomplete="off" />
         <div class="search-results" id="searchResults"></div>
       </div>
     </div>
 
-    <div class="messages" id="messages"></div>
+    <div class="messages-wrap">
+      <div class="messages" id="messages" aria-live="polite"></div>
+      <button type="button" class="jump-to-latest" id="jumpLatest" aria-label="Jump to the latest message"></button>
+    </div>
 
     <div class="typing-indicator" id="typingIndicator"></div>
 
     <div class="composer">
       <div class="reply-bar" id="replyBar">
         <span>Replying to <b id="replyToName"></b>: <span id="replyToText"></span></span>
-        <button id="cancelReply" data-icon="close" data-icon-size="14"></button>
+        <button id="cancelReply" data-icon="close" data-icon-size="14" aria-label="Cancel reply"></button>
       </div>
 
       <div class="attach-preview" id="attachPreview">
-        <img id="attachImg" />
+        <img id="attachImg" alt="" />
         <span id="attachName" style="font-size:12.5px; color:var(--text-muted);"></span>
         <button id="removeAttach">Remove</button>
       </div>
@@ -74,12 +70,12 @@
       <div class="sticker-panel" id="stickerPanel"></div>
 
       <div class="composer-row">
-        <button class="icon-btn" id="stickerToggle" title="Stickers" data-icon="sticker" data-icon-size="19"></button>
-        <label class="icon-btn" id="imageBtn" for="imageInput" title="Send image" data-icon="image" data-icon-size="19"></label>
+        <button class="icon-btn" id="stickerToggle" title="Stickers" aria-label="Stickers" data-icon="sticker" data-icon-size="19"></button>
+        <label class="icon-btn" id="imageBtn" for="imageInput" title="Send image" aria-label="Send image" data-icon="image" data-icon-size="19"></label>
         <input type="file" id="imageInput" accept="image/*" style="display:none;" />
-        <button class="icon-btn" id="voiceBtn" title="Record voice note" data-icon="mic" data-icon-size="19"></button>
-        <textarea id="msgInput" rows="1" placeholder="Message…"></textarea>
-        <button class="send-btn" id="sendBtn" disabled data-icon="send" data-icon-size="18"></button>
+        <button class="icon-btn" id="voiceBtn" title="Record voice note" aria-label="Record voice note" data-icon="mic" data-icon-size="19"></button>
+        <textarea id="msgInput" rows="1" placeholder="Message…" enterkeyhint="send" aria-label="Message"></textarea>
+        <button class="send-btn" id="sendBtn" disabled data-icon="send" data-icon-size="18" aria-label="Send"></button>
       </div>
     </div>
   </main>
@@ -99,7 +95,7 @@
           <input type="file" id="groupPfpInput" accept="image/*" style="display:none;" />
         </div>
         <div class="field">
-          <label>Group name</label>
+          <label>Name</label>
           <input type="text" id="groupNameEdit" maxlength="40" />
         </div>
         <button class="btn btn-small" id="saveGroupBtn" style="width:100%;">Save changes</button>
@@ -120,18 +116,10 @@
   </div>
 </div>
 
-<div class="lightbox" id="lightbox"><img id="lightboxImg" /></div>
-
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js"></script>
-<script src="js/supabase-client.js?v=6"></script>
-<script src="js/auth.js"></script>
-<script src="js/app-shell.js"></script>
-<script src="js/calls.js"></script>
-<script src="js/room.js?v=2"></script>
-<script src="js/extras.js?v=6"></script>
-<script src="js/extras2.js?v=10"></script>
-<script src="js/extras3.js?v=3"></script>
-<script src="js/extras4.js?v=7"></script>
+<script src="js/config.js?v=20"></script>
+<script src="js/core.js?v=20"></script>
+<script src="js/calls.js?v=20"></script>
+<script src="js/room.js?v=20"></script>
 </body>
 </html>
