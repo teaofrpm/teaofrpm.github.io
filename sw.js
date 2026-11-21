@@ -1,7 +1,7 @@
 /* ============================================================
    teaofrpm service worker — v21.
 
-   DEPLOYING AN UPDATE: change ?v=22 → ?v=22 in every .html file AND in
+   DEPLOYING AN UPDATE: change ?v=23 → ?v=24 in every .html file AND in
    SHELL below, and bump VERSION. New pages then ask for new file names,
    so they can never be paired with an old cached CSS/JS.
 
@@ -20,7 +20,7 @@
    `self.registration.unregister();` and push.
    ============================================================ */
 
-const VERSION = "v22";
+const VERSION = "v23";
 const PAGES = `teaofrpm-pages-${VERSION}`;
 const ASSETS = `teaofrpm-assets-${VERSION}`;
 const LIBS = "teaofrpm-libs-v2";
@@ -28,10 +28,10 @@ const MAX_ENTRIES = 120;
 
 const SHELL = [
   "home.html", "messages.html", "room.html", "profile.html", "reels.html", "discover.html", "settings.html",
-  "css/app.css?v=22", "css/home.css?v=22", "css/messages.css?v=22", "css/chat-polish.css?v=22", "css/bot.css?v=22",
-  "css/social-extras.css?v=22", "css/reels.css?v=22", "css/discover.css?v=22", "css/settings.css?v=22",
-  "js/config.js?v=22", "js/core.js?v=22", "js/calls.js?v=22", "js/social.js?v=22", "js/notifications.js?v=22",
-  "js/home.js?v=22", "js/messages.js?v=22", "js/room.js?v=22", "js/profile.js?v=22",
+  "css/app.css?v=23", "css/home.css?v=23", "css/messages.css?v=23", "css/chat-polish.css?v=23", "css/bot.css?v=23",
+  "css/social-extras.css?v=23", "css/reels.css?v=23", "css/discover.css?v=23", "css/settings.css?v=23",
+  "js/config.js?v=23", "js/core.js?v=23", "js/calls.js?v=23", "js/social.js?v=23", "js/notifications.js?v=23",
+  "js/home.js?v=23", "js/messages.js?v=23", "js/room.js?v=23", "js/profile.js?v=23",
   "images/icon-192.png", "images/bot.png",
 ];
 
