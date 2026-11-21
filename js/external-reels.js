@@ -32,6 +32,7 @@
   const playObserver = new IntersectionObserver((entries) => {
     for (const e of entries) {
       const el = e.target;
+      el.dataset.visible = e.isIntersecting ? "1" : "0";
       if (el.dataset.paused === "1") continue;
       if (el.dataset.type === "ig") {
         const v = el.querySelector("video");
@@ -127,13 +128,22 @@
     const wrap = document.createElement("div");
     wrap.className = "yt-wrap";
     const f = document.createElement("iframe");
-    f.src = `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${id}&enablejsapi=1&controls=0&modestbranding=1`;
+    f.src = `https://www.youtube.com/embed/${id}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${id}&enablejsapi=1&controls=0&modestbranding=1&rel=0&origin=${encodeURIComponent(location.origin)}`;
     f.allow = "autoplay; encrypted-media; picture-in-picture";
     f.allowFullscreen = true;
     f.title = "Short";
     wrap.appendChild(f);
+    const tap = document.createElement("div");
+    tap.className = "yt-tap";
+    wrap.appendChild(tap);
     el.appendChild(wrap);
-    addControls(el, null);
+    addControls(el, tap);
+    f.addEventListener("load", () => {
+      setTimeout(() => {
+        if (el.dataset.paused === "1") return;
+        ytCommand(el, el.dataset.visible === "1" ? "playVideo" : "pauseVideo");
+      }, 700);
+    });
     return el;
   }
 
