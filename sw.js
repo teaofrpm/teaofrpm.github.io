@@ -16,7 +16,7 @@
    `self.registration.unregister();` and push.
    ============================================================ */
 
-const VERSION = "v20";
+const VERSION = "v21";
 const PAGES = `teaofrpm-pages-${VERSION}`;
 const ASSETS = `teaofrpm-assets-${VERSION}`;
 const LIBS = "teaofrpm-libs-v2";
