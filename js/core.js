@@ -616,8 +616,9 @@ const AppNav = (() => {
       }
     });
 
-    const scrollEl = nav.dataset.scrollEl && document.getElementById(nav.dataset.scrollEl);
-    if (scrollEl) bindScroll(scrollEl);
+    // The bar no longer hides while scrolling: sliding it away resized the
+    // whole page on every scroll direction change, which made it wobble.
+    // (It still hides for fullscreen viewers and while typing.)
     const focusEl = nav.dataset.hideOnFocus && document.getElementById(nav.dataset.hideOnFocus);
     if (focusEl) hideWhileFocused(focusEl);
   }
