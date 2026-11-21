@@ -2545,3 +2545,17 @@ button:focus:not(:focus-visible), a:focus:not(:focus-visible){ outline:none; }
    `.room-title span { flex-direction:column }` rule was stacking the badge) */
 .room-title .room-name-line{ flex-direction:row; align-items:center; gap:2px; min-width:0; }
 .room-title .x3-streak{ flex-direction:row; flex-shrink:0; }
+
+/* Phone status bar: pages use viewport-fit=cover + a translucent status bar,
+   so top bars must add the notch/status-bar height or they slide under the
+   clock. Extra class in the selector so it wins over chat-polish.css's
+   `.chat-header{ padding:10px 12px }` shorthand that loads after this file. */
+.chat-shell .chat-header{ padding-top:calc(14px + env(safe-area-inset-top, 0px)); }
+.app-shell .profile-topbar,
+body .profile-topbar{ padding-top:calc(14px + env(safe-area-inset-top, 0px)); }
+@media (max-width:760px){
+  .chat-shell .chat-header{ padding-top:calc(10px + env(safe-area-inset-top, 0px)); }
+}
+/* long names get "…" instead of pushing the call/search buttons off */
+.room-title > span:last-child{ overflow:hidden; }
+.room-title #roomTitle{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
