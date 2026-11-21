@@ -16,10 +16,10 @@
 <link rel="apple-touch-icon" href="images/icon-192.png" />
 <link rel="icon" href="images/icon-192.png" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
-<link rel="stylesheet" href="css/app.css?v=20" />
-<link rel="stylesheet" href="css/messages.css?v=20" />
-<link rel="stylesheet" href="css/bot.css?v=20" />
-<link rel="stylesheet" href="css/chat-polish.css?v=20" />
+<link rel="stylesheet" href="css/app.css?v=22" />
+<link rel="stylesheet" href="css/messages.css?v=22" />
+<link rel="stylesheet" href="css/bot.css?v=22" />
+<link rel="stylesheet" href="css/chat-polish.css?v=22" />
 </head>
 <body>
 
@@ -30,7 +30,7 @@
       <a class="room-title" id="roomTitleLink">
         <span class="avatar" id="roomAvatar"></span>
         <span>
-          <span class="room-name-line"><b id="roomTitle">Chat</b></span>
+          <span class="room-name-line"><b id="roomTitle"></b></span>
           <small id="roomSubtitle"></small>
         </span>
       </a>
@@ -48,9 +48,8 @@
     <div class="messages-wrap">
       <div class="messages" id="messages" aria-live="polite"></div>
       <button type="button" class="jump-to-latest" id="jumpLatest" aria-label="Jump to the latest message"></button>
+      <div class="typing-indicator" id="typingIndicator"></div>
     </div>
-
-    <div class="typing-indicator" id="typingIndicator"></div>
 
     <div class="composer">
       <div class="reply-bar" id="replyBar">
@@ -69,7 +68,8 @@
       </div>
       <div class="sticker-panel" id="stickerPanel"></div>
 
-      <div class="composer-row">
+      <div class="composer-row x-pill">
+        <button type="button" class="icon-btn x3-plus-btn" aria-label="More options" data-icon="plus" data-icon-size="20"></button>
         <button class="icon-btn" id="stickerToggle" title="Stickers" aria-label="Stickers" data-icon="sticker" data-icon-size="19"></button>
         <label class="icon-btn" id="imageBtn" for="imageInput" title="Send image" aria-label="Send image" data-icon="image" data-icon-size="19"></label>
         <input type="file" id="imageInput" accept="image/*" style="display:none;" />
@@ -117,9 +117,9 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=20"></script>
-<script src="js/core.js?v=20"></script>
-<script src="js/calls.js?v=20"></script>
-<script src="js/room.js?v=20"></script>
+<script src="js/config.js?v=22"></script>
+<script src="js/core.js?v=22"></script>
+<script src="js/calls.js?v=22"></script>
+<script src="js/room.js?v=22"></script>
 </body>
 </html>

@@ -1,5 +1,9 @@
 /* ============================================================
-   teaofrpm service worker — v20.
+   teaofrpm service worker — v21.
+
+   DEPLOYING AN UPDATE: change ?v=22 → ?v=22 in every .html file AND in
+   SHELL below, and bump VERSION. New pages then ask for new file names,
+   so they can never be paired with an old cached CSS/JS.
 
    Speed rules:
    - Pages (HTML): network first, but give up after 2.5s and show the
@@ -16,7 +20,7 @@
    `self.registration.unregister();` and push.
    ============================================================ */
 
-const VERSION = "v21";
+const VERSION = "v22";
 const PAGES = `teaofrpm-pages-${VERSION}`;
 const ASSETS = `teaofrpm-assets-${VERSION}`;
 const LIBS = "teaofrpm-libs-v2";
@@ -24,10 +28,10 @@ const MAX_ENTRIES = 120;
 
 const SHELL = [
   "home.html", "messages.html", "room.html", "profile.html", "reels.html", "discover.html", "settings.html",
-  "css/app.css?v=20", "css/home.css?v=20", "css/messages.css?v=20", "css/chat-polish.css?v=20", "css/bot.css?v=20",
-  "css/social-extras.css?v=20", "css/reels.css?v=20", "css/discover.css?v=20", "css/settings.css?v=20",
-  "js/config.js?v=20", "js/core.js?v=20", "js/calls.js?v=20", "js/social.js?v=20", "js/notifications.js?v=20",
-  "js/home.js?v=20", "js/messages.js?v=20", "js/room.js?v=20", "js/profile.js?v=20",
+  "css/app.css?v=22", "css/home.css?v=22", "css/messages.css?v=22", "css/chat-polish.css?v=22", "css/bot.css?v=22",
+  "css/social-extras.css?v=22", "css/reels.css?v=22", "css/discover.css?v=22", "css/settings.css?v=22",
+  "js/config.js?v=22", "js/core.js?v=22", "js/calls.js?v=22", "js/social.js?v=22", "js/notifications.js?v=22",
+  "js/home.js?v=22", "js/messages.js?v=22", "js/room.js?v=22", "js/profile.js?v=22",
   "images/icon-192.png", "images/bot.png",
 ];
 
@@ -41,8 +45,10 @@ const IMMUTABLE = [
 self.addEventListener("install", (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(ASSETS);
-    // best effort: one missing file must not stop the worker installing
-    await Promise.all(SHELL.map((u) => cache.add(u).catch(() => {})));
+    // best effort: one missing file must not stop the worker installing.
+    // cache:"reload" skips the browser's HTTP cache — otherwise a fresh deploy
+    // could get the OLD file saved here and keep serving it.
+    await Promise.all(SHELL.map((u) => cache.add(new Request(u, { cache: "reload" })).catch(() => {})));
     await self.skipWaiting();
   })());
 });
@@ -51,7 +57,9 @@ self.addEventListener("activate", (event) => {
   event.waitUntil((async () => {
     const keep = new Set([PAGES, ASSETS, LIBS]);
     for (const name of await caches.keys()) if (!keep.has(name)) await caches.delete(name);
-    if (self.registration.navigationPreload) await self.registration.navigationPreload.enable().catch(() => {});
+    // pages are fetched by page() below with cache:"no-cache"; a navigation
+    // preload would just download every page twice
+    if (self.registration.navigationPreload) await self.registration.navigationPreload.disable().catch(() => {});
     await self.clients.claim();
   })());
 });
@@ -97,8 +105,10 @@ async function page(event) {
   const req = event.request;
   const cache = await caches.open(PAGES);
   const network = (async () => {
-    const preload = await event.preloadResponse;
-    const res = preload || await fetch(req);
+    // "no-cache" = always ask the server (a tiny 304 when nothing changed),
+    // never a stale copy from the HTTP cache after a deploy
+    // (built from the original request so redirects stay the browser's job)
+    const res = await fetch(new Request(req, { cache: "no-cache" }));
     if (res.ok) cache.put(stripSearch(req), res.clone()).then(() => trim(cache));
     return res;
   })();
