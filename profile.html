@@ -16,8 +16,8 @@
 <link rel="apple-touch-icon" href="images/icon-192.png" />
 <link rel="icon" href="images/icon-192.png" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
-<link rel="stylesheet" href="css/app.css?v=23" />
-<link rel="stylesheet" href="css/social-extras.css?v=23" />
+<link rel="stylesheet" href="css/app.css?v=24" />
+<link rel="stylesheet" href="css/social-extras.css?v=24" />
 </head>
 <body>
 
@@ -31,11 +31,18 @@
 
   <div class="profile-scroll" id="profileScroll">
 
-    <div class="profile-head">
-      <div class="pfp-wrap">
-        <div class="pfp" id="pfpCircle"></div>
-        <label class="pfp-edit-btn" id="pfpEditBtn" for="pfpInput" style="display:none;" data-icon="edit" data-icon-size="13" aria-label="Change photo"></label>
-        <input type="file" id="pfpInput" accept="image/*" style="display:none;" />
+    <div class="profile-head ig-head">
+      <div class="ig-top">
+        <div class="pfp-wrap">
+          <div class="pfp" id="pfpCircle"></div>
+          <label class="pfp-edit-btn" id="pfpEditBtn" for="pfpInput" style="display:none;" data-icon="plus" data-icon-size="13" aria-label="Change photo"></label>
+          <input type="file" id="pfpInput" accept="image/*" style="display:none;" />
+        </div>
+        <div class="profile-stats">
+          <button type="button" class="stat-item" id="statPosts"><b id="postsCount">0</b><span>Posts</span></button>
+          <button type="button" class="stat-item" id="statFollowers"><b id="followersCount">0</b><span>Followers</span></button>
+          <button type="button" class="stat-item" id="statFollowing"><b id="followingCount">0</b><span>Following</span></button>
+        </div>
       </div>
 
       <div class="profile-names">
@@ -46,13 +53,8 @@
 
       <div class="profile-bio" id="profileBio"></div>
       <a class="profile-website" id="profileWebsite" target="_blank" rel="noopener noreferrer" style="display:none;"></a>
+      <div class="profile-meta" id="profileMeta"></div>
       <audio class="profile-song" id="profileSong" controls preload="none" style="display:none;"></audio>
-
-      <div class="profile-stats">
-        <button type="button" class="stat-item" id="statPosts"><b id="postsCount">0</b><span>Posts</span></button>
-        <button type="button" class="stat-item" id="statFollowers"><b id="followersCount">0</b><span>Followers</span></button>
-        <button type="button" class="stat-item" id="statFollowing"><b id="followingCount">0</b><span>Following</span></button>
-      </div>
 
       <div class="profile-actions" id="profileActions"></div>
     </div>
@@ -112,13 +114,19 @@
 
     <div class="locked-posts" id="lockedPosts" style="display:none;"></div>
 
-    <div class="profile-tabs" id="profileTabs">
-      <button class="active" data-tab="posts">Posts</button>
-      <button data-tab="tagged">Tagged</button>
+    <div class="profile-tabs ig-tabs" id="profileTabs">
+      <button type="button" class="active" data-tab="posts" aria-label="Posts" data-icon="grid" data-icon-size="20"></button>
+      <button type="button" data-tab="reels" aria-label="Reels" data-icon="reel" data-icon-size="20"></button>
+      <button type="button" data-tab="tagged" aria-label="Tagged" data-icon="tag" data-icon-size="20"></button>
+      <button type="button" data-tab="liked" aria-label="Liked" data-icon="heart" data-icon-size="20" data-own="1" style="display:none;"></button>
+      <button type="button" data-tab="saved" aria-label="Saved" data-icon="bookmark" data-icon-size="20" data-own="1" style="display:none;"></button>
     </div>
 
-    <div class="posts-list" id="postsList"></div>
-    <div class="posts-list" id="taggedList" style="display:none;"></div>
+    <div class="ig-grid" id="postsList"></div>
+    <div class="ig-grid reels-grid" id="reelsList" style="display:none;"></div>
+    <div class="ig-grid" id="taggedList" style="display:none;"></div>
+    <div class="ig-grid" id="likedList" style="display:none;"></div>
+    <div class="ig-grid" id="savedList" style="display:none;"></div>
 
   </div>
 
@@ -136,10 +144,10 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=23"></script>
-<script src="js/core.js?v=23"></script>
-<script src="js/calls.js?v=23"></script>
-<script src="js/social.js?v=23"></script>
-<script src="js/profile.js?v=23"></script>
+<script src="js/config.js?v=24"></script>
+<script src="js/core.js?v=24"></script>
+<script src="js/calls.js?v=24"></script>
+<script src="js/social.js?v=24"></script>
+<script src="js/profile.js?v=24"></script>
 </body>
 </html>
