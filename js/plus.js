@@ -281,8 +281,9 @@
   }
 
   /* ---------- back to top (any long scroller) ---------- */
+  // removed on request: the floating ↑ button got in the way (home, messages, reels)
   let topBtn = null, topScroller = null;
-  addEventListener("scroll", (e) => {
+  if (false) addEventListener("scroll", (e) => {
     if (PAGE === "room.html") return;
     const el = e.target === document ? document.scrollingElement : e.target;
     if (!el || el.scrollHeight < 2600 || el.closest?.(".app-sheet, .tp-sheet")) return;

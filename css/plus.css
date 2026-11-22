@@ -500,3 +500,12 @@ img.tp-in { animation: smImg .55s var(--ease-soft); }
 .reel-actions > button { -webkit-tap-highlight-color: transparent; }
 .feed-card, .post-card { transition: transform .25s var(--ease-out, ease), box-shadow .25s; }
 @media (prefers-reduced-motion: reduce) { .ss-foot, .ss-av, .ss-av i, .story-quick, .story-reply-send { transition: none !important; } }
+/* v41 reels: spinner only on the short you're watching (warm-up players stay quiet), fades in late so instant starts show nothing */
+.reel.yt-reel:not(.cur) .yt-spin { display: none; }
+.reel.yt-reel .yt-spin { opacity: 0; animation: ytSpin .8s linear infinite, ytSpinIn .2s ease .45s forwards; }
+@keyframes ytSpinIn { to { opacity: 1; } }
+.reel.yt-reel .yt-thumb { transition: opacity .3s ease; }
+.reel.yt-reel.yt-on .yt-thumb { opacity: 0; }
+.reel:not(.cur) { contain: layout paint; }
+/* v42: no floating back-to-top buttons anywhere */
+.tp-top, .extras-totop { display: none !important; }

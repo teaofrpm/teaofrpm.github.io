@@ -1380,6 +1380,7 @@ const Skeleton = (() => {
   }
 
   function scrollToTop() {
+    return;   // floating back-to-top button removed on request
     const scroller = document.querySelector(".profile-scroll, .feed");
     if (!scroller) return;
     const btn = document.createElement("button");
@@ -1438,6 +1439,32 @@ function afterBoot(me) {
   if (PAGE !== "messages.html") {        // the inbox loads this itself
     (window.requestIdleCallback || ((f) => setTimeout(f, 1200)))(refreshUnread);
   }
+
+  // Warm up Reels while you're elsewhere: when the phone is idle, fetch the first 10 Shorts
+  // picked for you, pre-load their cover frames and open the YouTube connections, so the
+  // Reels tab opens already full instead of buffering. One small request, only when idle.
+  const warmReels = () => {
+    if (PAGE === "reels.html" || PAGE === "room.html" || document.hidden || !App.me) return;
+    if (navigator.connection?.saveData) return;
+    try {
+      const w = JSON.parse(sessionStorage.getItem("reels_warm") || "null");
+      if (w && w.uid === App.me.id && Date.now() - w.at < 8 * 60e3) return;
+    } catch {}
+    ["https://www.youtube.com", "https://i.ytimg.com", "https://www.google.com"].forEach((h) => {
+      if (document.querySelector(`link[rel=preconnect][href="${h}"]`)) return;
+      const l = document.createElement("link"); l.rel = "preconnect"; l.href = h; l.crossOrigin = "anonymous"; document.head.appendChild(l);
+    });
+    sb.functions.invoke("reels-live", { body: { n: 10, seeds: [], exclude: [] } }).then(({ data, error }) => {
+      if (error || !Array.isArray(data?.rows) || !data.rows.length) return;
+      try { sessionStorage.setItem("reels_warm", JSON.stringify({ uid: App.me.id, at: Date.now(), rows: data.rows })); } catch {}
+      data.rows.slice(0, 3).forEach((r) => { if (r.yt_id) { const i = new Image(); i.decoding = "async"; i.src = `https://i.ytimg.com/vi/${r.yt_id}/oar2.jpg`; } });
+    }, () => {});
+  };
+  const idle = window.requestIdleCallback ? (f) => requestIdleCallback(f, { timeout: 6000 }) : (f) => setTimeout(f, 1500);
+  setTimeout(() => idle(warmReels), 2500);
+  // hovering / pressing the Reels tab is a strong hint: warm right away
+  document.addEventListener("pointerdown", (e) => { if (e.target.closest?.('a[href^="reels.html"]')) warmReels(); }, { passive: true });
+
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) { document.title = baseTitle; refreshUnread(); }
   });

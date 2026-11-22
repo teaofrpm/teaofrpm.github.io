@@ -1,6 +1,6 @@
 let ME = null;
 
-const REELS_PAGE = 6;
+const REELS_PAGE = 10;
 const MAX_REEL_BYTES = 50 * 1024 * 1024;   // Supabase free-plan upload ceiling
 const MAX_REEL_SECONDS = 180;
 
@@ -24,8 +24,8 @@ async function init() {
   playObserver = new IntersectionObserver((entries) => {
     for (const entry of entries) {
       const reel = entry.target;
-      if (entry.isIntersecting) { current = reel; reel._seenAt = performance.now(); playReel(reel); }
-      else { flushView(reel); pauseReel(reel); }
+      if (entry.isIntersecting) { current?.classList.remove("cur"); current = reel; reel.classList.add("cur"); reel._seenAt = performance.now(); playReel(reel); }
+      else { reel.classList.remove("cur"); flushView(reel); pauseReel(reel); }
     }
   }, { root: feedEl, threshold: 0.65 });
   // the algorithm learns from how long you actually watched
@@ -33,7 +33,7 @@ async function init() {
 
   const moreObserver = new IntersectionObserver((entries) => {
     if (entries[0].isIntersecting) loadMoreReels();
-  }, { root: feedEl, rootMargin: "300% 0px" });   // fetch the next batch ~3 reels early so it's ready
+  }, { root: feedEl, rootMargin: "500% 0px" });   // show the next batch ~5 reels before the end
 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) { if (current) flushView(current); document.querySelectorAll(".reel").forEach(pauseReel); }
@@ -64,6 +64,7 @@ function playReel(reel) {
     reel.classList.remove("paused");
     const next = reel.nextElementSibling?.querySelector("video");
     if (next) next.preload = "auto";
+    warmAround(reel);
     return;
   }
   if (reel.dataset.type === "yt") ytPlay(reel, true);
@@ -133,7 +134,19 @@ async function loadMoreReels() {
   if (reelsState.loading || reelsState.done) return;
   reelsState.loading = true;
   try {
-    const livePromise = liveReels(REELS_PAGE);
+    // 1) a batch the home screen already fetched in the background, 2) the batch we started
+    // fetching while you watched the previous one, 3) a fresh fetch
+    let livePromise = null;
+    if (!reelsState.usedWarm) {
+      reelsState.usedWarm = true;
+      try {
+        const w = JSON.parse(sessionStorage.getItem("reels_warm") || "null");
+        sessionStorage.removeItem("reels_warm");
+        if (w && w.uid === ME.id && Date.now() - w.at < 10 * 60e3 && w.rows?.length) livePromise = Promise.resolve(w.rows);
+      } catch {}
+    }
+    if (!livePromise && reelsState.nextLive) { livePromise = reelsState.nextLive; reelsState.nextLive = null; }
+    if (!livePromise) livePromise = liveReels(REELS_PAGE);
     const friendsPromise = reelsState.friendsDone ? Promise.resolve({ data: [] }) : sb.rpc("reels_for_you", { p_exclude: reelsState.shown.slice(-300), p_limit: 2 });
     // first open: if YouTube is slow, show Shorts we already have instantly and let the live ones follow
     if (!document.querySelector("#reelsFeed .reel")) {
@@ -159,6 +172,8 @@ async function loadMoreReels() {
     const feedEl = document.getElementById("reelsFeed");
     Skeleton.clear(feedEl);
     if (!renderReels(rows)) reelsState.done = true;
+    // pipeline: start the next 10 right away so fast scrolling never hits a wait
+    else if (!reelsState.nextLive) setTimeout(() => { if (!reelsState.nextLive) reelsState.nextLive = liveReels(REELS_PAGE); }, 400);
 
     if (reelsState.done) {
       if (!feedEl.querySelector(".reel")) {
@@ -241,7 +256,9 @@ function buildReel(reel, likeCount, likedByMe, commentCount, savedByMe, views = 
     // same reel UI as uploads; the YouTube player only loads once it's on screen
     el.dataset.type = "yt";
     el.dataset.yt = reel.yt_id;
-    el.insertAdjacentHTML("beforeend", `<div class="yt-wrap"><img class="yt-thumb" src="https://i.ytimg.com/vi/${reel.yt_id}/hqdefault.jpg" alt="" loading="lazy" /></div>`);
+    // portrait frame for Shorts (oar2), falling back to the 4:3 one; first few load right away
+    const near = document.querySelectorAll("#reelsFeed .reel").length < 4;
+    el.insertAdjacentHTML("beforeend", `<div class="yt-wrap"><img class="yt-thumb" src="https://i.ytimg.com/vi/${reel.yt_id}/oar2.jpg" alt="" loading="${near ? "eager" : "lazy"}" decoding="async" onerror="if(!this.dataset.f){this.dataset.f=1;this.src='https://i.ytimg.com/vi/${reel.yt_id}/hqdefault.jpg'}" /></div>`);
   } else {
     video = document.createElement("video");
     video.src = reel.video_url;
@@ -533,13 +550,18 @@ window.addEventListener("message", (e) => {
   if (!el) return;
   const st = d?.event === "onStateChange" ? d.info : d?.event === "infoDelivery" ? d.info?.playerState : undefined;
   if (d?.event === "onReady") ytSync(el, f);
+  if (st === 1) el.classList.add("yt-playing");
+  else if (st === 2 || st === 0 || st === 5 || st === -1) el.classList.remove("yt-playing");
   if (st === 1 || st === 3) {
-    el.classList.add("yt-on"); el.classList.remove("yt-needtap");
-    clearTimeout(el._ytWatch);
-    if (el !== current || el.dataset.paused === "1") ytCommand(f, "pauseVideo");    // scrolled away meanwhile
-    else if (!reelsState.muted && !el._ytUnmuted) { el._ytUnmuted = true; ytCommand(f, "unMute"); }
+    // a warm-up player (or one you scrolled past) must never play in the background
+    if (el !== current || el.dataset.paused === "1") ytCommand(f, "pauseVideo");
+    else {
+      // reveal only once frames are moving, so there's no black flash while it buffers
+      if (st === 1) { el.classList.add("yt-on"); el.classList.remove("yt-needtap"); clearTimeout(el._ytWatch); }
+      if (!reelsState.muted && !el._ytUnmuted) { el._ytUnmuted = true; ytCommand(f, "unMute"); }
+    }
   }
-  if (st === 0) ytCommand(f, "playVideo");    // loop
+  if (st === 0 && el === current) ytCommand(f, "playVideo");    // loop
   // the browser refused sound and paused it: carry on muted rather than freezing
   if (st === 2 && el === current && el.dataset.paused !== "1" && el._ytUnmuted && !el._ytFellBack) {
     el._ytFellBack = true; ytCommand(f, "mute"); ytCommand(f, "playVideo");
@@ -556,38 +578,77 @@ function ytSync(el, f) {
   if (!reelsState.muted) setTimeout(() => ytCommand(f, "unMute"), 250);
 }
 
-// The iframe is only created when the short first comes on screen, so
-// four YouTube players don't all load and play at once in the background.
-function ytPlay(el, play) {
+// Build (or reuse) the YouTube player for a short. `autoplay` = it's on screen right now;
+// otherwise it's a warm-up: the player boots silently in the background, paused, so the
+// moment you swipe to it it starts instantly instead of buffering from zero.
+function ytEnsure(el, autoplay) {
   let f = el.querySelector("iframe");
-  if (!f && play) {
-    f = document.createElement("iframe");
-    const origin = encodeURIComponent(location.origin);
-    // always start muted: browsers block autoplay with sound, which left Shorts stuck on the thumbnail
-    f.src = `https://www.youtube.com/embed/${el.dataset.yt}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${el.dataset.yt}` +
-      `&enablejsapi=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&origin=${origin}&widget_referrer=${origin}`;
-    f.allow = "autoplay; encrypted-media; picture-in-picture; web-share";
-    f.referrerPolicy = "strict-origin-when-cross-origin";
-    f.title = "Short";
-    el._ytUnmuted = false;
-    if (!el.querySelector(".yt-spin")) el.querySelector(".yt-wrap").insertAdjacentHTML("beforeend", `<div class="yt-spin"></div>`);
-    f.addEventListener("load", () => {
-      // handshake so YouTube starts sending us its state, then nudge it a few times while it boots
-      const hello = () => { try { f.contentWindow.postMessage(JSON.stringify({ event: "listening", id: el.dataset.id, channel: "widget" }), "https://www.youtube.com"); } catch {} };
-      hello(); ytSync(el, f);
-      [300, 900, 1800].forEach((ms) => setTimeout(() => { if (!el.classList.contains("yt-on")) { hello(); ytSync(el, f); } }, ms));
-    });
-    el.querySelector(".yt-wrap").appendChild(f);
-    // still not playing after a few seconds (strict browser / data saver): let the person tap YouTube's own play button
-    clearTimeout(el._ytWatch);
-    el._ytWatch = setTimeout(() => { if (!el.classList.contains("yt-on") && el === current) el.classList.add("yt-needtap"); }, 4500);
+  if (f) return f;
+  f = document.createElement("iframe");
+  const origin = encodeURIComponent(location.origin);
+  // always start muted: browsers block autoplay with sound, which left Shorts stuck on the thumbnail
+  f.allow = "autoplay; encrypted-media; picture-in-picture; web-share";
+  f.referrerPolicy = "strict-origin-when-cross-origin";
+  f.title = "Short";
+  f.src = `https://www.youtube.com/embed/${el.dataset.yt}?autoplay=${autoplay ? 1 : 0}&mute=1&playsinline=1&loop=1&playlist=${el.dataset.yt}` +
+    `&enablejsapi=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&origin=${origin}&widget_referrer=${origin}`;
+  el._ytUnmuted = false; el._ytFellBack = false; el._ytLoaded = false;
+  if (!el.querySelector(".yt-spin")) el.querySelector(".yt-wrap").insertAdjacentHTML("beforeend", `<div class="yt-spin"></div>`);
+  f.addEventListener("load", () => {
+    el._ytLoaded = true;
+    // handshake so YouTube starts sending us its state, then nudge it a few times while it boots
+    const hello = () => { try { f.contentWindow.postMessage(JSON.stringify({ event: "listening", id: el.dataset.id, channel: "widget" }), "https://www.youtube.com"); } catch {} };
+    hello(); ytSync(el, f);
+    [250, 700, 1400, 2500].forEach((ms) => setTimeout(() => { if (!el.classList.contains("yt-on") || el !== current) { hello(); ytSync(el, f); } }, ms));
+  });
+  el.querySelector(".yt-wrap").appendChild(f);
+  return f;
+}
+
+function ytNudge(el) {
+  const f = el.querySelector("iframe");
+  [0, 300, 800, 1600, 3000].forEach((ms) => setTimeout(() => {
+    if (el === current && el.dataset.paused !== "1" && !el.classList.contains("yt-playing")) ytSync(el, f);
+  }, ms));
+  // only if it truly can't start (strict browser / data saver) hand over YouTube's own play button
+  clearTimeout(el._ytWatch);
+  el._ytWatch = setTimeout(() => { if (!el.classList.contains("yt-on") && el === current) el.classList.add("yt-needtap"); }, 9000);
+}
+
+function ytPlay(el, play) {
+  if (play) {
+    const f = el.querySelector("iframe");
+    if (!f) ytEnsure(el, true);
+    else if (el._ytLoaded) { ytSync(el, f); }
+    ytNudge(el);
+    warmAround(el);
     return;
   }
-  if (!f) return;
-  if (play) {
-    ytCommand(f, "playVideo");
-    if (!reelsState.muted) ytCommand(f, "unMute");
-  } else ytCommand(f, "pauseVideo");
+  const f = el.querySelector("iframe");
+  if (f) ytCommand(f, "pauseVideo");
+}
+
+// Keep players ready for the next 2 shorts and the previous one; drop the rest so
+// memory and CPU stay low on cheaper phones. Thumbnails for the next few are fetched early.
+const YT_AHEAD = (navigator.hardwareConcurrency || 4) <= 2 ? 1 : 2;
+function warmAround(el) {
+  const reels = [...document.querySelectorAll("#reelsFeed .reel")];
+  const i = reels.indexOf(el);
+  if (i < 0) return;
+  reels.forEach((r, j) => {
+    const d = j - i;
+    if (r.dataset.type === "yt" && r.querySelector("iframe") && (d > YT_AHEAD + 1 || d < -2)) {
+      r.querySelector("iframe").remove(); r.querySelector(".yt-spin")?.remove();
+      r.classList.remove("yt-on", "yt-playing", "yt-needtap");
+    }
+    if (d > 0 && d <= 6) { const t = r.querySelector(".yt-thumb"); if (t && t.loading === "lazy") t.loading = "eager"; }
+  });
+  // stagger the warm-ups so they don't fight the one you're watching for bandwidth
+  for (let k = 1; k <= YT_AHEAD; k++) {
+    const r = reels[i + k];
+    if (r?.dataset.type === "yt" && !r.querySelector("iframe")) setTimeout(() => { if (current === el) ytEnsure(r, false); }, 600 * k);
+    else if (r?.querySelector("video")) r.querySelector("video").preload = "auto";
+  }
 }
 
 /* ---------- Upload ---------- */
