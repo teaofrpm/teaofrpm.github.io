@@ -389,18 +389,38 @@ async function renderStoryFooter(story, isMe, token) {
 
   const replyWrap = document.createElement("div");
   replyWrap.className = "story-reply-wrap";
-  replyWrap.innerHTML = `<input type="text" id="storyReplyInput" maxlength="300" placeholder="Reply to story…" enterkeyhint="send" />`;
+  replyWrap.innerHTML = `<div class="story-quick">${["😂", "😍", "🔥", "👏", "😮", "😢"].map((e) => `<button type="button" data-e="${e}">${e}</button>`).join("")}</div>
+    <input type="text" id="storyReplyInput" maxlength="300" placeholder="Send message…" enterkeyhint="send" />
+    <button type="button" class="story-reply-send" aria-label="Send">${svgIcon("send", 17)}</button>`;
   const input = replyWrap.querySelector("input");
-  input.addEventListener("focus", pauseStory);
-  input.addEventListener("blur", () => setTimeout(resumeStory, 50));
-  input.addEventListener("keydown", async (e) => {
-    if (e.key !== "Enter") return;
-    const text = input.value.trim();
+  // Reply lands in your DM with them, with the story attached (like Instagram)
+  const send = async (text) => {
+    text = String(text || "").trim();
     if (!text) return;
     input.value = "";
-    const { error } = await sb.from("story_comments").insert({ story_id: story.id, user_id: ME.id, content: text });
-    toast(error ? friendlyError(error, "Reply failed.") : "Reply sent");
+    replyWrap.classList.remove("typing");
     input.blur();
+    toast("Sending…", 1200);
+    try {
+      const { data: cid, error } = await sb.rpc("get_or_create_dm", { other_user: story.user_id });
+      if (error) throw error;
+      const { error: e2 } = await sb.from("messages").insert({ user_id: ME.id, conversation_id: cid, content: text, story_id: story.id, story_url: story.image_url || null });
+      if (e2) throw e2;
+      sb.from("story_comments").insert({ story_id: story.id, user_id: ME.id, content: text }).then(() => {});
+      buzz(10);
+      const who = profileCache.get(story.user_id);
+      toast(`Sent to @${who?.username || "them"} in Messages`);
+    } catch (err) { toast(friendlyError(err, "Reply failed.")); }
+  };
+  input.addEventListener("focus", () => { pauseStory(); replyWrap.classList.add("typing"); });
+  input.addEventListener("blur", () => setTimeout(() => { if (!input.value.trim()) replyWrap.classList.remove("typing"); resumeStory(); }, 120));
+  input.addEventListener("keydown", (e) => { if (e.key === "Enter") send(input.value); });
+  replyWrap.querySelector(".story-reply-send").addEventListener("pointerdown", (e) => { e.preventDefault(); send(input.value); });
+  replyWrap.querySelector(".story-quick").addEventListener("pointerdown", (e) => {
+    const b = e.target.closest("[data-e]"); if (!b) return;
+    e.preventDefault();
+    b.animate([{ transform: "scale(1)" }, { transform: "scale(1.5)" }, { transform: "scale(1)" }], { duration: 380, easing: "cubic-bezier(.16,1,.3,1)" });
+    send(b.dataset.e);
   });
 
   footer.append(replyWrap, likeBtn);

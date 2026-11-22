@@ -573,7 +573,10 @@
   }, { passive: true });
   document.addEventListener("load", (e) => {
     const im = e.target;
-    if (im.tagName !== "IMG" || im.closest(".tp-qr") || (im.naturalWidth < 80 && im.naturalHeight < 80)) return;
+    // only feed/post photos fade in; chat, avatars, reels and stickers must never flash
+    if (im.tagName !== "IMG" || im.closest(".tp-qr, #messages, .messages, .avatar, .reel, .story-ring, .sticker, .mf-row, .app-sheet-handle") || (im.naturalWidth < 80 && im.naturalHeight < 80)) return;
+    if (im.dataset.tpSeen) return;   // a re-load of the same <img> (src swap) shouldn't fade again
+    im.dataset.tpSeen = "1";
     im.classList.remove("tp-in"); void im.offsetWidth; im.classList.add("tp-in");
   }, true);
   document.addEventListener("change", (e) => { if (e.target.matches?.('input[type="checkbox"], input[type="radio"]')) P.buzz(8); }, true);

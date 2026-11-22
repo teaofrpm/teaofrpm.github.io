@@ -146,6 +146,14 @@ async function prepareBatch(list) {
 async function renderInitial(list) {
   await prepareBatch(list);
   const el = box();
+  // No flicker: the skeleton moves to a cover layer, the real chat is built invisibly underneath,
+  // pinned to the bottom while photos/cards settle, then the two cross-fade in one smooth step.
+  const cover = document.createElement("div");
+  cover.className = "messages chat-sk-cover";
+  cover.setAttribute("aria-hidden", "true");
+  while (el.firstChild) cover.appendChild(el.firstChild);
+  el.parentElement.appendChild(cover);
+  el.classList.add("chat-prep");
   el.innerHTML = "";
   const loader = document.createElement("div");
   loader.className = "load-more-btn";
@@ -166,7 +174,26 @@ async function renderInitial(list) {
   scrollToBottom();
   mountPolls();
   paintSeen();
-  requestAnimationFrame(scrollToBottom);
+  await settleChat(el);
+  el.classList.remove("chat-prep");
+  cover.classList.add("gone");
+  setTimeout(() => cover.remove(), 320);
+}
+
+// wait (briefly) for the last screenful of photos to get their size, re-pinning to the bottom
+async function settleChat(el) {
+  const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
+  await frame(); scrollToBottom();
+  const rows = [...el.querySelectorAll(".msg-row")].slice(-14);
+  const imgs = rows.flatMap((r) => [...r.querySelectorAll("img")]).filter((i) => !i.complete);
+  if (imgs.length) {
+    await Promise.race([
+      Promise.all(imgs.map((i) => new Promise((r) => { i.addEventListener("load", r, { once: true }); i.addEventListener("error", r, { once: true }); }))),
+      new Promise((r) => setTimeout(r, 450)),
+    ]);
+  }
+  await frame(); scrollToBottom();
+  await frame(); scrollToBottom();
 }
 
 function showEmptyHint() {
@@ -339,7 +366,16 @@ function fillBubble(bubble, m, isOwn) {
     bubble.appendChild(card);
     paintVoCard(card, m, isOwn);
   }
-  if (m.image_url) {
+  if (m.story_id || m.story_url) {
+    // reply to a story: show the story it answers, Instagram style
+    const sc = document.createElement("div");
+    sc.className = "story-reply-card";
+    sc.innerHTML = `<small>${svgIcon("reply", 11)} ${isOwn ? "You replied to their story" : "Replied to your story"}</small>${m.story_url ? `<img alt="Story" loading="lazy" decoding="async" />` : `<div class="src-gone">Story no longer available</div>`}`;
+    if (m.story_url) sc.querySelector("img").src = m.story_url;
+    bubble.classList.add("has-story");
+    bubble.appendChild(sc);
+  }
+  if (m.image_url && !m.shared_post_id) {
     const img = document.createElement("img");
     img.className = "chat-img";
     img.src = m.image_url;
@@ -358,19 +394,28 @@ function fillBubble(bubble, m, isOwn) {
     bubble.appendChild(v);
   }
   if (m.shared_post_id) {
+    // shared post: a mini post card with the author's photo + name on top
+    bubble.classList.add("has-sp");
     const a = document.createElement("a");
-    a.className = "shared-post-by";
+    a.className = "sp-card";
     a.href = `profile.html?post=${m.shared_post_id}`;
-    a.textContent = "View shared post";
+    a.innerHTML = `<div class="sp-head"><span class="avatar sp-av"></span><span class="sp-who"><b>Post</b><small></small></span></div>
+      ${m.image_url ? `<img class="sp-img" alt="Post" loading="lazy" decoding="async" />` : ""}
+      ${m.content ? `<div class="sp-cap"></div>` : ""}
+      <div class="sp-foot shared-post-by">View post ${svgIcon("chevron", 12)}</div>`;
+    if (m.image_url) a.querySelector(".sp-img").src = m.image_url;
+    if (m.content) a.querySelector(".sp-cap").textContent = m.content;
     bubble.appendChild(a);
     sharedPostAuthor(m.shared_post_id).then((author) => {
-      if (!author) return;
+      if (!author) { a.querySelector(".sp-who b").textContent = "Post unavailable"; return; }
+      setAvatarContent(a.querySelector(".sp-av"), author);
+      a.querySelector(".sp-who b").textContent = author.display_name || author.username;
+      a.querySelector(".sp-who small").textContent = `@${author.username}`;
       a.href = `profile.html?u=${encodeURIComponent(author.username)}&post=${m.shared_post_id}`;
-      a.textContent = `View post by @${author.username}`;
     });
   }
 
-  if (m.content) {
+  if (m.content && !m.shared_post_id) {
     const txt = document.createElement("div");
     txt.className = "msg-text";
     const raw = m.content.trim();
@@ -425,6 +470,8 @@ function fillBubble(bubble, m, isOwn) {
 }
 
 function previewText(m) {
+  if (m.shared_post_id) return "📮 Shared a post";
+  if (m.story_id && m.content) return `↩ Story: ${m.content.slice(0, 50)}`;
   if (m.content) return m.content.slice(0, 60);
   if (m.view_once) return "📷 View once";
   if (m.video_url) return "🎥 Video";
@@ -841,19 +888,21 @@ function glideIn(newRows, { own = false } = {}) {
   const first = newRows[0], last = newRows[newRows.length - 1];
   const shift = Math.min(last.getBoundingClientRect().bottom - first.getBoundingClientRect().top + 6, el.clientHeight * 0.6);
   if (shift <= 0 || before > el.clientHeight) return;   // came from far up: a plain snap reads better
-  const ease = "cubic-bezier(.2,.9,.25,1)";
+  const ease = "cubic-bezier(.16,1,.3,1)";      // soft expo-out: fast start, long gentle settle
   const top = el.getBoundingClientRect().top;
   // older rows still visible on screen
   for (let r = first.previousElementSibling, n = 0; r && n < 24; r = r.previousElementSibling, n++) {
     if (r.getBoundingClientRect().bottom < top - shift) break;
-    r.animate([{ transform: `translateY(${shift}px)` }, { transform: "none" }], { duration: 280, easing: ease });
+    r.animate([{ transform: `translateY(${shift}px)` }, { transform: "none" }], { duration: 420, easing: ease });
   }
   for (const r of newRows) {
     r.classList.remove("anim-in");
+    const origin = own ? "100% 100%" : "0 100%";
     r.animate([
-      { transform: `translateY(${shift}px) scale(${own ? .94 : .97})`, opacity: own ? .6 : 0, transformOrigin: own ? "100% 100%" : "0 100%" },
-      { transform: "none", opacity: 1, transformOrigin: own ? "100% 100%" : "0 100%" },
-    ], { duration: own ? 300 : 320, easing: ease });
+      { transform: `translateY(${shift}px) scale(${own ? .9 : .92})`, opacity: own ? .5 : 0, transformOrigin: origin },
+      { transform: "translateY(-2px) scale(1.012)", opacity: 1, offset: .62, transformOrigin: origin },
+      { transform: "none", opacity: 1, transformOrigin: origin },
+    ], { duration: own ? 440 : 480, easing: ease });
   }
 }
 
@@ -1318,7 +1367,7 @@ function wireMessageEvents() {
       t.closest(".extras-readmore").textContent = open ? "Read more" : "Show less";
       return;
     }
-    if (t.matches("img.chat-img, img.sticker-img")) { openMediaViewer(t.src); return; }
+    if (t.matches("img.chat-img, img.sticker-img, .story-reply-card img")) { openMediaViewer(t.src); return; }
     const pollOpt = t.closest(".x3-poll-opt");
     if (pollOpt) { votePoll(pollOpt); return; }
     if (t.closest(".x3-poll-close")) { closePoll(t.closest(".x3-poll").dataset.poll); return; }

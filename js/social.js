@@ -73,6 +73,17 @@ const Social = (() => {
     btn.innerHTML = svgIcon("more", 20);
     btn.addEventListener("click", () => openPostMenu(card, post, opts));
     actionsRow.appendChild(btn);
+
+    // Instagram-style paper plane right after the comment button
+    const ref = actionsRow.children[1];
+    const sz = Number(ref?.querySelector("svg")?.getAttribute("width")) || 19;
+    const send = document.createElement("button");
+    send.type = "button";
+    send.className = `${ref?.className || ""} post-send-btn`.trim();
+    send.setAttribute("aria-label", "Send");
+    send.innerHTML = svgIcon("send", sz);
+    send.addEventListener("click", () => sendPostToChat(post));
+    ref ? ref.insertAdjacentElement("afterend", send) : actionsRow.prepend(send);
   }
 
   function postLink(post) {
@@ -83,10 +94,9 @@ const Social = (() => {
   function openPostMenu(card, post, opts) {
     const own = post.user_id === me().id;
     const items = [
-      { icon: "send", label: "Send in a chat", onClick: () => sendPostToChat(post) },
+      { icon: "send", label: "Send to friends", onClick: () => sendPostToChat(post) },
       { icon: "plus", label: "Add to your story", onClick: () => postToStory(post) },
       { icon: "link", label: "Copy link", onClick: () => copyText(new URL(postLink(post), location.href).href, "Link copied") },
-      { icon: "share", label: "Share…", onClick: () => shareLink(postLink(post), "A post on teaofrpm") },
     ];
     if (own) {
       items.push({ icon: "tag", label: "Tag people", onClick: async () => {
@@ -166,37 +176,22 @@ const Social = (() => {
   }
 
   async function sendPostToChat(post) {
-    const s = makeSheet({ title: "Send to…", html: `<div class="settings-list"><div class="settings-empty">Loading your chats…</div></div>` });
-    s.onClose = () => setTimeout(() => s.el.remove(), 300);
-    s.open();
-    const { data, error } = await sb.rpc("my_conversations");
-    const list = s.body.querySelector(".settings-list");
-    if (error) { list.innerHTML = `<div class="settings-empty">Could not load your chats.</div>`; return; }
-    const chats = [{ id: PUBLIC_ROOM_ID, kind: "group", name: "RPM Public Room" }, ...(data || [])];
-    await getProfiles(chats.map((c) => c.other_user_id));
-    list.innerHTML = "";
-    for (const c of chats) {
-      const other = c.other_user_id ? profileCache.get(c.other_user_id) : null;
-      const label = c.kind === "dm" ? (other?.display_name || "Chat") : (c.name || "Group");
-      const row = document.createElement("button");
-      row.type = "button";
-      row.className = "settings-list-row";
-      row.innerHTML = `<span class="avatar"></span><div class="settings-list-name">${escapeHTML(label)}</div><span class="send-to-btn">Send</span>`;
-      if (c.kind === "dm") setAvatarContent(row.querySelector(".avatar"), other); else setGroupAvatar(row.querySelector(".avatar"), c);
-      row.addEventListener("click", async () => {
-        row.disabled = true;
-        const author = profileCache.get(post.user_id);
-        const { error: e } = await sb.from("messages").insert({
-          user_id: me().id, conversation_id: c.id, shared_post_id: post.id,
-          image_url: post.image_url || null,
-          content: post.content ? post.content.slice(0, 500) : `Post by @${author?.username || "someone"}`,
-        });
-        if (e) { row.disabled = false; toast(friendlyError(e, "Could not send.")); return; }
-        row.querySelector(".send-to-btn").textContent = "Sent";
-        buzz(10);
-      });
-      list.appendChild(row);
-    }
+    const author = profileCache.get(post.user_id) || await getProfile(post.user_id);
+    const thumb = post.image_url ? `<img src="${escapeHTML(post.image_url)}" alt="" />` : `<div class="ss-prev-text">${escapeHTML((post.content || "").slice(0, 60))}</div>`;
+    shareSheet({
+      title: "Share post",
+      preview: `${thumb}<div><b>@${escapeHTML(author?.username || "someone")}</b><span>${escapeHTML((post.content || "Photo").slice(0, 70))}</span></div>`,
+      build: () => ({
+        shared_post_id: post.id,
+        image_url: post.image_url || null,
+        content: post.content ? post.content.slice(0, 500) : `Post by @${author?.username || "someone"}`,
+      }),
+      actions: [
+        { icon: "plus", label: "Your story", onClick: () => postToStory(post) },
+        { icon: "link", label: "Copy link", onClick: () => copyText(new URL(postLink(post), location.href).href, "Link copied") },
+        { icon: "share", label: "More…", onClick: () => shareLink(postLink(post), "A post on teaofrpm") },
+      ],
+    });
   }
 
   // Text-only posts become a branded image card, so a story always has a picture.

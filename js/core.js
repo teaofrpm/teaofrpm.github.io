@@ -923,6 +923,94 @@ function pickPeople({ title = "Choose people", multiple = true, exclude = [], se
   });
 }
 
+// Instagram-style "Send to" sheet: recent chats + everyone as a tap-to-pick
+// avatar grid, an optional note, one Send button, and quick actions below.
+// opts.build(convoId) -> message row to insert (without user_id/conversation_id).
+// opts.actions: [{icon,label,onClick}] shown as round buttons under the grid.
+async function shareSheet({ title = "Share", build, actions = [], preview = "" } = {}) {
+  const s = makeSheet({ title, className: "ss-sheet", html: `
+    ${preview ? `<div class="ss-preview">${preview}</div>` : ""}
+    <div class="ss-search"><span>${svgIcon("search", 15)}</span><input type="text" placeholder="Search chats & people…" autocomplete="off" /></div>
+    <div class="ss-grid"><div class="settings-empty">Loading…</div></div>
+    ${actions.length ? `<div class="ss-actions">${actions.map((a, i) => `<button type="button" data-a="${i}"><span>${svgIcon(a.icon, 20)}</span><small>${escapeHTML(a.label)}</small></button>`).join("")}</div>` : ""}
+    <div class="ss-foot"><input type="text" class="ss-note" maxlength="500" placeholder="Write a message…" /><button type="button" class="btn ss-send" disabled>Send</button></div>` });
+  s.onClose = () => setTimeout(() => s.el.remove(), 300);
+  s.open();
+  const me = App.me;
+  const grid = s.body.querySelector(".ss-grid"), input = s.body.querySelector(".ss-search input");
+  const sendBtn = s.body.querySelector(".ss-send"), note = s.body.querySelector(".ss-note");
+  const picked = new Map();
+  s.body.querySelector(".ss-actions")?.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-a]"); if (!b) return;
+    const a = actions[Number(b.dataset.a)]; s.close(); setTimeout(() => a.onClick && a.onClick(), 60);
+  });
+
+  const [{ data: convos }, people] = await Promise.all([sb.rpc("my_conversations"), loadAllPeople()]);
+  const targets = [], seenUsers = new Set([me?.id]);
+  for (const c of [{ id: PUBLIC_ROOM_ID, kind: "group", name: "RPM Public Room" }, ...(convos || []).filter((c) => c.id !== PUBLIC_ROOM_ID)]) {
+    if (c.kind === "dm") {
+      if (!c.other_user_id || seenUsers.has(c.other_user_id)) continue;
+      seenUsers.add(c.other_user_id);
+      targets.push({ key: c.id, convo: c.id, person: profileCache.get(c.other_user_id) || c.other_profile || { id: c.other_user_id } });
+    } else targets.push({ key: c.id, convo: c.id, group: c });
+  }
+  for (const p of people) if (!seenUsers.has(p.id)) { seenUsers.add(p.id); targets.push({ key: "u" + p.id, person: p }); }
+  const unknown = targets.filter((t) => t.person && !t.person.username).map((t) => t.person.id);
+  if (unknown.length) { await getProfiles(unknown); targets.forEach((t) => { if (t.person && !t.person.username) t.person = profileCache.get(t.person.id) || t.person; }); }
+  const label = (t) => t.group ? (t.group.name || "Group") : (t.person.display_name || t.person.username || "Someone");
+
+  const sync = () => {
+    sendBtn.disabled = !picked.size;
+    sendBtn.textContent = picked.size > 1 ? `Send · ${picked.size}` : "Send";
+    s.el.classList.toggle("ss-picking", picked.size > 0);
+  };
+  const render = (q = "") => {
+    q = q.toLowerCase();
+    const hits = targets.filter((t) => !q || label(t).toLowerCase().includes(q) || (t.person?.username || "").includes(q)).slice(0, 120);
+    if (!hits.length) { grid.innerHTML = `<div class="settings-empty">No one found.</div>`; return; }
+    const frag = document.createDocumentFragment();
+    for (const t of hits) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `ss-item ${picked.has(t.key) ? "on" : ""}`;
+      b.innerHTML = `<span class="ss-av"><span class="avatar"></span><i>${svgIcon("check", 12)}</i></span><small>${escapeHTML(label(t))}</small>`;
+      if (t.group) setGroupAvatar(b.querySelector(".avatar"), t.group); else setAvatarContent(b.querySelector(".avatar"), t.person);
+      b.addEventListener("click", () => {
+        if (picked.has(t.key)) picked.delete(t.key); else picked.set(t.key, t);
+        b.classList.toggle("on", picked.has(t.key));
+        buzz(6); sync();
+      });
+      frag.appendChild(b);
+    }
+    grid.replaceChildren(frag);
+  };
+  input.addEventListener("input", debounce(() => render(input.value.trim()), 100));
+  render(); sync();
+
+  sendBtn.addEventListener("click", async () => {
+    sendBtn.disabled = true; sendBtn.textContent = "Sending…";
+    const text = note.value.trim();
+    let ok = 0;
+    for (const t of picked.values()) {
+      try {
+        let cid = t.convo;
+        if (!cid) {
+          const { data, error } = await sb.rpc("get_or_create_dm", { other_user: t.person.id });
+          if (error) throw error;
+          cid = data;
+        }
+        const row = build ? build(cid) : null;
+        if (row) { const { error } = await sb.from("messages").insert({ ...row, user_id: me.id, conversation_id: cid }); if (error) throw error; }
+        if (text) await sb.from("messages").insert({ user_id: me.id, conversation_id: cid, content: text });
+        ok++;
+      } catch (err) { toast(friendlyError(err, `Could not send to ${label(t)}.`)); }
+    }
+    if (ok) { buzz(12); s.close(); toast(ok === 1 ? "Sent" : `Sent to ${ok} chats`); }
+    else sync();
+  });
+  return s;
+}
+
 // Report a user, message or post — a sheet instead of a bare prompt().
 function reportSheet(type, id) {
   const reasons = ["Spam", "Harassment or bullying", "Hate speech", "Nudity or sexual content", "Fake account / impersonation", "Something else"];

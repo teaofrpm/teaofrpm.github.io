@@ -304,7 +304,21 @@ function buildReel(reel, likeCount, likedByMe, commentCount, savedByMe, views = 
   const shareBtn = document.createElement("button");
   shareBtn.setAttribute("aria-label", "Share");
   shareBtn.innerHTML = svgIcon("share", 25);
-  shareBtn.addEventListener("click", () => { if (isYT) { reelSignal(reel.id, "share"); steer(el); } shareLink(`reels.html?r=${reel.id}`, "A reel on teaofrpm"); });
+  shareBtn.addEventListener("click", () => {
+    if (isYT) { reelSignal(reel.id, "share"); steer(el); }
+    const link = new URL(`reels.html?r=${reel.id}`, location.href).href;
+    const thumb = reel.yt_id ? `https://i.ytimg.com/vi/${reel.yt_id}/hqdefault.jpg` : "";
+    const cap = (reel.caption || "").slice(0, 70);
+    shareSheet({
+      title: "Share reel",
+      preview: `${thumb ? `<img src="${thumb}" alt="" />` : `<div class="ss-prev-text">${svgIcon("reel", 22)}</div>`}<div><b>Reel</b><span>${escapeHTML(cap || "Watch this")}</span></div>`,
+      build: () => ({ content: `🎬 ${cap ? cap + "\n" : ""}${link}` }),
+      actions: [
+        { icon: "link", label: "Copy link", onClick: () => copyText(link, "Link copied") },
+        { icon: "share", label: "More…", onClick: () => shareLink(`reels.html?r=${reel.id}`, "A reel on teaofrpm") },
+      ],
+    });
+  });
   actions.appendChild(shareBtn);
 
   const muteBtn = document.createElement("button");
@@ -347,7 +361,7 @@ function buildReel(reel, likeCount, likedByMe, commentCount, savedByMe, views = 
   actions.appendChild(moreBtn);
   el.appendChild(actions);
 
-  // First tap goes immersive; after that taps pause/resume. Double tap likes.
+  // Tap pauses/resumes (the side buttons always stay). Double tap likes.
   // Works the same on uploads and YouTube shorts.
   let tapTimer = null;
   tap.addEventListener("click", () => {
@@ -360,9 +374,9 @@ function buildReel(reel, likeCount, likedByMe, commentCount, savedByMe, views = 
     }
     tapTimer = setTimeout(() => {
       tapTimer = null;
-      if (!reelsState.immersive) { enterImmersive(); return; }
       setPaused(el, el.dataset.paused !== "1");
-    }, 260);
+      buzz(6);
+    }, 240);
   });
   return el;
 }
@@ -505,8 +519,41 @@ function openAddShort() {
   setTimeout(() => url.focus(), 250);
 }
 
-function ytCommand(iframe, func) {
-  iframe?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args: [] }), "https://www.youtube.com");
+function ytCommand(iframe, func, args = []) {
+  try { iframe?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args }), "https://www.youtube.com"); } catch {}
+}
+
+// YouTube player events (state changes) come back as postMessage once we say we're listening.
+// 1 = playing, 2 = paused, 0 = ended, 3 = buffering, -1 = not started
+window.addEventListener("message", (e) => {
+  if (!/^https:\/\/www\.youtube(-nocookie)?\.com$/.test(e.origin)) return;
+  let d; try { d = typeof e.data === "string" ? JSON.parse(e.data) : e.data; } catch { return; }
+  const f = [...document.querySelectorAll(".yt-reel iframe")].find((x) => x.contentWindow === e.source);
+  const el = f?.closest(".reel");
+  if (!el) return;
+  const st = d?.event === "onStateChange" ? d.info : d?.event === "infoDelivery" ? d.info?.playerState : undefined;
+  if (d?.event === "onReady") ytSync(el, f);
+  if (st === 1 || st === 3) {
+    el.classList.add("yt-on"); el.classList.remove("yt-needtap");
+    clearTimeout(el._ytWatch);
+    if (el !== current || el.dataset.paused === "1") ytCommand(f, "pauseVideo");    // scrolled away meanwhile
+    else if (!reelsState.muted && !el._ytUnmuted) { el._ytUnmuted = true; ytCommand(f, "unMute"); }
+  }
+  if (st === 0) ytCommand(f, "playVideo");    // loop
+  // the browser refused sound and paused it: carry on muted rather than freezing
+  if (st === 2 && el === current && el.dataset.paused !== "1" && el._ytUnmuted && !el._ytFellBack) {
+    el._ytFellBack = true; ytCommand(f, "mute"); ytCommand(f, "playVideo");
+  }
+  if (d?.event === "onError") { el.classList.add("yt-needtap"); clearTimeout(el._ytWatch); }
+});
+
+// bring a loaded player in line with what the page wants right now
+function ytSync(el, f) {
+  const want = el === current && el.dataset.paused !== "1" && !document.hidden;
+  if (!want) { ytCommand(f, "pauseVideo"); return; }
+  ytCommand(f, "mute");                 // muted autoplay is always allowed, on every phone
+  ytCommand(f, "playVideo");
+  if (!reelsState.muted) setTimeout(() => ytCommand(f, "unMute"), 250);
 }
 
 // The iframe is only created when the short first comes on screen, so
@@ -515,16 +562,32 @@ function ytPlay(el, play) {
   let f = el.querySelector("iframe");
   if (!f && play) {
     f = document.createElement("iframe");
-    f.src = `https://www.youtube.com/embed/${el.dataset.yt}?autoplay=1&mute=${reelsState.muted ? 1 : 0}&playsinline=1&loop=1&playlist=${el.dataset.yt}&enablejsapi=1&controls=0&modestbranding=1`;
-    f.allow = "autoplay; encrypted-media; picture-in-picture";
-    f.allowFullscreen = true;
+    const origin = encodeURIComponent(location.origin);
+    // always start muted: browsers block autoplay with sound, which left Shorts stuck on the thumbnail
+    f.src = `https://www.youtube.com/embed/${el.dataset.yt}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${el.dataset.yt}` +
+      `&enablejsapi=1&controls=0&modestbranding=1&rel=0&iv_load_policy=3&fs=0&disablekb=1&origin=${origin}&widget_referrer=${origin}`;
+    f.allow = "autoplay; encrypted-media; picture-in-picture; web-share";
+    f.referrerPolicy = "strict-origin-when-cross-origin";
     f.title = "Short";
-    f.loading = "lazy";
+    el._ytUnmuted = false;
+    if (!el.querySelector(".yt-spin")) el.querySelector(".yt-wrap").insertAdjacentHTML("beforeend", `<div class="yt-spin"></div>`);
+    f.addEventListener("load", () => {
+      // handshake so YouTube starts sending us its state, then nudge it a few times while it boots
+      const hello = () => { try { f.contentWindow.postMessage(JSON.stringify({ event: "listening", id: el.dataset.id, channel: "widget" }), "https://www.youtube.com"); } catch {} };
+      hello(); ytSync(el, f);
+      [300, 900, 1800].forEach((ms) => setTimeout(() => { if (!el.classList.contains("yt-on")) { hello(); ytSync(el, f); } }, ms));
+    });
     el.querySelector(".yt-wrap").appendChild(f);
+    // still not playing after a few seconds (strict browser / data saver): let the person tap YouTube's own play button
+    clearTimeout(el._ytWatch);
+    el._ytWatch = setTimeout(() => { if (!el.classList.contains("yt-on") && el === current) el.classList.add("yt-needtap"); }, 4500);
     return;
   }
-  if (play) ytCommand(f, reelsState.muted ? "mute" : "unMute");
-  ytCommand(f, play ? "playVideo" : "pauseVideo");
+  if (!f) return;
+  if (play) {
+    ytCommand(f, "playVideo");
+    if (!reelsState.muted) ytCommand(f, "unMute");
+  } else ytCommand(f, "pauseVideo");
 }
 
 /* ---------- Upload ---------- */
