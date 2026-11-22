@@ -13,7 +13,7 @@
   var me=JSON.parse(localStorage.getItem("teaofrpm_me")||"null");
   var auth=localStorage.getItem("teaofrpm-auth");
   var last=+sessionStorage.getItem("teaofrpm_jump")||0;
-  if(me&&me.is_verified&&!me.banned&&auth&&auth.indexOf(me.id)!==-1&&Date.now()-last>15000){
+  if(location.search.indexOf("add=1")===-1&&me&&me.is_verified&&!me.banned&&auth&&auth.indexOf(me.id)!==-1&&Date.now()-last>15000){
     sessionStorage.setItem("teaofrpm_jump",String(Date.now()));
     document.documentElement.style.visibility="hidden";
     location.replace("home.html");
@@ -28,10 +28,10 @@
 <meta name="theme-color" content="#8B0000" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<link rel="apple-touch-icon" href="images/icon-192.png" />
-<link rel="icon" href="images/icon-192.png" />
+<link rel="apple-touch-icon" href="images/apple-touch-icon.png" />
+<link rel="icon" href="images/icon.svg" type="image/svg+xml" /><link rel="alternate icon" href="images/icon-192.png" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
-<link rel="stylesheet" href="css/app.css?v=26" />
+<link rel="stylesheet" href="css/app.css?v=28" />
 </head>
 <body>
 
@@ -102,8 +102,8 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=26"></script>
-<script src="js/core.js?v=26"></script>
+<script src="js/config.js?v=28"></script>
+<script src="js/core.js?v=28"></script>
 <script>
   const entryModal = document.getElementById("entryModal");
   const modalChoice = document.getElementById("modalChoice");
@@ -117,9 +117,11 @@
     if (first) setTimeout(() => first.focus(), 50);
   }
 
+  // index.html?add=1 → log into another account without logging this one out
+  const ADDING = new URLSearchParams(location.search).get("add") === "1";
   document.getElementById("enterBtn").addEventListener("click", async () => {
     const { data } = await sb.auth.getSession();
-    if (data.session) { await routeAfterAuth(); return; }
+    if (data.session && !ADDING) { await routeAfterAuth(); return; }
     entryModal.style.display = "flex";
     showPane(modalChoice);
   });
@@ -203,6 +205,13 @@
 
   (async () => {
     const { data } = await sb.auth.getSession();
+    if (ADDING) {
+      if (data.session && typeof Accounts !== "undefined") Accounts.remember(data.session);
+      entryModal.style.display = "flex";
+      showPane(loginForm);
+      toast("Log in to add another account — your current one stays signed in", 3500);
+      return;
+    }
     if (data.session) {
       // already logged in: skip the network check if we know you're verified
       const me = store.get("teaofrpm_me");

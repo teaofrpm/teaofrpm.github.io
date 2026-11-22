@@ -13,13 +13,13 @@
 <meta name="theme-color" content="#8B0000" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<link rel="apple-touch-icon" href="images/icon-192.png" />
-<link rel="icon" href="images/icon-192.png" />
+<link rel="apple-touch-icon" href="images/apple-touch-icon.png" />
+<link rel="icon" href="images/icon.svg" type="image/svg+xml" /><link rel="alternate icon" href="images/icon-192.png" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
-<link rel="stylesheet" href="css/app.css?v=26" />
-<link rel="stylesheet" href="css/messages.css?v=26" />
-<link rel="stylesheet" href="css/bot.css?v=26" />
-<link rel="stylesheet" href="css/chat-polish.css?v=26" />
+<link rel="stylesheet" href="css/app.css?v=28" />
+<link rel="stylesheet" href="css/messages.css?v=28" />
+<link rel="stylesheet" href="css/bot.css?v=28" />
+<link rel="stylesheet" href="css/chat-polish.css?v=28" />
 </head>
 <body>
 
@@ -59,7 +59,12 @@
 
       <div class="attach-preview" id="attachPreview">
         <img id="attachImg" alt="" />
-        <span id="attachName" style="font-size:12.5px; color:var(--text-muted);"></span>
+        <video id="attachVideo" muted playsinline preload="metadata"></video>
+        <span id="attachName" style="font-size:12.5px; color:var(--text-muted); min-width:0; flex:1;"></span>
+        <div class="attach-opts">
+          <button type="button" class="attach-opt" id="editAttach" title="Edit photo"></button>
+          <button type="button" class="attach-opt" id="viewOnceBtn" title="View once — they can open it only one time"></button>
+        </div>
         <button id="removeAttach">Remove</button>
       </div>
       <div class="attach-preview" id="audioPreview">
@@ -72,7 +77,7 @@
         <button type="button" class="icon-btn x3-plus-btn" aria-label="More options" data-icon="plus" data-icon-size="20"></button>
         <button class="icon-btn" id="stickerToggle" title="Stickers" aria-label="Stickers" data-icon="sticker" data-icon-size="19"></button>
         <label class="icon-btn" id="imageBtn" for="imageInput" title="Send image" aria-label="Send image" data-icon="image" data-icon-size="19"></label>
-        <input type="file" id="imageInput" accept="image/*" style="display:none;" />
+        <input type="file" id="imageInput" accept="image/*,video/*" style="display:none;" />
         <button class="icon-btn" id="voiceBtn" title="Record voice note" aria-label="Record voice note" data-icon="mic" data-icon-size="19"></button>
         <textarea id="msgInput" rows="1" placeholder="Message…" enterkeyhint="send" aria-label="Message"></textarea>
         <button class="send-btn" id="sendBtn" disabled data-icon="send" data-icon-size="18" aria-label="Send"></button>
@@ -117,9 +122,10 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=26"></script>
-<script src="js/core.js?v=26"></script>
-<script src="js/calls.js?v=26"></script>
-<script src="js/room.js?v=26"></script>
+<script src="js/config.js?v=28"></script>
+<script src="js/core.js?v=28"></script>
+<script src="js/editor.js?v=28"></script>
+<script src="js/calls.js?v=28"></script>
+<script src="js/room.js?v=28"></script>
 </body>
 </html>
