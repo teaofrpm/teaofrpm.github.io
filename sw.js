@@ -1,7 +1,7 @@
 /* ============================================================
    teaofrpm service worker — v21.
 
-   DEPLOYING AN UPDATE: change ?v=34 → ?v=34 in every .html file AND in
+   DEPLOYING AN UPDATE: change ?v=38 → ?v=38 in every .html file AND in
    SHELL below, and bump VERSION. New pages then ask for new file names,
    so they can never be paired with an old cached CSS/JS.
 
@@ -20,7 +20,7 @@
    `self.registration.unregister();` and push.
    ============================================================ */
 
-const VERSION = "v34";
+const VERSION = "v38";
 const PAGES = `teaofrpm-pages-${VERSION}`;
 const ASSETS = `teaofrpm-assets-${VERSION}`;
 const LIBS = "teaofrpm-libs-v2";
@@ -28,10 +28,10 @@ const MAX_ENTRIES = 120;
 
 const SHELL = [
   "home.html", "messages.html", "room.html", "profile.html", "reels.html", "discover.html", "settings.html", "tools.html",
-  "css/app.css?v=34", "css/home.css?v=34", "css/messages.css?v=34", "css/chat-polish.css?v=34", "css/bot.css?v=34",
-  "css/social-extras.css?v=34", "css/reels.css?v=34", "css/discover.css?v=34", "css/settings.css?v=34", "css/plus.css?v=34",
-  "js/config.js?v=34", "js/core.js?v=34", "js/editor.js?v=34", "js/calls.js?v=34", "js/social.js?v=34", "js/notifications.js?v=34",
-  "js/home.js?v=34", "js/messages.js?v=34", "js/room.js?v=34", "js/profile.js?v=34", "js/plus.js?v=34", "js/plus-tools.js?v=34", "js/plus-games.js?v=34", "js/chatplus.js?v=34",
+  "css/app.css?v=38", "css/home.css?v=38", "css/messages.css?v=38", "css/chat-polish.css?v=38", "css/bot.css?v=38",
+  "css/social-extras.css?v=38", "css/reels.css?v=38", "css/discover.css?v=38", "css/settings.css?v=38", "css/plus.css?v=38",
+  "js/config.js?v=38", "js/core.js?v=38", "js/editor.js?v=38", "js/calls.js?v=38", "js/social.js?v=38", "js/notifications.js?v=38",
+  "js/home.js?v=38", "js/messages.js?v=38", "js/room.js?v=38", "js/profile.js?v=38", "js/plus.js?v=38", "js/plus-tools.js?v=38", "js/plus-games.js?v=38", "js/chatplus.js?v=38",
   "images/icon-192.png", "images/icon.svg", "images/bot.png",
 ];
 

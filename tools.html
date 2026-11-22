@@ -13,10 +13,10 @@
 <link rel="apple-touch-icon" href="images/apple-touch-icon.png" />
 <link rel="icon" href="images/icon.svg" type="image/svg+xml" /><link rel="alternate icon" href="images/icon-192.png" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
-<link rel="stylesheet" href="css/app.css?v=34" />
-<link rel="stylesheet" href="css/discover.css?v=34" />
-<link rel="stylesheet" href="css/social-extras.css?v=34" />
-<link rel="stylesheet" href="css/plus.css?v=34" />
+<link rel="stylesheet" href="css/app.css?v=38" />
+<link rel="stylesheet" href="css/discover.css?v=38" />
+<link rel="stylesheet" href="css/social-extras.css?v=38" />
+<link rel="stylesheet" href="css/plus.css?v=38" />
 </head>
 <body>
 
@@ -41,11 +41,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=34"></script>
-<script src="js/core.js?v=34"></script>
-<script src="js/plus.js?v=34"></script>
-<script src="js/plus-tools.js?v=34"></script>
-<script src="js/plus-games.js?v=34"></script>
+<script src="js/config.js?v=38"></script>
+<script src="js/core.js?v=38"></script>
+<script src="js/plus.js?v=38"></script>
+<script src="js/plus-tools.js?v=38"></script>
+<script src="js/plus-games.js?v=38"></script>
 <script>
 (async () => {
   const P = window.Plus;
@@ -53,19 +53,20 @@
   const list = document.getElementById("toolsList"), q = document.getElementById("toolsSearch");
   const hero = () => {
     const st = P.get("st", {})[P.dkey()] || 0, f = P.get("focus_log", {})[P.dkey()] || 0;
-    document.getElementById("toolsHero").innerHTML = `<div><small>Screen time</small><b>${P.fmtDur(st)}</b></div><div><small>Focus today</small><b>🍅 ${f}m</b></div><div><small>Streak</small><b>🔥 ${P.streak()}</b></div>`;
+    document.getElementById("toolsHero").innerHTML = `<div><small>Screen time</small><b>${P.fmtDur(st)}</b></div><div><small>Focus today</small><b>${P.I("tp-timer", 16)} ${f}m</b></div><div><small>Streak</small><b>${P.I("tp-flame", 16)} ${P.streak()}</b></div>`;
   };
   const paint = () => {
     const t = q.value.trim().toLowerCase();
     const secs = {};
     P.toolList.filter((x) => !t || x.name.toLowerCase().includes(t)).forEach((x) => (secs[x.sec] = secs[x.sec] || []).push(x));
-    list.innerHTML = Object.entries(secs).map(([s, l]) => `<section class="tp-sec"><h3>${escapeHTML(s)}</h3><div class="tp-grid">${l.map((x) => { let b = ""; try { b = x.badge ? x.badge() : ""; } catch {} return `<button type="button" class="tp-tile" data-k="${x.key}">${b !== "" && b != null ? `<em>${escapeHTML(String(b))}</em>` : ""}<b>${x.emoji}</b>${escapeHTML(x.name)}</button>`; }).join("")}</div></section>`).join("") || `<div class="settings-empty" style="padding:24px">Nothing found</div>`;
+    list.innerHTML = Object.entries(secs).map(([s, l]) => `<section class="tp-sec"><h3>${escapeHTML(s)}</h3><div class="tp-grid">${l.map((x) => { let b = ""; try { b = x.badge ? x.badge() : ""; } catch {} return `<button type="button" class="tp-tile" data-k="${x.key}" data-sec="${escapeHTML(x.sec)}">${b !== "" && b != null ? `<em>${escapeHTML(String(b))}</em>` : ""}<b class="tp-ic">${P.I(x.icon, 26)}</b><span>${escapeHTML(x.name)}</span></button>`; }).join("")}</div></section>`).join("") || `<div class="settings-empty" style="padding:24px">Nothing found</div>`;
   };
   list.addEventListener("click", (e) => { const b = e.target.closest("[data-k]"); if (b) { P.buzz(8); P.openTool(b.dataset.k); } });
   q.addEventListener("input", paint);
   document.getElementById("plusSettingsBtn").addEventListener("click", () => P.openSettings());
   addEventListener("app:me", () => {});
   document.addEventListener("click", () => setTimeout(() => { if (!document.querySelector(".app-sheet-backdrop.show")) { paint(); hero(); } }, 400));
+  list.classList.add("tp-anim"); setTimeout(() => list.classList.remove("tp-anim"), 900);
   paint(); hero();
   const h = location.hash.slice(1); if (h && P.toolList.some((x) => x.key === h)) setTimeout(() => P.openTool(h), 300);
 })();
