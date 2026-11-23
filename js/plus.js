@@ -520,11 +520,14 @@
     const hw = P.hwDue?.(); if (hw) bits.push(`${I("tp-todo", 14)} ${hw} homework pending`);
     const c = document.createElement("div");
     c.className = "tp-greet";
-    c.innerHTML = `<button type="button" class="tp-greet-x" aria-label="Hide for today">${svgIcon("close", 13)}</button>
-      <div class="tp-greet-hi">${ic}<span>${hi}${name ? `, ${esc(name)}` : ""}</span></div>
+    // a tiny live sky that follows the clock: stars + moon at night, sunrise, clouds by day, a red sun at dusk
+    c.dataset.tod = h < 5 || h >= 21 ? "night" : h < 9 ? "dawn" : h < 17 ? "day" : "dusk";
+    c.innerHTML = `<div class="g-sky" aria-hidden="true"><i class="g-stars"></i><i class="g-orb"></i><i class="g-cloud c1"></i><i class="g-cloud c2"></i><i class="g-hill far"></i><i class="g-hill near"></i></div>
+      <button type="button" class="tp-greet-x" aria-label="Hide for today">${svgIcon("close", 13)}</button>
+      <div class="tp-greet-hi"><span class="g-ic">${ic}</span><span>${hi}${name ? `, ${esc(name)}` : ""}</span></div>
       ${bits.length ? `<div class="tp-greet-bits">${bits.map((b) => `<span>${b}</span>`).join("")}</div>` : ""}
-      <div class="tp-greet-q">“${esc(P.quote())}”</div>
-      <a class="tp-greet-btn" href="tools.html">${I("tp-grid", 15)} Tools & games</a>`;
+      <div class="tp-greet-glass"><div class="tp-greet-q">“${esc(P.quote())}”</div>
+      <a class="tp-greet-btn" href="tools.html">${I("tp-grid", 15)} Tools & games</a></div>`;
     c.querySelector(".tp-greet-x").onclick = () => { set("greet_hide", dkey()); c.remove(); };
     feed.prepend(c);
   }
