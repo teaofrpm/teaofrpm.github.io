@@ -993,3 +993,70 @@ html[data-cp-wp] :is(.msg-meta, .msg-meta .msg-name, .msg-meta .msg-username, .m
   --g-bg: rgba(18,16,38,.5); --g-bubble: rgba(20,18,40,.8); --g-edge: rgba(255,255,255,.16); --g-hi: rgba(255,255,255,.16);
   --g-line: rgba(255,255,255,.1); --g-shadow: rgba(0,0,0,.6); --g-strip: rgba(6,5,16,.4);
 }
+
+/* ============================================================
+   v53 — a wallpaper photo now colours the whole chat (like themes):
+   header + composer glass tinted with the photo's average tone,
+   your bubbles in the photo's two most vivid colours.
+   ============================================================ */
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) { --wp-fg: #1a1a1a;
+  --g-bg: color-mix(in srgb, var(--wp-t) 34%, rgba(255,255,255,.5)); --g-bubble: color-mix(in srgb, var(--wp-t) 9%, rgba(255,255,255,.9));
+  --g-edge: rgba(255,255,255,.62); --g-hi: rgba(255,255,255,.88); --g-line: rgba(255,255,255,.4);
+  --g-shadow: color-mix(in srgb, var(--wp-b) 50%, rgba(0,0,0,.45)); --g-strip: color-mix(in srgb, var(--wp-t) 30%, transparent); }
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2)[data-wp-dark] { --wp-fg: #ffffff;
+  --g-bg: color-mix(in srgb, var(--wp-t) 42%, rgba(10,8,20,.42)); --g-bubble: color-mix(in srgb, var(--wp-t) 20%, rgba(16,14,28,.84));
+  --g-edge: rgba(255,255,255,.17); --g-hi: rgba(255,255,255,.15); --g-line: rgba(255,255,255,.1); }
+
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) .chat-header :is(#roomTitle, .room-title, .header-icon-btn) { color: var(--wp-fg) !important; }
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) .chat-header #roomSubtitle { color: var(--wp-fg) !important; opacity: .75; }
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) .chat-header .header-icon-btn { color: var(--wp-acc) !important; }
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) .msg-row:not(.own) .bubble { color: var(--wp-fg) !important; }
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) .msg-row.own .bubble { background: linear-gradient(135deg, var(--wp-a), var(--wp-b)) !important; color: var(--wp-ink) !important; border-color: transparent !important; }
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) .msg-row.own .bubble a, :root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) .msg-row.own .bubble a.mention { color: inherit !important; text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) .composer .icon-btn { color: var(--wp-acc) !important; }
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) .composer .x3-plus-btn { background: linear-gradient(135deg, var(--wp-a), var(--wp-b)) !important; color: var(--wp-ink) !important; box-shadow: 0 6px 16px -8px var(--wp-b) !important; }
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) #msgInput { color: var(--wp-fg) !important; }
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) #msgInput::placeholder { color: var(--wp-fg); opacity: .55; }
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) .composer-row.x-pill:focus-within { box-shadow: inset 0 1px 0 var(--g-hi), 0 0 0 3px color-mix(in srgb, var(--wp-a) 38%, transparent), 0 14px 34px -14px var(--g-shadow) !important; }
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) :is(.extras-readmore, .bubble a.mention) { color: var(--wp-acc) !important; }
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) :is(.bot-msg-head b, .bot-msg-text, .date-divider span, .system-chip) { color: var(--wp-fg) !important; }
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) .bot-msg-time { color: var(--wp-fg); opacity: .6; }
+:root[data-cp-wp][data-wp-pal]:not(.x1):not(.x2) .bot-msg-row { border-left-color: var(--wp-a) !important; }
+.chat-header, .composer-row.x-pill, .msg-row .bubble, .composer .x3-plus-btn { transition: background-color .45s ease, color .35s ease, border-color .35s ease, box-shadow .35s ease; }
+
+/* ============================================================
+   v53 — every sheet & pop-up is glass now (no flat solid panels)
+   ============================================================ */
+.app-sheet-backdrop.show { background: rgba(14,8,28, calc(.3 - var(--drag, 0) * .25)); backdrop-filter: blur(calc(8px - var(--drag, 0) * 8px)) saturate(1.15); -webkit-backdrop-filter: blur(calc(8px - var(--drag, 0) * 8px)) saturate(1.15); }
+.app-sheet {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--white) 82%, transparent), color-mix(in srgb, var(--white) 70%, transparent)) !important;
+  backdrop-filter: blur(34px) saturate(1.9) !important; -webkit-backdrop-filter: blur(34px) saturate(1.9) !important;
+  border: 1px solid rgba(255,255,255,.62) !important; border-bottom: 0 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.92), 0 -20px 50px -22px rgba(40,10,80,.5) !important;
+}
+:root[data-theme="dark"] .app-sheet { background: linear-gradient(180deg, color-mix(in srgb, var(--white) 80%, transparent), color-mix(in srgb, var(--white) 68%, transparent)) !important; border-color: rgba(255,255,255,.1) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 -20px 50px -22px rgba(0,0,0,.8) !important; }
+.app-sheet-title { border-bottom-color: color-mix(in srgb, var(--border-soft) 55%, transparent) !important; }
+.app-sheet-handle { background: color-mix(in srgb, var(--text-dark) 22%, transparent) !important; }
+
+/* things that sat inside sheets as solid blocks become frosted too */
+.app-sheet :is(.settings-group, .tp-tile, .x3-tile, .tp-item, .acct-row, .tp-att, .follow-list-row, .member-row, .tp-chips button:not(.on)) { background: color-mix(in srgb, var(--white) 52%, transparent) !important; border-color: color-mix(in srgb, var(--border-soft) 65%, transparent) !important; }
+.app-sheet :is(input[type="text"], input[type="search"], input[type="number"], input[type="date"], input[type="time"], input:not([type]), textarea, select) { background: color-mix(in srgb, var(--white) 58%, transparent) !important; }
+.app-sheet .tp-ttt button { background: color-mix(in srgb, var(--white) 50%, transparent); }
+
+/* chat pop-ups: reaction bar, action menu, emoji picker, slash/mention list, "more" */
+:is(.mf-react, .mf-acts, .emoji-picker, .cp-pop, .x2-more) {
+  background: color-mix(in srgb, var(--white) 74%, transparent) !important;
+  backdrop-filter: blur(28px) saturate(1.9); -webkit-backdrop-filter: blur(28px) saturate(1.9);
+  border: 1px solid rgba(255,255,255,.6) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 18px 44px -18px rgba(40,10,80,.55) !important;
+}
+:root[data-theme="dark"] :is(.mf-react, .mf-acts, .emoji-picker, .cp-pop, .x2-more) { background: color-mix(in srgb, var(--white) 76%, transparent) !important; border-color: rgba(255,255,255,.1) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 18px 44px -18px rgba(0,0,0,.8) !important; }
+.mf-time { background: transparent !important; }
+.mf-overlay.show, .mf-overlay.on { background: rgba(14,8,28,.28) !important; }
+
+/* smoother everything: one easing, gentle press, no jank on colour changes */
+:where(a, button, .btn, .pa-btn, .thread-row, .settings-row, .tp-tile, .x3-tile, .post-card) { transition: transform .22s cubic-bezier(.2,.8,.2,1), background-color .25s ease, color .2s ease, box-shadow .25s ease, border-color .25s ease, opacity .2s ease; }
+:where(.thread-row, .settings-row, .tp-tile, .x3-tile, .pa-btn):active { transform: scale(.985); }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+:root[data-cp-wp] .chat-main { background: var(--wp-t, var(--pale-bg)) !important; background-image: none !important; }   /* the strip under the composer takes the photo's own tone */

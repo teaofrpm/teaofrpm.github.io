@@ -198,6 +198,7 @@ async function loadPublicRoomRow() {
   if (room) {
     if (room.name) row.querySelector(".thread-text b").textContent = room.name;
     setGroupAvatar(row.querySelector(".thread-avatar"), room);
+    store.set("teaofrpm_pubrow", { ...(store.get("teaofrpm_pubrow") || {}), name: room.name || "", pfp_url: room.pfp_url || "" });
   }
   if (last) paintPublicLast(last);
 }
@@ -208,6 +209,7 @@ async function paintPublicLast(m) {
   const who = m.is_bot ? "teaBot" : (await getProfile(m.user_id))?.display_name?.split(" ")[0] || "Someone";
   const what = m.content || (m.image_url ? "📷 Photo" : m.sticker_url ? "Sticker" : m.audio_url ? "🎤 Voice note" : "Message");
   row.querySelector(".thread-text span").textContent = `${who}: ${what}`;
+  store.set("teaofrpm_pubrow", { ...(store.get("teaofrpm_pubrow") || {}), last: `${who}: ${what}` });
   let meta = row.querySelector(".thread-meta");
   if (!meta) { meta = document.createElement("div"); meta.className = "thread-meta"; row.appendChild(meta); }
   meta.innerHTML = `<span class="thread-time" data-ts="${m.created_at}">${timeAgo(m.created_at)}</span>`;

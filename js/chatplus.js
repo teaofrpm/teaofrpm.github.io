@@ -54,8 +54,63 @@
       wrap.classList.toggle("cp-wp", !!wp);
       root.toggleAttribute("data-cp-wp", !!wp);
     }
+    wpPalette(wp);
   }
   C.applyLook = applyLook;
+
+  /* the chat takes its colours from the wallpaper photo: header, bubbles and composer
+     are tinted with the picture's own vivid + average tones (cached per photo). */
+  const PAL_PROPS = ["--wp-a", "--wp-b", "--wp-t", "--wp-ink", "--wp-acc"];
+  let palFor = null;
+  function wpPalette(url) {
+    if (!url) { palFor = null; root.removeAttribute("data-wp-pal"); root.removeAttribute("data-wp-dark"); PAL_PROPS.forEach((p) => root.style.removeProperty(p)); return; }
+    if (palFor === url) return;
+    palFor = url;
+    let h = 5381; const s = String(url); for (let i = 0; i < s.length; i += Math.max(1, s.length >> 9)) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    const key = "wpc_" + (h >>> 0).toString(36) + s.length;
+    const paint = (p) => {
+      if (palFor !== url || !p) return;
+      root.style.setProperty("--wp-a", p.a); root.style.setProperty("--wp-b", p.b); root.style.setProperty("--wp-t", p.t);
+      root.style.setProperty("--wp-ink", p.ink); root.style.setProperty("--wp-acc", p.acc);
+      root.toggleAttribute("data-wp-dark", !!p.dark); root.setAttribute("data-wp-pal", "");
+    };
+    const cached = get(key, null); if (cached) { paint(cached); return; }
+    const img = new Image(); img.crossOrigin = "anonymous"; img.decoding = "async";
+    img.onload = () => { try { const p = extractPalette(img); set(key, p); paint(p); } catch {} };
+    img.src = url;
+  }
+  function extractPalette(img) {
+    const N = 48, cv = document.createElement("canvas"); cv.width = cv.height = N;
+    const cx = cv.getContext("2d", { willReadFrequently: true }); cx.drawImage(img, 0, 0, N, N);
+    const d = cx.getImageData(0, 0, N, N).data;
+    const bins = Array.from({ length: 12 }, () => ({ w: 0, r: 0, g: 0, b: 0 }));
+    let R = 0, G = 0, B = 0, n = 0;
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i], g = d[i + 1], b = d[i + 2]; R += r; G += g; B += b; n++;
+      const mx = Math.max(r, g, b), mn = Math.min(r, g, b), v = mx / 255, sat = mx ? (mx - mn) / mx : 0;
+      if (sat < .22 || v < .2 || v > .98) continue;
+      let hue = 0; const c = mx - mn;
+      if (c) hue = mx === r ? ((g - b) / c + 6) % 6 : mx === g ? (b - r) / c + 2 : (r - g) / c + 4;
+      const bin = bins[Math.floor(hue * 2) % 12], w = sat * sat * v;
+      bin.w += w; bin.r += r * w; bin.g += g * w; bin.b += b * w;
+    }
+    const avg = [R / n, G / n, B / n];
+    const ranked = bins.filter((x) => x.w > 0).sort((x, y) => y.w - x.w);
+    const col = (x) => [x.r / x.w, x.g / x.w, x.b / x.w];
+    let A = ranked[0] ? col(ranked[0]) : [123, 31, 162];
+    // a second, different hue for the gradient; else a deeper shade of the first
+    const hueGap = (x) => { const dd = Math.abs(bins.indexOf(x) - bins.indexOf(ranked[0])); return Math.min(dd, 12 - dd); };
+    const far = ranked.find((x, i) => i > 0 && x.w > ranked[0].w * .18 && hueGap(x) >= 2);
+    let Bc = far ? col(far) : A.map((v) => v * .62);
+    const lum = (c) => (.2126 * c[0] + .7152 * c[1] + .0722 * c[2]) / 255;
+    // keep bubble colours rich but never washed-out or near black
+    const tune = (c, lo, hi) => { const L = lum(c); const k = L < lo ? lo / Math.max(L, .02) : L > hi ? hi / L : 1; return c.map((v) => Math.max(0, Math.min(255, v * k))); };
+    A = tune(A, .32, .62); Bc = tune(Bc, .22, .5);
+    const rgb = (c) => `rgb(${c.map((v) => Math.round(v)).join(",")})`;
+    const mid = A.map((v, i) => (v + Bc[i]) / 2);
+    const dark = lum(avg) < .5;
+    return { a: rgb(A), b: rgb(Bc), t: rgb(avg), ink: lum(mid) > .62 ? "#1a1a1a" : "#ffffff", acc: rgb(tune(A, dark ? .55 : .3, dark ? .78 : .45)), dark };
+  }
   async function setSharedWallpaper(file) {
     if (typeof convo === "undefined" || !convo) return;
     toast("Setting wallpaper for everyone…");

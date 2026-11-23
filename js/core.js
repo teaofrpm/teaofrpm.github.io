@@ -1047,7 +1047,7 @@ async function shareSheet({ title = "Share", build, actions = [], preview = "" }
 
   const [{ data: convos }, people] = await Promise.all([sb.rpc("my_conversations"), loadAllPeople()]);
   const targets = [], seenUsers = new Set([me?.id]);
-  for (const c of [{ id: PUBLIC_ROOM_ID, kind: "group", name: "RPM Public Room" }, ...(convos || []).filter((c) => c.id !== PUBLIC_ROOM_ID)]) {
+  for (const c of [{ id: PUBLIC_ROOM_ID, kind: "group", name: store.get("teaofrpm_pubrow")?.name || "Global room" }, ...(convos || []).filter((c) => c.id !== PUBLIC_ROOM_ID)]) {
     if (c.kind === "dm") {
       if (!c.other_user_id || seenUsers.has(c.other_user_id)) continue;
       seenUsers.add(c.other_user_id);
@@ -1852,7 +1852,7 @@ const PrefSync = (() => {
    Crashes and failed calls on real phones get written (quietly, capped) to
    public.client_errors, so problems can be found without the user reporting them. */
 (() => {
-  const APP_VER = "v52";
+  const APP_VER = "v53";
   const seen = new Set();
   let queue = [], sent = 0, timer = 0;
   const NOISE = /ResizeObserver loop|^Script error\.?$|chrome-extension:|moz-extension:|safari-extension:|AbortError|The user aborted|NotAllowedError|play\(\) request was interrupted|Load failed$|Failed to fetch$|NetworkError/i;

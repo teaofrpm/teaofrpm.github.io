@@ -7,7 +7,6 @@ window.TEAOFRPM_CONFIG = {
   // Cloudflare Turnstile site key (free). Empty = no bot check on login/sign-up.
   TURNSTILE_SITE_KEY: "",
 
-  ROOM_NAME: "𝑅𝒫𝑀 𝒫𝓊𝒷𝓁𝒾𝒸 𝑅𝑜𝑜𝓂",
 
   ICE_SERVERS: [
     { urls: "stun:stun.relay.metered.ca:80" },

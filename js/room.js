@@ -1044,7 +1044,8 @@ function renderHeader() {
     link.onclick = null;
     subtitle.textContent = "Always online · ask anything";
   } else {
-    title.textContent = convo.name || (isPublic ? "RPM Public Room" : "Group");
+    title.textContent = convo.name || (isPublic ? "Global room" : "Group");
+  if (isPublic && convo.name) store.set("teaofrpm_pubrow", { ...(store.get("teaofrpm_pubrow") || {}), name: convo.name, pfp_url: convo.pfp_url || "" });
     setGroupAvatar(av, convo);
     link.removeAttribute("href");
     link.onclick = () => document.getElementById("roomInfoBtn").click();
@@ -1928,7 +1929,7 @@ async function forwardMessage(m) {
   const { data, error } = await sb.rpc("my_conversations");
   const list = s.body.querySelector(".settings-list");
   if (error) { list.innerHTML = `<div class="settings-empty">Could not load your chats.</div>`; return; }
-  const chats = [{ id: PUBLIC_ROOM_ID, kind: "group", name: "RPM Public Room" }, ...(data || [])];
+  const chats = [{ id: PUBLIC_ROOM_ID, kind: "group", name: store.get("teaofrpm_pubrow")?.name || "Global room" }, ...(data || [])];
   await getProfiles(chats.map((c) => c.other_user_id));
   list.innerHTML = "";
   for (const c of chats) {

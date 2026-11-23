@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</title>
-<script>/* the real chat name from the first frame (no "Chat → RPM Public Room" flicker on reload) */(function(){try{var c=new URLSearchParams(location.search).get("c")||"";var h=JSON.parse(localStorage.getItem("teaofrpm_rh_"+c)||"null");var n=(h&&h.title)||(c==="11111111-1111-4111-8111-111111111111"?"RPM Public Room":"");if(n)document.title=n+" — 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂";}catch(e){}})();</script>
+<script>/* the real chat name from the first frame (no "Chat → RPM Public Room" flicker on reload) */(function(){try{var c=new URLSearchParams(location.search).get("c")||"";var h=JSON.parse(localStorage.getItem("teaofrpm_rh_"+c)||"null");var n=(h&&h.title)||(c==="11111111-1111-4111-8111-111111111111"?((JSON.parse(localStorage.getItem("teaofrpm_pubrow")||"null")||{}).name||""):"");if(n)document.title=n+" — 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂";}catch(e){}})();</script>
 <script>/* not signed in on this device? go to the login page before anything paints (no flash of an empty app) */(function(){try{if(!localStorage.getItem("teaofrpm-auth")){document.documentElement.style.visibility="hidden";location.replace("index.html");}}catch(e){}})();</script>
 <script>(function(){try{var t=localStorage.getItem("teaofrpm_theme");if(t==="dark"||((t==="auto"||!t)&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.setAttribute("data-theme","dark");var a=localStorage.getItem("teaofrpm_accent");if(a&&a!=="royal")document.documentElement.setAttribute("data-accent",a);var f=localStorage.getItem("teaofrpm_font");if(f&&f!=="default")document.documentElement.setAttribute("data-font",f);}catch(e){}})();</script>
 <link rel="preconnect" href="https://jfybtgoofxfhjgeyumzl.supabase.co" crossorigin />
@@ -18,11 +18,11 @@
 <link rel="apple-touch-icon" href="images/apple-touch-icon.png?v=2" />
 <link rel="icon" href="images/icon.svg?v=2" type="image/svg+xml" /><link rel="alternate icon" href="images/icon-192.png?v=2" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
-<link rel="stylesheet" href="css/app.css?v=52" />
-<link rel="stylesheet" href="css/messages.css?v=52" />
-<link rel="stylesheet" href="css/bot.css?v=52" />
-<link rel="stylesheet" href="css/chat-polish.css?v=52" />
-<link rel="stylesheet" href="css/plus.css?v=52" />
+<link rel="stylesheet" href="css/app.css?v=53" />
+<link rel="stylesheet" href="css/messages.css?v=53" />
+<link rel="stylesheet" href="css/bot.css?v=53" />
+<link rel="stylesheet" href="css/chat-polish.css?v=53" />
+<link rel="stylesheet" href="css/plus.css?v=53" />
 </head>
 <body>
 
@@ -125,15 +125,15 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=52"></script>
-<script src="js/core.js?v=52"></script>
-<script src="js/plus.js?v=52"></script>
-<script src="js/plus-tools.js?v=52"></script>
-<script src="js/plus-games.js?v=52"></script>
-<script src="js/editor.js?v=52"></script>
-<script src="js/calls.js?v=52"></script>
-<script src="js/livebg.js?v=52"></script>
-<script src="js/room.js?v=52"></script>
-<script src="js/chatplus.js?v=52"></script>
+<script src="js/config.js?v=53"></script>
+<script src="js/core.js?v=53"></script>
+<script src="js/plus.js?v=53"></script>
+<script src="js/plus-tools.js?v=53"></script>
+<script src="js/plus-games.js?v=53"></script>
+<script src="js/editor.js?v=53"></script>
+<script src="js/calls.js?v=53"></script>
+<script src="js/livebg.js?v=53"></script>
+<script src="js/room.js?v=53"></script>
+<script src="js/chatplus.js?v=53"></script>
 </body>
 </html>
