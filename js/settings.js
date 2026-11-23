@@ -136,7 +136,7 @@ function wirePrivacy() {
 function wireAppearance() {
   const themeRow = document.getElementById("themeChoice");
   const fontRow = document.getElementById("fontChoice");
-  const savedTheme = localStorage.getItem("teaofrpm_theme") || ME.theme_pref || "light";
+  const savedTheme = localStorage.getItem("teaofrpm_theme") || ME.theme_pref || "auto";
   const savedFont = localStorage.getItem("teaofrpm_font") || ME.font_pref || "default";
 
   setActiveChoice(themeRow, savedTheme);
@@ -573,7 +573,7 @@ function openFeedback() {
       <button type="button" data-k="idea">💡 Idea</button>
       <button type="button" data-k="other">✉️ Other</button>
     </div>
-    <textarea class="fb-text" maxlength="2000" rows="5" placeholder="Kya hua? Kaunsa page, kya dabaya, kya expected tha…"></textarea>
+    <textarea class="fb-text" maxlength="2000" rows="5" placeholder="What happened? Which page, what you tapped, what you expected…"></textarea>
     <button type="button" class="btn fb-send" style="width:100%;margin-top:10px">Send</button>
     <p class="x3-hint" style="margin-top:8px">Your username is attached so we can reply.</p>` });
   const ta = s.body.querySelector(".fb-text");
@@ -581,11 +581,11 @@ function openFeedback() {
     const b = e.target.closest("[data-k]"); if (!b) return;
     kind = b.dataset.k;
     s.body.querySelectorAll(".fb-kinds button").forEach((x) => x.classList.toggle("on", x === b));
-    ta.placeholder = kind === "idea" ? "Kaunsa feature chahiye? Detail mein likho…" : kind === "bug" ? "Kya hua? Kaunsa page, kya dabaya, kya expected tha…" : "Kuch bhi likho…";
+    ta.placeholder = kind === "idea" ? "What feature would you like? Tell us in detail…" : kind === "bug" ? "What happened? Which page, what you tapped, what you expected…" : "Write anything…";
   });
   s.body.querySelector(".fb-send").addEventListener("click", async (e) => {
     const body = ta.value.trim();
-    if (body.length < 3) { toast("Thoda detail mein likho"); return; }
+    if (body.length < 3) { toast("Add a little more detail"); return; }
     e.target.disabled = true; e.target.textContent = "Sending…";
     const page = `${navigator.userAgent.match(/(iPhone|iPad|Android|Windows|Mac OS X|Linux)[^;)]*/)?.[0] || "device"} · ${matchMedia("(display-mode: standalone)").matches ? "app" : "browser"} · ${innerWidth}px`;
     const { error } = await sb.from("feedback").insert({ user_id: ME.id, kind, body, page });

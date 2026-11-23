@@ -61,7 +61,7 @@ async function init() {
   // Three independent requests at once instead of one after another.
   const [convoRes, membersRes, firstPage] = await Promise.all([
     sb.from("conversations").select("*").eq("id", convoIdParam).maybeSingle(),
-    sb.from("conversation_members").select("*").eq("conversation_id", convoIdParam),
+    fetchMemberRows(convoIdParam === PUBLIC_ROOM_ID),
     fetchPage({}),
   ]);
   if (convoRes.error || !convoRes.data) {
@@ -104,6 +104,25 @@ async function init() {
 function setMembers(rows) {
   members = rows;
   amAdmin = members.some((m) => m.user_id === ME.id && m.role === "admin");
+}
+
+// The public room has everyone in it — thousands of rows nobody needs. Load just
+// my own row + the admins, and count the rest on the server.
+let memberTotal = 0;
+const memberCount = () => (isPublic ? memberTotal || members.length : members.length);
+async function fetchMemberRows(pub = isPublic) {
+  const cid = convo?.id || convoIdParam;
+  if (!pub) {
+    const res = await sb.from("conversation_members").select("*").eq("conversation_id", cid);
+    memberTotal = res.data?.length || 0;
+    return res;
+  }
+  const [rows, count] = await Promise.all([
+    sb.from("conversation_members").select("*").eq("conversation_id", cid).or(`user_id.eq.${ME.id},role.eq.admin`).limit(200),
+    sb.from("conversation_members").select("user_id", { count: "exact", head: true }).eq("conversation_id", cid),
+  ]);
+  if (typeof count.count === "number") memberTotal = count.count;
+  return rows;
 }
 
 /* ============================================================
@@ -321,6 +340,9 @@ function buildRow(m, grouped) {
 function fillBubble(bubble, m, isOwn) {
   bubble.innerHTML = "";
   if (m.sticker_url && !m.content && !m.image_url) bubble.classList.add("sticker-only");
+  // photo / video on its own: no bubble frame around it, just the rounded picture
+  bubble.classList.toggle("media-only", !!((m.image_url || m.video_url) && !m.content && !m.reply_to && !m.shared_post_id && !m.view_once && !m.story_url));
+  bubble.classList.toggle("has-audio", !!m.audio_url);
 
   if (m.reply_to) {
     const rp = document.createElement("div");
@@ -520,8 +542,9 @@ function buildSystemRow(m) {
   const actor = profileCache.get(m.user_id);
   const who = m.user_id === ME.id ? "You" : (actor?.display_name || "Someone");
   const text = m.content || "updated the chat";
-  const icon = /photo/i.test(text) ? "image" : /theme/i.test(text) ? "palette" : /pin/i.test(text) ? "pin" : "edit";
-  row.innerHTML = `<div class="system-chip">${svgIcon(icon, 13)}<span><b>${escapeHTML(who)}</b> ${escapeHTML(text)}</span><small>${formatTime(m.created_at)}</small></div>`;
+  // one quiet line, like Instagram: "Riya added Aman · 4:12 PM"
+  row.innerHTML = `<div class="system-chip"><span><b>${escapeHTML(who)}</b> ${escapeHTML(text)}</span><small>${formatTime(m.created_at)}</small></div>`;
+  row.title = new Date(m.created_at).toLocaleString();
   return row;
 }
 
@@ -554,7 +577,10 @@ function subscribe() {
   channel
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: f }, ({ new: m }) => onLiveInsert(m))
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages", filter: f }, ({ new: m }) => onLiveUpdate(m))
-    .on("postgres_changes", { event: "*", schema: "public", table: "message_reactions" }, onReactionChange)
+    // only this chat's reactions (deletes carry no columns, so those stay unfiltered)
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "message_reactions", filter: f }, onReactionChange)
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "message_reactions", filter: f }, onReactionChange)
+    .on("postgres_changes", { event: "DELETE", schema: "public", table: "message_reactions" }, onReactionChange)
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations", filter: `id=eq.${convo.id}` }, ({ new: c }) => {
       const pinChanged = c.pinned_message_id !== convo.pinned_message_id;
       convo = { ...convo, ...c };
@@ -584,13 +610,20 @@ function subscribe() {
     .on("broadcast", { event: "typing" }, ({ payload }) => handleTypingBroadcast(payload))
     .on("presence", { event: "sync" }, renderPresence)
     .subscribe(async (status) => {
-      if (status === "SUBSCRIBED") await channel.track({ user_id: ME.id, online_at: new Date().toISOString() });
+      if (status === "SUBSCRIBED") {
+        // re-joined after a drop (bad network, phone slept): pull in what we missed
+        if (channel._wasDown) { channel._wasDown = false; gapFill?.(); reloadMembersSoon(); }
+        await channel.track({ user_id: ME.id, online_at: new Date().toISOString() });
+      } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+        channel._wasDown = true;
+      }
     });
   window.addEventListener("beforeunload", () => sendTypingState(false));
 }
 
 const reloadMembersSoon = debounce(async () => {
-  const { data } = await sb.from("conversation_members").select("*").eq("conversation_id", convo.id);
+  const { data, error } = await fetchMemberRows();
+  if (error) return;               // keep what we have rather than blanking the list
   setMembers(data || []);
   if (!isPublic) await getProfiles(members.map((m) => m.user_id));
   renderHeader();
@@ -673,9 +706,10 @@ function removeRow(id) {
 
 // Phones drop the live connection when the screen locks; on return,
 // fetch whatever arrived in between.
+let gapFill = null;
 function wireGapFill() {
   let leftAt = null;
-  const fill = async () => {
+  const fill = gapFill = async () => {
     if (!newestAt) return;
     const list = await fetchPage({ after: newestAt, limit: 100 });
     if (list.length) {
@@ -1008,7 +1042,7 @@ function renderHeader() {
     av.innerHTML = `<img src="images/bot.png" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`;
     link.removeAttribute("href");
     link.onclick = null;
-    subtitle.textContent = "Always online · normal Hinglish me baat karo";
+    subtitle.textContent = "Always online · ask anything";
   } else {
     title.textContent = convo.name || (isPublic ? "RPM Public Room" : "Group");
     setGroupAvatar(av, convo);
@@ -1018,12 +1052,13 @@ function renderHeader() {
   document.title = `${title.textContent} — 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂`;
   paintVanishChip();
   applyChatTheme(convo.theme);
+  window.ChatPlus?.applyLook?.();     // shared chat wallpaper
   renderPresence();
   const prev = store.get(headerKey()) || {};
   store.set(headerKey(), {
     // never cache "Online"/"typing…" — they'd be stale next time
     kind: convo.kind, title: title.textContent, theme: convo.theme || "default",
-    sub: convo.kind === "dm" ? (otherUser ? `@${otherUser.username}` : "") : `${members.length} member${members.length === 1 ? "" : "s"}`,
+    sub: convo.kind === "dm" ? (otherUser ? `@${otherUser.username}` : "") : `${memberCount()} member${memberCount() === 1 ? "" : "s"}`,
     convo: { id: convo.id, name: convo.name, pfp_url: convo.pfp_url, kind: convo.kind, is_public: convo.is_public },
     other: otherUser ? { id: otherUser.id, username: otherUser.username, display_name: otherUser.display_name, pfp_url: otherUser.pfp_url, avatar_color: otherUser.avatar_color } : null,
     streak: prev.streak || null,
@@ -1097,8 +1132,10 @@ const CHAT_THEMES = [
   ["lava", "Lava lamp", "linear-gradient(180deg,#1a0505,#2b0a0a)", "#f97316", "#3a1414"],
   ["rain", "Rainy day", "linear-gradient(180deg,#1e293b,#0f172a)", "#38bdf8", "#273449"],
   ["confetti", "Party", "linear-gradient(135deg,#fffbeb,#fdf4ff)", "#ec4899", "#fff"],
+  ["beach", "Beach sunset", "linear-gradient(180deg,#5b2a86,#f47c5c 70%,#e6a07a)", "#f97316", "#4b2670"],
+  ["warp", "Hyperspace", "radial-gradient(circle,#3b1d7a,#03020a 70%)", "#8b5cf6", "#1e1b3a"],
 ];
-const MOTION_COUNTS = { stars: 46, northern: 4, bubbles: 18, sakura: 16, hearts: 14, snow: 38, fireflies: 22, lava: 6, rain: 44, confetti: 26 };
+const MOTION_COUNTS = { stars: 46, northern: 4, bubbles: 18, sakura: 16, hearts: 14, snow: 38, fireflies: 22, lava: 6, rain: 44, confetti: 26, beach: 1, warp: 1 };
 
 // animated chat background: a layer of particles behind the messages, pure CSS
 // transforms (GPU), paused whenever the app is in the background
@@ -1111,6 +1148,8 @@ function applyChatMotion(theme) {
   cur?.remove();
   if (!count) { document.documentElement.removeAttribute("data-chat-motion"); return; }
   document.documentElement.setAttribute("data-chat-motion", theme);
+  // v47: detailed canvas scenes (js/livebg.js); the old CSS particles stay as a fallback
+  if (window.LiveBG?.has(theme)) { const el = LiveBG.mount(wrap, theme); if (el) { wrap.prepend(el); return; } }
   const rnd = (a, b) => a + Math.random() * (b - a);
   let html = "";
   for (let i = 0; i < count; i++) html += `<i style="--x:${rnd(0, 100).toFixed(1)}%;--y:${rnd(0, 100).toFixed(1)}%;--s:${rnd(0.5, 1.4).toFixed(2)};--d:${rnd(7, 16).toFixed(1)}s;--delay:-${rnd(0, 16).toFixed(1)}s;--h:${Math.floor(rnd(0, 360))}"></i>`;
@@ -1242,7 +1281,7 @@ function renderPresence() {
   const online = new Set(Object.keys(channel?.presenceState() || {}));
   online.delete(ME.id);
   if (typingUsers.size) return;    // the typing line takes the subtitle while active
-  if (convo.kind === "bot") { sub.textContent = "Always online · normal Hinglish me baat karo"; sub.classList.add("is-online"); return; }
+  if (convo.kind === "bot") { sub.textContent = "Always online · ask anything"; sub.classList.add("is-online"); return; }
 
   if (convo.kind === "dm") {
     const other = members.find((m) => m.user_id !== ME.id);
@@ -1251,7 +1290,7 @@ function renderPresence() {
     sub.classList.toggle("is-online", !!isOnline);
     return;
   }
-  const n = members.length;
+  const n = memberCount();
   const here = isPublic ? online.size : members.filter((m) => m.user_id !== ME.id && online.has(m.user_id)).length;
   sub.textContent = here ? `${n} members · ${here} here now` : `${n} member${n === 1 ? "" : "s"}`;
   sub.classList.toggle("is-online", here > 0);
@@ -1586,7 +1625,7 @@ function attachLinkPreview(bubble, text) {
 
 /* ---------- quick replies (saved phrases, one tap to send) ---------- */
 const QUICK_KEY = "teaofrpm_quick_replies";
-const quickReplies = () => store.get(QUICK_KEY) || ["Haan bhai 👍", "Abhi busy hoon, baad mein baat karte hain", "Kahan ho? 👀", "Class mein hoon 📚", "Ok done ✅", "Thank you 🙏", "Good night 🌙"];
+const quickReplies = () => store.get(QUICK_KEY) || ["Sure 👍", "Busy right now, talk later", "Where are you? 👀", "In class 📚", "Ok done ✅", "Thank you 🙏", "Good night 🌙"];
 function openQuickReplies(input) {
   const s = makeSheet({ title: "Quick replies", html: `<div class="qr-list"></div>
     <div class="qr-add"><input type="text" maxlength="200" placeholder="Add a reply you send a lot…" /><button type="button" class="btn btn-small">Add</button></div>
@@ -1624,7 +1663,7 @@ function speak(text) {
     u.lang = /[\u0900-\u097F]/.test(text) ? "hi-IN" : "en-IN";
     u.rate = 1;
     speechSynthesis.speak(u);
-  } catch { toast("Is phone mein read-aloud nahi hai"); }
+  } catch { toast("Read-aloud isn't available on this phone"); }
 }
 
 async function replyPrivately(m) {
@@ -2307,6 +2346,22 @@ const SLASH_CMDS = [
   ["/slowmode 30", "admin — gap between messages"],
 ];
 
+let mentionToken = 0;
+const _mentionCache = new Map();
+async function mentionCandidates(q) {
+  const key = q;
+  if (!_mentionCache.has(key)) {
+    _mentionCache.set(key, new Promise((r) => setTimeout(r, q ? 120 : 0)).then(() =>
+      sb.rpc("mention_candidates", { p_conversation: convo.id, p_query: q, p_limit: 8 })).then(({ data, error }) => {
+      if (error) { _mentionCache.delete(key); return []; }
+      (data || []).forEach((p) => { if (!profileCache.has(p.id)) rememberProfile(p); });
+      return data || [];
+    }));
+    setTimeout(() => _mentionCache.delete(key), 60000);
+  }
+  return _mentionCache.get(key);
+}
+
 function wireAutocomplete(input) {
   const composer = input.closest(".composer");
   if (getComputedStyle(composer).position === "static") composer.style.position = "relative";
@@ -2347,14 +2402,12 @@ function wireAutocomplete(input) {
     const upto = v.slice(0, input.selectionStart);
     const m = upto.match(/(?:^|\s)@([a-zA-Z0-9_.]*)$/);
     if (!m) { hide(); return; }
-    const people = await loadAllPeople();
+    // only people in THIS chat, looked up on the server (never the whole school)
     const q = m[1].toLowerCase();
-    const memberIds = new Set(members.map((x) => x.user_id));
-    items = people
-      .filter((p) => p.id !== ME.id && (p.username.startsWith(q) || (p.display_name || "").toLowerCase().startsWith(q)))
-      .sort((a, b) => (memberIds.has(b.id) - memberIds.has(a.id)))
-      .slice(0, 6)
-      .map((p) => ({ title: "@" + p.username, sub: p.display_name, username: p.username }));
+    const my = ++mentionToken;
+    const people = await mentionCandidates(q);
+    if (my !== mentionToken || input.value.slice(0, input.selectionStart) !== upto) return;
+    items = people.slice(0, 6).map((p) => ({ title: "@" + p.username, sub: p.display_name, username: p.username }));
     mode = "mention"; active = 0; paint();
   });
   input.addEventListener("keydown", (e) => {
@@ -2409,6 +2462,18 @@ async function handlePickedImage(file, label, { viewOnce = false } = {}) {
   if ((file.type || "").startsWith("video/")) return handlePickedVideo(file, { viewOnce });
   clearPendingAudio();
   let edited = file;
+  // GIFs go as they are, so they keep moving (the editor would flatten them to a JPEG)
+  if (file.type === "image/gif") {
+    if (file.size > 6 * 1024 * 1024) { toast("That GIF is too big (max 6 MB)."); return; }
+    pendingImageFile = file; pendingOriginal = null; pendingVideoFile = null; pendingViewOnce = false;
+    if (pendingImagePreviewUrl) URL.revokeObjectURL(pendingImagePreviewUrl);
+    pendingImagePreviewUrl = URL.createObjectURL(file);
+    document.getElementById("attachImg").src = pendingImagePreviewUrl;
+    document.getElementById("attachName").textContent = label || "GIF";
+    const ap = document.getElementById("attachPreview"); ap.classList.add("show"); ap.classList.remove("is-video");
+    paintAttachOpts(); refreshSendState();
+    return;
+  }
   if (window.MediaEditor) {
     edited = await MediaEditor.edit(file, { title: "Send photo", doneLabel: "Next", aspects: ["original", "1:1", "4:5", "9:16", "16:9"] });
     if (!edited) { document.getElementById("imageInput").value = ""; return; }
@@ -2439,7 +2504,7 @@ const VIDEO_MAX = 500 * 1024 * 1024;        // big ones go to Telegram in parts
 const STORAGE_VIDEO_MAX = 50 * 1024 * 1024; // Supabase bucket limit
 function handlePickedVideo(file, { viewOnce = false } = {}) {
   clearPendingAudio();
-  if (file.size > VIDEO_MAX) { toast("Video 500 MB se chhota hona chahiye."); document.getElementById("imageInput").value = ""; return; }
+  if (file.size > VIDEO_MAX) { toast("Videos must be under 500 MB."); document.getElementById("imageInput").value = ""; return; }
   clearPendingImage();
   pendingVideoFile = file;
   pendingViewOnce = viewOnce && !isPublic;
@@ -2481,7 +2546,7 @@ async function uploadVideoTelegram(file, onProgress) {
   if (tgStatus === null) {
     try { tgStatus = await (await fetch(`${TG_FN()}?status=1`)).json(); } catch { tgStatus = { telegram: false }; }
   }
-  if (!tgStatus.telegram) throw new Error("Video storage abhi available nahi hai — chhoti video try karo.");
+  if (!tgStatus.telegram) throw new Error("Video storage isn't available right now — try a shorter video.");
   const { data } = await sb.auth.getSession();
   const token = data.session.access_token;
   const CH = tgStatus.chunk || 19 * 1024 * 1024;
@@ -2508,7 +2573,7 @@ async function uploadVideoTelegram(file, onProgress) {
     }
     if (r.done) url = r.url;
   }
-  if (!url) throw new Error("Upload adhoora reh gaya — dobara try karo.");
+  if (!url) throw new Error("The upload didn't finish — please try again.");
   return url;
 }
 
@@ -2532,20 +2597,61 @@ async function uploadVideo(file, onProgress) {
 async function openViewOnce(m, card) {
   const { data, error } = await sb.rpc("open_view_once", { p_message: m.id });
   if (error) { toast(friendlyError(error, "Can't open this.")); if (/opened/i.test(error.message || "")) markVoOpened(card); return; }
+  // Screenshots can't be blocked from a web page, so we make them hard and traceable:
+  // the photo only shows while you press and hold, it's drawn on a canvas (no "save image"),
+  // it carries the viewer's @username as a watermark, and it vanishes the instant the app
+  // loses focus (screenshot tools, recents screen, screen recorder overlays).
   const v = document.createElement("div");
-  v.className = "vo-viewer";
+  v.className = "vo-viewer vo-guard";
   const secs = data.kind === "video" ? 0 : 12;
+  const mark = `@${ME.username || "me"} · ${new Date().toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`;
+  const svgMark = `<svg xmlns="http://www.w3.org/2000/svg" width="260" height="150"><text x="10" y="80" transform="rotate(-24 130 75)" font-family="Inter,Arial" font-size="15" font-weight="700" fill="white" fill-opacity=".34">${escapeHTML(mark)}</text></svg>`;
   v.innerHTML = `<div class="vo-bar"><span>${svgIcon("once", 16)} View once</span><button type="button">Close</button></div>
     ${secs ? `<div class="vo-ring" style="animation-duration:${secs}s"></div>` : ""}
-    ${data.kind === "video" ? `<video src="${escapeHTML(data.url)}" autoplay playsinline controlslist="nodownload noplaybackrate" disablepictureinpicture></video>` : `<img src="${escapeHTML(data.url)}" alt="" draggable="false" />`}`;
-  v.addEventListener("contextmenu", (e) => e.preventDefault());
+    <div class="vo-media">${data.kind === "video" ? `<video src="${escapeHTML(data.url)}" playsinline muted controlslist="nodownload noplaybackrate noremoteplayback" disablepictureinpicture disableremoteplayback></video>` : `<canvas></canvas>`}
+      <div class="vo-mark" style="background-image:url('data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgMark)}')"></div></div>
+    <div class="vo-hint">${svgIcon("eye", 18)} Press &amp; hold to view</div>`;
+  ["contextmenu", "dragstart", "selectstart", "copy"].forEach((ev) => v.addEventListener(ev, (e) => e.preventDefault()));
   document.body.appendChild(v);
   AppNav.hide?.();
-  let t = secs ? setTimeout(close, secs * 1000) : null;
-  const vid = v.querySelector("video");
-  if (vid) vid.addEventListener("ended", close);
-  function close() { clearTimeout(t); t = null; v.remove(); AppNav.show?.(); markVoOpened(card); }
-  v.querySelector("button").addEventListener("click", close);
+  const vid = v.querySelector("video"), cv = v.querySelector("canvas"), ring = v.querySelector(".vo-ring");
+  if (cv) {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(innerWidth * devicePixelRatio / img.width, innerHeight * devicePixelRatio / img.height, 1.5);
+      cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+      cv.getContext("2d").drawImage(img, 0, 0, cv.width, cv.height);
+    };
+    img.src = data.url;
+  }
+  if (vid) { vid.muted = false; vid.addEventListener("ended", close); }
+  // the 12 s only tick while you're holding
+  let left = secs * 1000, since = 0, t = null, closed = false;
+  const hold = (on) => {
+    if (closed) return;
+    v.classList.toggle("holding", on);
+    if (ring) ring.style.animationPlayState = on ? "running" : "paused";
+    if (vid) { if (on) vid.play().catch(() => { vid.muted = true; vid.play().catch(() => {}); }); else vid.pause(); }
+    if (!secs) return;
+    if (on) { since = Date.now(); t = setTimeout(close, left); }
+    else if (since) { left -= Date.now() - since; since = 0; clearTimeout(t); }
+  };
+  v.addEventListener("pointerdown", (e) => { if (!e.target.closest(".vo-bar")) { e.preventDefault(); hold(true); } });
+  ["pointerup", "pointercancel", "pointerleave"].forEach((ev) => v.addEventListener(ev, () => hold(false)));
+  const away = () => close();
+  const keys = (e) => { if (e.key === "PrintScreen" || (e.metaKey && e.shiftKey) || (e.ctrlKey && e.key === "p")) { e.preventDefault(); close(); } };
+  document.addEventListener("visibilitychange", away);
+  addEventListener("blur", away);
+  addEventListener("keydown", keys, true);
+  function close() {
+    if (closed) return; closed = true;
+    clearTimeout(t);
+    document.removeEventListener("visibilitychange", away); removeEventListener("blur", away); removeEventListener("keydown", keys, true);
+    if (cv) { cv.width = 1; cv.height = 1; }
+    if (vid) { vid.pause(); vid.removeAttribute("src"); vid.load(); }
+    v.remove(); AppNav.show?.(); markVoOpened(card);
+  }
+  v.querySelector(".vo-bar button").addEventListener("click", close);
 }
 
 function markVoOpened(card) {
@@ -2639,6 +2745,8 @@ async function sendMessage({ sticker } = {}) {
   // a view-once photo travels alone; any typed text follows as its own message
   if (viewOnce && text) setTimeout(() => { input.value = text; sendMessage(); }, 400);
   const payload = {
+    // the id is made here, so a retry after a dropped connection can never create a second copy
+    ...(crypto.randomUUID ? { id: crypto.randomUUID() } : {}),
     user_id: ME.id, conversation_id: convo.id,
     content: viewOnce ? null : (text || null), sticker_url: sticker || null, reply_to: viewOnce ? null : (replyingTo?.id || null),
     image_url: null, audio_url: null, video_url: null,
@@ -2666,6 +2774,7 @@ async function sendMessage({ sticker } = {}) {
   box().querySelector(".chat-empty")?.remove();
   const tempRow = appendNode(box(), temp);
   if (tempRow) glideIn([tempRow], { own: true }); else scrollToBottom();
+  try { dispatchEvent(new Event("tea:sent")); } catch { /* live background reaction is optional */ }
   navigator.vibrate?.(8);   // tiny tap feel on Android
   // only say "sending…" if it's actually slow (bad network) — instant sends stay clean
   setTimeout(() => rendered.get(tmpId)?.classList.add("slow"), 900);
@@ -2707,15 +2816,33 @@ async function deliver(entry) {
       payload.video_url = await uploadVideo(files.video, progress);
       progress(1);
     } else if (files.image && !payload.image_url) {
-      payload.image_url = await uploadPublic("chat-images", `${ME.id}/${Date.now()}.jpg`, files.image);
+      const gif = files.image.type === "image/gif";
+      payload.image_url = await uploadPublic("chat-images", `${ME.id}/${Date.now()}.${gif ? "gif" : "jpg"}`, files.image, gif ? "image/gif" : undefined);
     } else if (files.audio && !payload.audio_url) {
       const ext = (files.audio.type || "").includes("mp4") ? "m4a" : "webm";
       payload.audio_url = await uploadPublic("voice-notes", `${ME.id}/${Date.now()}.${ext}`, files.audio, files.audio.type || "audio/webm");
     }
     const { data, error } = await sb.from("messages").insert(payload).select().single();
-    if (error) throw error;
+    if (error) {
+      // already saved by an earlier attempt whose reply got lost: just pick that copy up
+      if (error.code === "23505" && payload.id) {
+        const { data: got } = await sb.from("messages").select("*").eq("id", payload.id).maybeSingle();
+        if (got) { if (!entry.real) adopt(entry, got); return; }
+      }
+      throw error;
+    }
     if (!entry.real) adopt(entry, data);
   } catch (err) {
+    if (entry.real) return;
+    // flaky network: try again quietly a few times before showing "not sent"
+    const netFail = !navigator.onLine || err instanceof TypeError || /fetch|network|timeout|load failed/i.test(err?.message || "") || err?.status === 0 || (err?.status >= 500);
+    const safeToRepeat = !files.viewOnce || !entry.mediaUrl;   // view-once RPC is not idempotent
+    entry.tries = (entry.tries || 0) + 1;
+    if (netFail && safeToRepeat && entry.tries <= 3 && pendingSends.includes(entry)) {
+      setTimeout(() => { if (!entry.real && pendingSends.includes(entry)) deliver(entry); }, [1000, 3000, 8000][entry.tries - 1]);
+      return;
+    }
+    entry.failed = true;
     if (bar) bar.hidden = true;
     const temp = messageCache.get(entry.tmpId);
     const row = rendered.get(entry.tmpId);
@@ -2740,6 +2867,7 @@ function retrySend(tmpId) {
       row.classList.remove("failed");
       row.classList.add("sending");
       fillBubble(row.querySelector(".bubble"), temp, true);
+      entry.tries = 0; entry.failed = false;
       deliver(entry);
     } },
     { icon: "trash", label: "Delete", danger: true, onClick: () => {
@@ -2750,8 +2878,21 @@ function retrySend(tmpId) {
   ]);
 }
 
+// back online: anything that gave up while offline goes out by itself, in order
+addEventListener("online", () => {
+  for (const entry of pendingSends.filter((p) => p.failed && !p.real && (!p.files.viewOnce || !p.mediaUrl))) {
+    const temp = messageCache.get(entry.tmpId), row = rendered.get(entry.tmpId);
+    if (temp) temp._failed = false;
+    if (row) { row.classList.remove("failed"); row.classList.add("sending"); fillBubble(row.querySelector(".bubble"), temp, true); }
+    entry.tries = 0; entry.failed = false;
+    deliver(entry);
+  }
+});
+
 // Realtime may deliver our own message before the insert call returns.
 function adoptPending(m) {
+  const byId = m.id && pendingSends.find((p) => !p.real && p.payload.id === m.id);
+  if (byId) { adopt(byId, m); return true; }
   const entry = pendingSends.find((p) => !p.real &&
     (p.payload.content || null) === (m.content || null) &&
     (p.payload.sticker_url || null) === (m.sticker_url || null) &&
@@ -2869,6 +3010,7 @@ function plusMenu(input) {
       f.click();
     }],
     ["video", "Video", "x3-t-video", () => pick("video/*", false)],
+    ["gif", "GIF", "x3-t-gif", () => openGifPicker(() => pick("image/gif", false))],
     ["bolt", "Quick replies", "x3-t-quick", () => openQuickReplies(input)],
     ["sparkle", "More fun", "x3-t-fun", () => window.ChatPlus?.openFun(input)],
     ...(!isPublic && convo?.kind !== "bot" ? [["once", "View once", "x3-t-once", () => pick("image/*,video/*", true)]] : []),
@@ -2917,6 +3059,56 @@ function plusMenu(input) {
     const tile = e.target.closest("[data-tile]");
     if (tile) { close(); if (convo) tiles[Number(tile.dataset.tile)][3](); }
   });
+}
+
+// GIF search (gif-search edge function → GIPHY/Tenor). Tap one to send it straight away.
+function openGifPicker(uploadOwn) {
+  const s = makeSheet({ title: "GIFs", className: "gif-sheet", html: `
+    <div class="ss-search"><span>${svgIcon("search", 15)}</span><input type="search" placeholder="Search GIFs…" autocomplete="off" enterkeyhint="search" /></div>
+    <div class="gif-chips">${["haha", "love", "ok", "sad", "wow", "dance", "bye", "thank you", "bollywood", "cricket"].map((t) => `<button type="button" data-q="${t}">${t}</button>`).join("")}</div>
+    <div class="gif-grid"><div class="settings-empty">Loading…</div></div>
+    <button type="button" class="btn btn-ghost gif-own" style="width:100%;margin-top:8px">${svgIcon("image", 15)} Send a GIF from your phone</button>
+    <small class="gif-credit"></small>` });
+  s.onClose = () => setTimeout(() => s.el.remove(), 300);
+  s.open();
+  const grid = s.body.querySelector(".gif-grid"), input = s.body.querySelector("input");
+  let q = "", next = "", busy = false, token = 0;
+  const load = async (more = false) => {
+    if (busy && more) return;
+    busy = true;
+    const my = ++token;
+    if (!more) { next = ""; grid.innerHTML = `<div class="settings-empty">Loading…</div>`; }
+    const { data, error } = await sb.functions.invoke("gif-search", { body: { q, pos: next, limit: 24 } });
+    busy = false;
+    if (my !== token) return;
+    if (error || data?.error) {
+      grid.innerHTML = `<div class="settings-empty">${data?.error === "no_key" ? "GIF search is coming soon — you can still send a GIF from your phone 👇" : "Couldn't load GIFs. Try again."}</div>`;
+      return;
+    }
+    if (!more) grid.innerHTML = "";
+    s.body.querySelector(".gif-credit").textContent = data.provider === "giphy" ? "Powered by GIPHY" : data.provider === "tenor" ? "Via Tenor" : "";
+    for (const g of data.items || []) {
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "gif-item";
+      b.style.aspectRatio = `${g.w || 1} / ${g.h || 1}`;
+      b.innerHTML = `<img alt="${escapeHTML(g.title || "GIF")}" loading="lazy" decoding="async" />`;
+      b.querySelector("img").src = g.preview || g.url;
+      b.addEventListener("click", async () => {
+        s.close(); buzz(8);
+        const { error: e } = await sb.from("messages").insert({ user_id: ME.id, conversation_id: convo.id, image_url: g.url, reply_to: replyingTo?.id || null });
+        if (e) toast(friendlyError(e, "Couldn't send the GIF."));
+        else clearReply();
+      });
+      grid.appendChild(b);
+    }
+    if (!grid.children.length) grid.innerHTML = `<div class="settings-empty">No GIFs found.</div>`;
+    next = data.next || "";
+  };
+  input.addEventListener("input", debounce(() => { q = input.value.trim(); load(); }, 350));
+  s.body.querySelector(".gif-chips").addEventListener("click", (e) => { const b = e.target.closest("[data-q]"); if (b) { input.value = q = b.dataset.q; load(); } });
+  s.body.querySelector(".gif-own").addEventListener("click", () => { s.close(); setTimeout(uploadOwn, 80); });
+  s.body.addEventListener("scroll", () => { if (next && s.body.scrollTop + s.body.clientHeight > s.body.scrollHeight - 400) load(true); }, { passive: true });
+  load();
 }
 
 async function sendRawCommand(content) {
@@ -3178,7 +3370,7 @@ async function renderInfoSheet() {
 
   const list = document.getElementById("roomMembers");
   if (isPublic) {
-    list.innerHTML = `<div class="settings-empty">Everyone at RPM is in this room · ${members.length} members</div>`;
+    list.innerHTML = `<div class="settings-empty">Everyone at RPM is in this room · ${memberCount()} members</div>`;
     return;
   }
   await getProfiles(members.map((m) => m.user_id));
@@ -3226,7 +3418,8 @@ async function renderInfoSheet() {
 }
 
 async function reloadMembersNow() {
-  const { data } = await sb.from("conversation_members").select("*").eq("conversation_id", convo.id);
+  const { data, error } = await fetchMemberRows();
+  if (error) return;
   setMembers(data || []);
   await getProfiles(members.map((m) => m.user_id));
   renderHeader();
@@ -3302,19 +3495,18 @@ async function renderMediaGrid() {
     }
   };
 }
-let addablePeople = [];
 async function loadAddableMembers() {
-  const memberIds = new Set(members.map((m) => m.user_id));
-  addablePeople = (await loadAllPeople()).filter((p) => !memberIds.has(p.id));
   renderAddMembers(document.getElementById("addMemberSearch").value.trim().toLowerCase());
 }
 
-function renderAddMembers(filterText = "") {
+let addToken = 0;
+async function renderAddMembers(filterText = "") {
   const list = document.getElementById("addMemberList");
-  const people = filterText
-    ? addablePeople.filter((p) => p.display_name.toLowerCase().includes(filterText) || p.username.includes(filterText))
-    : addablePeople;
-  if (!people.length) { list.innerHTML = `<div class="settings-empty">Nobody left to add.</div>`; return; }
+  const my = ++addToken;
+  const memberIds = new Set(members.map((m) => m.user_id));
+  const people = (await peopleFor(filterText)).filter((p) => !memberIds.has(p.id) && p.id !== ME.id);
+  if (my !== addToken) return;
+  if (!people.length) { list.innerHTML = `<div class="settings-empty">${filterText.length < 2 ? "Type a name to find people to add." : "No one found."}</div>`; return; }
   const frag = document.createDocumentFragment();
   for (const p of people.slice(0, 100)) {
     const row = document.createElement("div");

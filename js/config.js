@@ -4,6 +4,9 @@ window.TEAOFRPM_CONFIG = {
 
   AUTH_EMAIL_DOMAIN: "teaofrpm.local",
 
+  // Cloudflare Turnstile site key (free). Empty = no bot check on login/sign-up.
+  TURNSTILE_SITE_KEY: "",
+
   ROOM_NAME: "𝑅𝒫𝑀 𝒫𝓊𝒷𝓁𝒾𝒸 𝑅𝑜𝑜𝓂",
 
   ICE_SERVERS: [

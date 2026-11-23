@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Notifications — 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</title>
+<script>(function(){try{var t=localStorage.getItem("teaofrpm_theme");if(t==="dark"||((t==="auto"||!t)&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.setAttribute("data-theme","dark");var a=localStorage.getItem("teaofrpm_accent");if(a&&a!=="royal")document.documentElement.setAttribute("data-accent",a);var f=localStorage.getItem("teaofrpm_font");if(f&&f!=="default")document.documentElement.setAttribute("data-font",f);}catch(e){}})();</script>
+<link rel="preconnect" href="https://jfybtgoofxfhjgeyumzl.supabase.co" crossorigin />
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#8B0000" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="apple-touch-icon" href="images/apple-touch-icon.png" />
+<link rel="icon" href="images/icon.svg" type="image/svg+xml" /><link rel="alternate icon" href="images/icon-192.png" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
+<link rel="stylesheet" href="css/app.css?v=47" />
+<link rel="stylesheet" href="css/home.css?v=47" />
+<link rel="stylesheet" href="css/social-extras.css?v=47" />
+<link rel="stylesheet" href="css/plus.css?v=47" />
+</head>
+<body>
+
+<div class="profile-shell notif-page">
+  <div class="profile-topbar">
+    <a href="home.html" class="header-icon-btn" title="Back" aria-label="Back" data-icon="back" data-icon-size="16" onclick="if(history.length>1&&document.referrer.indexOf(location.host)>-1){event.preventDefault();history.back();}"></a>
+    <h2>Notifications</h2>
+    <span class="header-icon-btn" style="visibility:hidden"></span>
+  </div>
+
+  <div class="profile-scroll" id="notifScroll">
+    <div class="notif-filters" id="notifFilters">
+      <button type="button" data-f="all" class="on">All</button>
+      <button type="button" data-f="follows">Follows</button>
+      <button type="button" data-f="likes">Likes</button>
+      <button type="button" data-f="comments">Comments</button>
+    </div>
+    <div class="notif-list" id="notifResults"><div class="notif-empty"><b>Loading…</b></div></div>
+    <div style="height:110px"></div>
+  </div>
+
+  <nav id="appNav" data-active="home" data-scroll-el="notifScroll"></nav>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=47"></script>
+<script src="js/core.js?v=47"></script>
+<script src="js/plus.js?v=47"></script>
+<script src="js/plus-tools.js?v=47"></script>
+<script src="js/plus-games.js?v=47"></script>
+<script src="js/calls.js?v=47"></script>
+<script src="js/notifications.js?v=47"></script>
+<script>
+(async () => {
+  const me = await App.boot();
+  if (me) Notifs.init(me, { page: true });
+})();
+</script>
+</body>
+</html>

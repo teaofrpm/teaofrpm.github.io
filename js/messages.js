@@ -93,7 +93,7 @@ function renderInbox() {
       tea.className = "thread-row bot-thread";
       tea.href = "#";
       tea.innerHTML = `<span class="avatar thread-avatar"><img src="images/bot.png" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover"></span>
-        <div class="thread-text"><b>Tea <span class="tea-ai-chip">AI</span></b><span>Hinglish me kuch bhi pucho — reminders, notes, jokes…</span></div>`;
+        <div class="thread-text"><b>Tea <span class="tea-ai-chip">AI</span></b><span>Ask anything — reminders, notes, jokes…</span></div>`;
       tea.addEventListener("click", openTeaChat);
       frag.appendChild(tea);
     }
@@ -103,10 +103,17 @@ function renderInbox() {
     return;
   }
 
+  // keep rows that didn't change (no re-created avatars, no replayed animation = no flicker)
+  const old = new Map([...list.querySelectorAll(".thread-row[data-convo]")].map((r) => [r.dataset.convo, r]));
   for (const c of rows) {
     const other = c.other_user_id ? profileCache.get(c.other_user_id) : null;
     const title = titleFor(c);
+    const s0 = streaks.get(c.id);
+    const sig = [title, other?.pfp_url, c.pfp_url, c.last_message, c.last_user_id, c.last_at, c.unread, c.muted, c.is_request, s0?.streak, s0?.alive_today].join("|");
+    const prev = old.get(c.id);
+    if (prev && prev.dataset.sig === sig) { prev.querySelector(".thread-avatar")?.classList.toggle("x4-online", !!(other && Presence.online.has(other.id))); frag.appendChild(prev); continue; }
     const row = document.createElement("a");
+    row.dataset.sig = sig;
     row.className = `thread-row ${c.unread > 0 && !c.is_request ? "has-unread" : ""}${c.kind === "bot" ? " bot-thread" : ""}`;
     row.href = `room.html?c=${c.id}`;
     row.dataset.convo = c.id;
@@ -131,9 +138,13 @@ function renderInbox() {
     meta.innerHTML = `${c.last_at ? `<span class="thread-time" data-ts="${c.last_at}">${timeAgo(c.last_at)}</span>` : ""}
       ${c.unread > 0 ? `<span class="thread-unread">${c.unread > 9 ? "9+" : c.unread}</span>` : ""}`;
     row.appendChild(meta);
+    if (list.classList.contains("settled")) row.classList.add("tr-new");
     frag.appendChild(row);
   }
+  // timestamps tick on reused rows too
+  frag.querySelectorAll?.(".thread-time[data-ts]").forEach((t) => { t.textContent = timeAgo(t.dataset.ts); });
   list.replaceChildren(frag);
+  requestAnimationFrame(() => list.classList.add("settled"));
 }
 
 function streakBadge(s) {
@@ -159,7 +170,9 @@ function subscribeInbox() {
       refreshSoon();
     })
     .on("postgres_changes", { event: "UPDATE", schema: "public", table: "conversations" }, refreshSoon)
-    .subscribe();
+    // someone added me to a group → it shows up straight away
+    .on("postgres_changes", { event: "INSERT", schema: "public", table: "conversation_members", filter: `user_id=eq.${ME.id}` }, refreshSoon)
+    .subscribe((status) => { if (status === "SUBSCRIBED") refreshSoon(); });
   document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshSoon(); });
 }
 
@@ -336,7 +349,7 @@ function wireNewChat() {
   });
 
   document.getElementById("newGroupSheet").addEventListener("click", (e) => { if (e.target.id === "newGroupSheet") AppNav.exitFullscreen(); });
-  document.getElementById("groupMemberSearch").addEventListener("input", (e) => renderGroupMembers(e.target.value.trim()));
+  document.getElementById("groupMemberSearch").addEventListener("input", debounce((e) => renderGroupMembers(e.target.value.trim()), 150));
   document.getElementById("createGroupBtn").addEventListener("click", createGroup);
 }
 
@@ -352,15 +365,20 @@ async function openGroupSheet() {
   Skeleton.show("rows", "groupMemberList", 5);
   sheet.classList.add("show");
   AppNav.enterFullscreen(() => sheet.classList.remove("show"));
-  groupPeople = (await loadAllPeople()).filter((p) => p.id !== ME.id);
   renderGroupMembers("");
 }
 
-function renderGroupMembers(filterText = "") {
+let groupToken = 0;
+const pickedPeople = new Map();
+async function renderGroupMembers(filterText = "") {
   const list = document.getElementById("groupMemberList");
-  const q = filterText.toLowerCase();
-  const people = q ? groupPeople.filter((p) => (p.display_name || "").toLowerCase().includes(q) || p.username.includes(q)) : groupPeople;
-  if (!people.length) { list.innerHTML = `<div class="settings-empty">No one found.</div>`; return; }
+  const my = ++groupToken;
+  groupPeople = (await peopleFor(filterText)).filter((p) => p.id !== ME.id);
+  if (my !== groupToken) return;
+  // people already picked stay on top even when the search changes
+  const shownIds = new Set(groupPeople.map((p) => p.id));
+  const people = [...[...selectedMembers].filter((id) => !shownIds.has(id)).map((id) => pickedPeople.get(id)).filter(Boolean), ...groupPeople];
+  if (!people.length) { list.innerHTML = `<div class="settings-empty">${filterText.length < 2 ? "Type a name to find people." : "No one found."}</div>`; return; }
 
   const frag = document.createDocumentFragment();
   for (const p of people) {
@@ -370,7 +388,7 @@ function renderGroupMembers(filterText = "") {
     setAvatarContent(row.querySelector(".avatar"), p);
     row.addEventListener("click", () => {
       const on = selectedMembers.has(p.id);
-      if (on) selectedMembers.delete(p.id); else selectedMembers.add(p.id);
+      if (on) selectedMembers.delete(p.id); else { selectedMembers.add(p.id); pickedPeople.set(p.id, p); }
       row.classList.toggle("selected", !on);
       row.querySelector(".group-member-check").innerHTML = on ? "" : svgIcon("check", 13);
       updateGroupCount();

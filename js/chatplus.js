@@ -20,6 +20,7 @@
     root.setAttribute("data-cp-locked", "");
     const ok = await P.askPin("This chat is locked", async (pin) => (await P.hash(pin)) === h);
     if (ok) root.removeAttribute("data-cp-locked");
+    if (ok && !P.bioEnrolled?.() && !get("bio_asked", 0)) { set("bio_asked", 1); P.bioOffer?.(); }
   })();
   async function toggleLock() {
     const l = get("chatlocks", {});
@@ -27,7 +28,8 @@
     const a = await P.askPin("PIN for this chat"); if (!a) return;
     const b = await P.askPin("Type it again"); if (!b) return;
     if (a !== b) return toast("PINs didn't match");
-    l[CID] = await P.hash(a); set("chatlocks", l); toast("Chat locked on this device");
+    l[CID] = await P.hash(a); set("chatlocks", l); toast("Chat locked 🔒");
+    setTimeout(() => P.bioOffer?.(), 600);   // fingerprint / face from now on, PIN as backup
   }
 
   /* ================= look: wallpaper, bubbles, size, compact, blur ================= */
@@ -39,8 +41,37 @@
     root.toggleAttribute("data-cp-blur", !!(get("blur", {})[CID]));
     root.toggleAttribute("data-cp-times", !!L.times);
     const wrap = document.querySelector(".messages-wrap");
-    const wp = get("wp_" + CID, null) || get("wp_all", null);
-    if (wrap) { wrap.style.backgroundImage = wp ? `linear-gradient(rgba(0,0,0,${L.dim ?? 0.25}),rgba(0,0,0,${L.dim ?? 0.25})), url(${wp})` : ""; wrap.classList.toggle("cp-wp", !!wp); }
+    // the chat's shared wallpaper (everyone in it sees the same one) wins; a personal one is the fallback
+    const cv = typeof convo !== "undefined" && convo && convo.id === CID ? convo : null;
+    if (cv && "wallpaper_url" in cv) {
+      if (cv.wallpaper_url) set("wp_s_" + CID, { u: cv.wallpaper_url, d: cv.wallpaper_dim ?? 0.25 }); else store.remove("tp_wp_s_" + CID);
+    }
+    const shared = get("wp_s_" + CID, null);
+    const wp = shared?.u || get("wp_" + CID, null) || get("wp_all", null);
+    const dim = shared?.u ? (shared.d ?? 0.25) : (L.dim ?? 0.25);
+    if (wrap) {
+      wrap.style.backgroundImage = wp ? `linear-gradient(rgba(0,0,0,${dim}),rgba(0,0,0,${dim})), url("${String(wp).replace(/"/g, "%22")}")` : "";
+      wrap.classList.toggle("cp-wp", !!wp);
+      root.toggleAttribute("data-cp-wp", !!wp);
+    }
+  }
+  C.applyLook = applyLook;
+  async function setSharedWallpaper(file) {
+    if (typeof convo === "undefined" || !convo) return;
+    toast("Setting wallpaper for everyone…");
+    try {
+      const blob = await (await fetch(await compress(file, 1400))).blob();
+      const url = await uploadPublic("chat-images", `${me().id}/wp-${CID}-${Date.now()}.jpg`, blob, "image/jpeg");
+      const { error } = await sb.from("conversations").update({ wallpaper_url: url }).eq("id", CID);
+      if (error) throw error;
+      convo.wallpaper_url = url; applyLook(); toast("Wallpaper set for everyone in this chat ✨");
+    } catch (err) { toast(friendlyError(err, "Could not set the wallpaper.")); }
+  }
+  async function clearSharedWallpaper() {
+    if (typeof convo === "undefined" || !convo?.wallpaper_url) return;
+    const { error } = await sb.from("conversations").update({ wallpaper_url: null }).eq("id", CID);
+    if (error) return toast(friendlyError(error, "Could not remove it."));
+    convo.wallpaper_url = null; applyLook();
   }
   function compress(file, max = 1000) {
     return new Promise((res, rej) => {
@@ -54,9 +85,10 @@
   function lookSheet() {
     const L = look();
     const s = P.sheet("🎨 Chat look", `
-      <div class="settings-group-title">Wallpaper (this device)</div>
-      <div class="tp-row2"><button type="button" class="btn btn-small" data-wp="this">Photo for this chat</button><button type="button" class="btn btn-small btn-ghost" data-wp="all">For all chats</button><button type="button" class="btn btn-small btn-ghost" data-wp="none">Remove</button></div>
-      <label class="tp-tg"><span><b>Dim wallpaper</b></span><input type="range" min="0" max="0.7" step="0.05" value="${L.dim ?? 0.25}" data-l="dim"></label>
+      <div class="settings-group-title">Wallpaper</div>
+      <div class="tp-row2"><button type="button" class="btn btn-small" data-wp="this">Photo for this chat</button><button type="button" class="btn btn-small btn-ghost" data-wp="all">Only me · all chats</button><button type="button" class="btn btn-small btn-ghost" data-wp="none">Remove</button></div>
+      <p class="x3-hint" style="margin:4px 0 8px">"Photo for this chat" is seen by everyone in this chat.</p>
+      <label class="tp-tg"><span><b>Dim wallpaper</b></span><input type="range" min="0" max="0.7" step="0.05" value="${(typeof convo !== "undefined" && convo?.wallpaper_url ? convo.wallpaper_dim : L.dim) ?? 0.25}" data-l="dim"></label>
       <div class="settings-group-title">Bubbles</div>
       <div class="tp-chips">${[["default", "Default"], ["round", "Extra round"], ["sharp", "Sharp"], ["tail", "With tail"], ["outline", "Outline"]].map(([k, n]) => `<button type="button" data-b="${k}" class="${(L.bubble || "default") === k ? "on" : ""}">${n}</button>`).join("")}</div>
       <label class="tp-tg"><span><b>Text size</b><small class="cp-sz">${L.size || 15}px</small></span><input type="range" min="12" max="22" value="${L.size || 15}" data-l="size"></label>
@@ -66,12 +98,25 @@
       <input type="file" accept="image/*" hidden>`);
     let target = "this";
     const fi = s.body.querySelector("input[type=file]");
-    fi.onchange = async () => { const f = fi.files[0]; if (!f) return; try { const d = await compress(f); set(target === "all" ? "wp_all" : "wp_" + CID, d); applyLook(); toast("Wallpaper set ✨"); } catch { toast("Could not use that photo"); } };
+    fi.onchange = async () => {
+      const f = fi.files[0]; if (!f) return;
+      if (target === "this") { fi.value = ""; return setSharedWallpaper(f); }
+      try { const d = await compress(f); set("wp_all", d); applyLook(); toast("Wallpaper set ✨"); } catch { toast("Could not use that photo"); }
+    };
     s.body.addEventListener("click", (e) => {
-      const w = e.target.closest("[data-wp]"); if (w) { if (w.dataset.wp === "none") { store.remove("tp_wp_" + CID); store.remove("tp_wp_all"); applyLook(); } else { target = w.dataset.wp; fi.click(); } }
+      const w = e.target.closest("[data-wp]"); if (w) { if (w.dataset.wp === "none") { store.remove("tp_wp_" + CID); store.remove("tp_wp_all"); clearSharedWallpaper(); applyLook(); } else { target = w.dataset.wp; fi.click(); } }
       const b = e.target.closest("[data-b]"); if (b) { set("look", { ...look(), bubble: b.dataset.b }); s.body.querySelectorAll("[data-b]").forEach((x) => x.classList.toggle("on", x === b)); applyLook(); }
     });
-    s.body.addEventListener("input", (e) => { const k = e.target.dataset.l; if (!k) return; set("look", { ...look(), [k]: Number(e.target.value) }); if (k === "size") s.body.querySelector(".cp-sz").textContent = e.target.value + "px"; applyLook(); });
+    let dimT = null;
+    s.body.addEventListener("input", (e) => {
+      const k = e.target.dataset.l; if (!k) return;
+      if (k === "dim" && typeof convo !== "undefined" && convo?.wallpaper_url) {
+        convo.wallpaper_dim = Number(e.target.value); applyLook();
+        clearTimeout(dimT); dimT = setTimeout(() => sb.from("conversations").update({ wallpaper_dim: convo.wallpaper_dim }).eq("id", CID).then(() => {}), 600);
+        return;
+      }
+      set("look", { ...look(), [k]: Number(e.target.value) }); if (k === "size") s.body.querySelector(".cp-sz").textContent = e.target.value + "px"; applyLook();
+    });
     s.body.addEventListener("change", (e) => {
       const k = e.target.dataset.c; if (k) { set("look", { ...look(), [k]: e.target.checked }); applyLook(); }
       if (e.target.hasAttribute("data-blur")) { const b = get("blur", {}); if (e.target.checked) b[CID] = 1; else delete b[CID]; set("blur", b); applyLook(); }
@@ -99,7 +144,7 @@
   }
   const kws = () => get("kw", []);
   function kwSheet() {
-    const s = P.sheet("🔔 Keyword alerts", `<p class="x3-hint">In words wale messages highlight honge aur phone vibrate karega — jaise apna naam, "exam", "test".</p><div class="tp-add"><input type="text" placeholder="Add a word" maxlength="30"><button type="button" class="btn btn-small">Add</button></div><div class="tp-chips cp-kws"></div>`);
+    const s = P.sheet("🔔 Keyword alerts", `<p class="x3-hint">Messages with these words get highlighted and your phone vibrates — like your name, "exam", "test".</p><div class="tp-add"><input type="text" placeholder="Add a word" maxlength="30"><button type="button" class="btn btn-small">Add</button></div><div class="tp-chips cp-kws"></div>`);
     const paint = () => (s.body.querySelector(".cp-kws").innerHTML = kws().map((k) => `<button type="button" data-k="${esc(k)}">${esc(k)} ✕</button>`).join("") || `<small class="x3-hint">No words yet</small>`);
     const inp = s.body.querySelector("input");
     const add = () => { const v = inp.value.trim().toLowerCase(); if (!v) return; set("kw", [...new Set([...kws(), v])].slice(0, 30)); inp.value = ""; paint(); };
@@ -119,7 +164,7 @@
 
   /* ================= slash commands + text shortcuts ================= */
   const pick = (a) => a[Math.floor(Math.random() * a.length)];
-  const EIGHT = ["Haan bilkul ✅", "Nahi bhai ❌", "Shayad 🤔", "100% 💯", "Bilkul nahi 🙅", "Baad mein poochna 😴", "Signs point to yes 👍", "Mat karna 😬"];
+  const EIGHT = ["Yes, definitely ✅", "No way ❌", "Maybe 🤔", "100% 💯", "Absolutely not 🙅", "Ask again later 😴", "Signs point to yes 👍", "Better not 😬"];
   const CMDS = {
     shrug: ["¯\\_(ツ)_/¯", (a) => `${a} ¯\\_(ツ)_/¯`.trim()],
     tableflip: ["(╯°□°)╯︵ ┻━┻", (a) => `${a} (╯°□°)╯︵ ┻━┻`.trim()],
@@ -141,8 +186,8 @@
     spoiler: ["/spoiler secret → hidden text", (a) => a ? `||${a}||` : null],
     countdown: ["/countdown 10 → 10…1 🚀", (a) => { const n = Math.min(10, Math.max(3, parseInt(a) || 5)); return [...Array(n)].map((_, i) => n - i).join("… ") + "… 🚀"; }],
     hug: ["Send a hug", (a) => `🤗 ${me().display_name || ""} hugs ${a || "everyone"}`],
-    gm: ["Good morning card", () => `☀️ *Good morning!* ${pick(["Aaj ka din mast jaaye ✨", "Chai pi lo pehle ☕", "Uth jao, school hai 🏫"])}`],
-    gn: ["Good night card", () => `🌙 *Good night!* ${pick(["Sweet dreams 💤", "Kal milte hain 👋", "Phone rakh do ab 😴"])}`],
+    gm: ["Good morning card", () => `☀️ *Good morning!* ${pick(["Have a great day ✨", "Coffee or chai first ☕", "Rise and shine, school day 🏫"])}`],
+    gn: ["Good night card", () => `🌙 *Good night!* ${pick(["Sweet dreams 💤", "See you tomorrow 👋", "Time to put the phone down 😴"])}`],
   };
   const SC = { fire: "🔥", heart: "❤️", lol: "😂", joy: "😂", cry: "😭", sob: "😭", skull: "💀", eyes: "👀", clap: "👏", ok: "👌", pray: "🙏", thumbsup: "👍", "+1": "👍", party: "🥳", tada: "🎉", star: "⭐", sparkles: "✨", 100: "💯", cool: "😎", think: "🤔", sad: "😢", angry: "😡", love: "😍", kiss: "😘", wink: "😉", smile: "😊", sleep: "😴", poop: "💩", rocket: "🚀", tea: "🍵", chai: "☕", book: "📚", pizza: "🍕", cake: "🎂", gift: "🎁", muscle: "💪", wave: "👋", shrug: "🤷", facepalm: "🤦", ghost: "👻", crown: "👑", money: "💸", nerd: "🤓", sus: "🤨", cap: "🧢", goat: "🐐", moai: "🗿", salute: "🫡", melt: "🫠" };
   const ASCII = { ":)": "🙂", ":-)": "🙂", ":D": "😄", ":(": "🙁", ";)": "😉", ":P": "😛", ":p": "😛", "<3": "❤️", ":O": "😮", ":o": "😮", "B)": "😎", ":'(": "😢", "xD": "😆", "XD": "😆" };
@@ -356,9 +401,9 @@
   }
   async function shareContact() {
     const s = P.sheet("👤 Share a contact", `<input type="search" class="tp-pal-in" placeholder="Search people…"><div class="tp-pal-list"></div>`);
-    let people = []; try { people = await loadAllPeople(); } catch {}
     const inp = s.body.querySelector("input");
-    const paint = () => { const q = inp.value.trim().toLowerCase(); s.body.querySelector(".tp-pal-list").innerHTML = people.filter((p) => !q || (p.display_name || "").toLowerCase().includes(q) || (p.username || "").includes(q)).slice(0, 30).map((p) => `<button type="button" class="tp-pal-row" data-u="${esc(p.username)}" data-n="${esc(p.display_name)}"><b>👤</b><span>${esc(p.display_name)} <small>@${esc(p.username)}</small></span></button>`).join(""); };
+    let tok = 0;
+    const paint = async () => { const q = inp.value.trim().toLowerCase(); const my = ++tok; let people = []; try { people = await peopleFor(q); } catch {} if (my !== tok) return; s.body.querySelector(".tp-pal-list").innerHTML = people.slice(0, 30).map((p) => `<button type="button" class="tp-pal-row" data-u="${esc(p.username)}" data-n="${esc(p.display_name)}"><b>👤</b><span>${esc(p.display_name)} <small>@${esc(p.username)}</small></span></button>`).join(""); };
     inp.oninput = paint; paint();
     s.body.querySelector(".tp-pal-list").onclick = (e) => { const b = e.target.closest("[data-u]"); if (!b) return; s.close(); sendText(`👤 ${b.dataset.n} — @${b.dataset.u}`); };
   }
@@ -388,7 +433,7 @@
     s.body.innerHTML = `<div class="cp-ins"><div class="cp-ins-grid"><div><b>${(tot.count || 0).toLocaleString()}</b><small>messages</small></div><div><b>${ph.count || 0}</b><small>photos</small></div><div><b>${vi.count || 0}</b><small>videos</small></div><div><b>${vo.count || 0}</b><small>voice notes</small></div><div><b>${Math.round((tot.count || 0) / days)}</b><small>per day</small></div><div><b>${since ? new Date(since).toLocaleDateString([], { day: "numeric", month: "short", year: "2-digit" }) : "—"}</b><small>first message</small></div></div>
       <div class="settings-group-title">Who talks most</div>${ranks.map(([n, c]) => `<div class="cp-bar"><span>${esc(n)}</span><i style="width:${(c / mx) * 100}%"></i><b>${c}</b></div>`).join("")}
       <div class="settings-group-title">Most used emoji</div><div class="cp-emo">${top(emo, 8).map(([e, c]) => `<span>${e}<small>${c}</small></span>`).join("") || "—"}</div>
-      <div class="settings-group-title">Busiest hour</div><div class="cp-hours">${hours.map((h, i) => `<i style="height:${4 + (h / Math.max(1, hours[peak])) * 50}px" title="${i}:00" class="${i === peak ? "pk" : ""}"></i>`).join("")}</div><p class="x3-hint">Sabse zyada baat ${peak % 12 || 12} ${peak < 12 ? "AM" : "PM"} ke aas-paas hoti hai</p>
+      <div class="settings-group-title">Busiest hour</div><div class="cp-hours">${hours.map((h, i) => `<i style="height:${4 + (h / Math.max(1, hours[peak])) * 50}px" title="${i}:00" class="${i === peak ? "pk" : ""}"></i>`).join("")}</div><p class="x3-hint">Most active around ${peak % 12 || 12} ${peak < 12 ? "AM" : "PM"}</p>
       <div class="settings-group-title">Top words</div><div class="tp-chips">${top(words, 12).map(([w, c]) => `<span class="cp-word">${esc(w)} <small>${c}</small></span>`).join("") || "—"}</div>
       <p class="x3-hint">Emoji, hours and words use the messages loaded on screen.</p></div>`;
   }

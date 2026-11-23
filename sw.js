@@ -1,7 +1,7 @@
 /* ============================================================
    teaofrpm service worker — v21.
 
-   DEPLOYING AN UPDATE: change ?v=42 → ?v=42 in every .html file AND in
+   DEPLOYING AN UPDATE: change ?v=47 → ?v=47 in every .html file AND in
    SHELL below, and bump VERSION. New pages then ask for new file names,
    so they can never be paired with an old cached CSS/JS.
 
@@ -20,18 +20,18 @@
    `self.registration.unregister();` and push.
    ============================================================ */
 
-const VERSION = "v42";
+const VERSION = "v47";
 const PAGES = `teaofrpm-pages-${VERSION}`;
 const ASSETS = `teaofrpm-assets-${VERSION}`;
 const LIBS = "teaofrpm-libs-v2";
 const MAX_ENTRIES = 120;
 
 const SHELL = [
-  "home.html", "messages.html", "room.html", "profile.html", "reels.html", "discover.html", "settings.html", "tools.html",
-  "css/app.css?v=42", "css/home.css?v=42", "css/messages.css?v=42", "css/chat-polish.css?v=42", "css/bot.css?v=42",
-  "css/social-extras.css?v=42", "css/reels.css?v=42", "css/discover.css?v=42", "css/settings.css?v=42", "css/plus.css?v=42",
-  "js/config.js?v=42", "js/core.js?v=42", "js/editor.js?v=42", "js/calls.js?v=42", "js/social.js?v=42", "js/notifications.js?v=42",
-  "js/home.js?v=42", "js/messages.js?v=42", "js/room.js?v=42", "js/profile.js?v=42", "js/plus.js?v=42", "js/plus-tools.js?v=42", "js/plus-games.js?v=42", "js/chatplus.js?v=42",
+  "home.html", "messages.html", "room.html", "profile.html", "reels.html", "discover.html", "settings.html", "tools.html", "notifications.html", "edit-profile.html",
+  "css/app.css?v=47", "css/landing.css?v=47", "css/home.css?v=47", "css/messages.css?v=47", "css/chat-polish.css?v=47", "css/bot.css?v=47",
+  "css/social-extras.css?v=47", "css/reels.css?v=47", "css/discover.css?v=47", "css/settings.css?v=47", "css/plus.css?v=47",
+  "js/config.js?v=47", "js/core.js?v=47", "js/editor.js?v=47", "js/calls.js?v=47", "js/social.js?v=47", "js/notifications.js?v=47",
+  "js/home.js?v=47", "js/messages.js?v=47", "js/livebg.js?v=47", "js/room.js?v=47", "js/profile.js?v=47", "js/plus.js?v=47", "js/plus-tools.js?v=47", "js/plus-games.js?v=47", "js/chatplus.js?v=47",
   "images/icon-192.png", "images/icon.svg", "images/bot.png",
 ];
 

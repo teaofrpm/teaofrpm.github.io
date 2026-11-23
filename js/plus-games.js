@@ -108,7 +108,7 @@
     const el = s.body.querySelector(".tp-react"); let state = "idle", t0 = 0, to = null, tries = [];
     const set_ = (cls, b, sm) => { el.className = "tp-react " + cls; el.innerHTML = `<b>${b}</b><small>${sm || ""}</small>`; };
     el.onclick = () => {
-      if (state === "idle" || state === "done") { state = "wait"; set_("wait", "Wait for green…", "Jaldi mat karna"); to = setTimeout(() => { state = "go"; t0 = performance.now(); set_("go", "TAP NOW!"); P.buzz(10); }, 1200 + Math.random() * 2800); }
+      if (state === "idle" || state === "done") { state = "wait"; set_("wait", "Wait for green…", "Don't tap too early"); to = setTimeout(() => { state = "go"; t0 = performance.now(); set_("go", "TAP NOW!"); P.buzz(10); }, 1200 + Math.random() * 2800); }
       else if (state === "wait") { clearTimeout(to); state = "done"; set_("bad", "Too soon!", "Tap to try again"); P.sound("lose"); }
       else if (state === "go") {
         const ms = Math.round(performance.now() - t0); tries.push(ms); state = "done";
@@ -182,9 +182,9 @@
   }
 
   /* ===== Would you rather / truth or dare (party prompts) ===== */
-  const WYR = ["Exam se ek din pehle syllabus milna ya ek hafta pehle sirf aadha?", "Hamesha 10 min late ya hamesha 30 min early?", "Bina phone ke ek hafta ya bina dost ke ek din?", "Flying power ya invisible hone ki power?", "Teacher ka favourite banna ya class ka favourite?", "Sirf Maggi kha ke 1 mahina ya sirf khichdi?", "Har exam mein 90% ya ek baar topper?", "Apna future dekh lo ya apna past badal lo?", "Free wifi forever ya free food forever?", "Ek din principal bano ya ek din PM?"];
-  const TRUTH = ["Last time kab jhooth bola? Kya tha?", "Class mein crush hai? 👀 (naam mat batao, sirf haan/na)", "Sabse embarrassing moment school mein?", "Phone mein sabse zyada kaunsi app chalate ho?", "Kabhi homework copy kiya hai? Kiska?", "Ek cheez jo kisi ko nahi pata tumhare baare mein?"];
-  const DARE = ["Group mein apni sabse purani photo bhejo 😂", "Agle 3 messages sirf emoji mein likho", "Kisi dost ko 'tu best hai' bolo — abhi", "Apna last searched cheez share karo", "10 second ki voice note mein gaana gao 🎤", "Apni profile bio 1 ghante ke liye 'main aalu hoon 🥔' kar do"];
+  const WYR = ["Get the full syllabus a day before the exam, or half of it a week before?", "Always 10 min late, or always 30 min early?", "A week without your phone, or a day without your friends?", "Be able to fly, or be invisible?", "Be the teacher's favourite, or the class favourite?", "Only Maggi for a month, or only khichdi?", "90% in every exam, or topper just once?", "See your future, or change your past?", "Free wifi forever ya free food forever?", "Principal for a day, or PM for a day?"];
+  const TRUTH = ["When did you last lie? What was it?", "Got a crush in class? 👀 (no names — just yes or no)", "Most embarrassing moment at school?", "Which app do you use the most?", "Ever copied homework? From whom?", "One thing nobody knows about you?"];
+  const DARE = ["Send your oldest photo to the group 😂", "Write your next 3 messages in emoji only", "Tell a friend 'you're the best' — right now", "Share the last thing you searched for", "Sing a song in a 10-second voice note 🎤", "Change your bio to 'I am a potato 🥔' for 1 hour"];
   function party() {
     const s = P.sheet("🎉 Party prompts", `<div class="tp-chips"><button type="button" data-m="w" class="on">Would you rather</button><button type="button" data-m="t">Truth</button><button type="button" data-m="d">Dare</button></div><div class="tp-prompt"></div><div class="tp-row2"><button type="button" class="btn" data-next>Next</button><button type="button" class="btn btn-ghost" data-send>Share to chat</button></div>`);
     let m = "w", cur = "";

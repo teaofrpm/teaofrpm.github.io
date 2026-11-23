@@ -373,8 +373,7 @@ async function runSearch(term) {
     return;
   }
   const q = term.toLowerCase();
-  const people = (await loadAllPeople()).filter((p) => p.id !== ME.id &&
-    ((p.display_name || "").toLowerCase().includes(q) || p.username.includes(q)));
+  const people = (await peopleFor(q)).filter((p) => p.id !== ME.id);
   if (token !== searchToken) return;
   people.sort((a, b) => (b.username.startsWith(q) - a.username.startsWith(q)));
   renderPeople(people.slice(0, 50), null);

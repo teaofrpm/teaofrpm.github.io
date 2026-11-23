@@ -334,6 +334,8 @@ function renderActions() {
     btn.className = "pa-btn";
     btn.textContent = "Edit profile";
     btn.addEventListener("click", () => {
+      // its own page now (cleaner than the inline panel)
+      if (!location.search.includes("inlineEdit=1")) { location.href = "edit-profile.html"; return; }
       const panel = document.getElementById("editPanel");
       const open = panel.style.display !== "none";
       panel.style.display = open ? "none" : "block";

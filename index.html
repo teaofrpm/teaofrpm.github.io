@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
 <title>𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂 — RPM Student Chat</title>
-<meta name="description" content="The official live chat room for every student of RPM." />
+<meta name="description" content="The live chat room, DMs, reels and study tools built only for the students of RPM." />
 <script>
 /* Already logged in + verified? Jump straight to Home before this page even
    paints — no landing screen, no waiting for supabase-js to download.
@@ -20,6 +20,8 @@
   }
 }catch(e){}})();
 </script>
+<script>(function(){try{var t=localStorage.getItem("teaofrpm_theme");if(t==="dark"||((t==="auto"||!t)&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.setAttribute("data-theme","dark");var a=localStorage.getItem("teaofrpm_accent");if(a&&a!=="royal")document.documentElement.setAttribute("data-accent",a);}catch(e){}})();</script>
+<meta name="color-scheme" content="light dark" />
 <link rel="preconnect" href="https://jfybtgoofxfhjgeyumzl.supabase.co" crossorigin />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -31,198 +33,237 @@
 <link rel="apple-touch-icon" href="images/apple-touch-icon.png" />
 <link rel="icon" href="images/icon.svg" type="image/svg+xml" /><link rel="alternate icon" href="images/icon-192.png" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
-<link rel="stylesheet" href="css/app.css?v=42" />
+<link rel="stylesheet" href="css/app.css?v=47" />
+<link rel="stylesheet" href="css/landing.css?v=47" />
 </head>
-<body>
+<body class="auth-page">
 
-<div class="landing">
-  <div class="logo-frame">
-    <img src="images/icon.svg" alt="teaofrpm" width="256" height="256" fetchpriority="high" onerror="this.onerror=null;this.src='images/icon-512.png'" />
-  </div>
+<div class="auth-aura" aria-hidden="true"><i></i><i></i><i></i></div>
 
-  <h1 class="brand">𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</h1>
-  <p class="tagline">Welcome to 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂 — the live chat room built only for the students of RPM.</p>
-  <p class="school-tag">↻ Every RPM student can join and chat here without revealing their identity</p>
+<main class="auth-wrap">
+  <header class="auth-hero">
+    <img class="auth-logo" src="images/icon.svg" alt="" width="76" height="76" fetchpriority="high" onerror="this.onerror=null;this.src='images/icon-192.png'" />
+    <h1 class="auth-brand">𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</h1>
+    <p class="auth-tagline">The live chat room, DMs, reels and study tools — built only for the students of RPM.</p>
+    <div class="auth-pills">
+      <span><span data-icon="lock" data-icon-size="12"></span>Verified students only</span>
+      <span><span data-icon="eye" data-icon-size="12"></span>Stay anonymous</span>
+      <span><span data-icon="bolt" data-icon-size="12"></span>Free, no phone number</span>
+    </div>
+  </header>
 
-  <button class="btn" id="enterBtn">Enter Live Chat Room</button>
-
-  <p class="landing-foot">Verified students only · Your RPM ID card is checked automatically once before you can chat, just to know you are a valid RPM'ian after it got deleted in 2 minutes</p>
-</div>
-
-<div id="entryModal" style="display:none; position:fixed; inset:0; background:rgba(8,5,4,.75); backdrop-filter:blur(3px); z-index:60; align-items:center; justify-content:center; padding:16px;">
-  <div class="verify-card" style="max-width:400px;">
-    <div id="modalChoice">
-      <h1 style="font-size:24px;">Join 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</h1>
-      <p class="sub">Choose how you'd like to enter.</p>
-      <button class="btn" style="width:100%; margin-bottom:12px;" id="showNewForm">I'm new here</button>
-      <button class="btn btn-outline" style="width:100%;" id="showLoginForm">I already have an account</button>
+  <section class="auth-card" aria-label="Log in or create an account">
+    <div class="auth-tabs" id="authTabs" data-on="login" role="tablist">
+      <span class="auth-tab-pill"></span>
+      <button type="button" class="on" data-tab="login" role="tab" aria-selected="true">Log in</button>
+      <button type="button" data-tab="signup" role="tab" aria-selected="false">Create account</button>
     </div>
 
-    <form id="newForm" style="display:none; text-align:left;" novalidate>
-      <h1 style="font-size:24px; text-align:center;">Create your account</h1>
-      <p class="sub" style="text-align:center;">No OTP mess — just remember your username and password. They won't be shown again, so screenshot or note them down.</p>
-      <div class="field">
-        <label for="displayNameInput">Display name (shown in chat)</label>
-        <input id="displayNameInput" type="text" placeholder="name" maxlength="24" autocomplete="nickname" />
-      </div>
-      <div class="field">
-        <label for="newUsername">Choose a username</label>
-        <input id="newUsername" type="text" placeholder="username" maxlength="20" autocapitalize="off" autocomplete="username" spellcheck="false" />
-        <span class="hint" id="usernameHint"></span>
-      </div>
-      <div class="field">
-        <label for="newPassword">Choose a password</label>
-        <div class="pw-wrap"><input id="newPassword" type="password" placeholder="no fewer than 8" autocomplete="new-password" /><button type="button" class="pw-eye" aria-label="Show password">Show</button></div>
-      </div>
-      <div class="field">
-        <label for="newPassword2">Confirm password</label>
-        <input id="newPassword2" type="password" placeholder="Re-type password" autocomplete="new-password" />
-      </div>
-      <p class="error-text" id="newFormError"></p>
-      <button class="btn" type="submit" style="width:100%;" id="createAccountBtn">Create Account</button>
-      <button class="btn-outline btn" type="button" style="width:100%; margin-top:10px;" id="backFromNew">Back</button>
+    <form class="auth-form on" id="loginForm" novalidate>
+      <h2>Welcome back</h2>
+      <p class="auth-sub" id="loginSub">Log in with your username and password.</p>
+      <label class="auth-field"><span>Username</span>
+        <div class="auth-input"><input id="loginUsername" type="text" placeholder="username" autocapitalize="off" autocomplete="username" spellcheck="false" maxlength="20" /></div>
+      </label>
+      <label class="auth-field"><span>Password</span>
+        <div class="auth-input"><input id="loginPassword" type="password" placeholder="Your password" autocomplete="current-password" /><button type="button" class="auth-eye">Show</button></div>
+      </label>
+      <p class="auth-error" id="loginFormError" role="alert"></p>
+      <button class="btn auth-submit" type="submit" id="loginBtn">Log in</button>
     </form>
 
-    <form id="loginForm" style="display:none; text-align:left;" novalidate>
-      <h1 style="font-size:24px; text-align:center;">Welcome back</h1>
-      <p class="sub" style="text-align:center;">Enter your username & password.</p>
-      <div class="field">
-        <label for="loginUsername">Username</label>
-        <input id="loginUsername" type="text" placeholder="username" autocapitalize="off" autocomplete="username" spellcheck="false" />
-      </div>
-      <div class="field">
-        <label for="loginPassword">Password</label>
-        <div class="pw-wrap"><input id="loginPassword" type="password" placeholder="Your password" autocomplete="current-password" /><button type="button" class="pw-eye" aria-label="Show password">Show</button></div>
-      </div>
-      <p class="error-text" id="loginFormError"></p>
-      <button class="btn" type="submit" style="width:100%;" id="loginBtn">Log In</button>
-      <button class="btn-outline btn" type="button" style="width:100%; margin-top:10px;" id="backFromLogin">Back</button>
+    <form class="auth-form" id="newForm" novalidate>
+      <h2>Create your account</h2>
+      <p class="auth-sub">No phone, no email, no OTP. Just remember your username and password — they can't be recovered, so note them down.</p>
+      <label class="auth-field"><span>Display name</span>
+        <div class="auth-input"><input id="displayNameInput" type="text" placeholder="What people see in chat" maxlength="24" autocomplete="nickname" /></div>
+      </label>
+      <label class="auth-field"><span>Username</span>
+        <div class="auth-input"><input id="newUsername" type="text" placeholder="letters, numbers, _" maxlength="20" autocapitalize="off" autocomplete="username" spellcheck="false" /></div>
+        <small class="auth-hint" id="usernameHint"></small>
+      </label>
+      <label class="auth-field"><span>Password</span>
+        <div class="auth-input"><input id="newPassword" type="password" placeholder="At least 8 characters" autocomplete="new-password" /><button type="button" class="auth-eye">Show</button></div>
+        <div class="auth-meter" id="pwMeter" data-s="0" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <small class="auth-hint" id="pwHint"></small>
+      </label>
+      <label class="auth-field"><span>Confirm password</span>
+        <div class="auth-input"><input id="newPassword2" type="password" placeholder="Type it again" autocomplete="new-password" /></div>
+      </label>
+      <p class="auth-error" id="newFormError" role="alert"></p>
+      <button class="btn auth-submit" type="submit" id="createAccountBtn">Create account</button>
     </form>
-  </div>
-</div>
+
+    <div class="auth-captcha" id="captchaSlot"></div>
+    <p class="auth-note">Your RPM ID card is checked once, automatically, and deleted within 2 minutes. Nobody sees it.</p>
+  </section>
+
+  <section class="auth-section auth-inside">
+    <h3 class="reveal">What's inside</h3>
+    <div class="auth-features">
+      <div class="auth-feature reveal" style="--i:0"><div class="af-ic" style="background:linear-gradient(135deg,#ef4444,#990000)"><span data-icon="globe" data-icon-size="19"></span></div><b>Live public room</b><p>One room for all of RPM. Talk freely, your identity stays hidden.</p></div>
+      <div class="auth-feature reveal" style="--i:1"><div class="af-ic" style="background:linear-gradient(135deg,#8b5cf6,#4A148C)"><span data-icon="chat" data-icon-size="19"></span></div><b>DMs &amp; groups</b><p>View-once photos, voice notes, polls, GIFs and chat themes.</p></div>
+      <div class="auth-feature reveal" style="--i:2"><div class="af-ic" style="background:linear-gradient(135deg,#f472b6,#db2777)"><span data-icon="reel" data-icon-size="19"></span></div><b>Reels &amp; stories</b><p>Swipe reels that learn what you like. Post stories, reply in one tap.</p></div>
+      <div class="auth-feature reveal" style="--i:3"><div class="af-ic" style="background:linear-gradient(135deg,#22d3ee,#0e7490)"><span data-icon="calendar" data-icon-size="19"></span></div><b>Study tools</b><p>Attendance maths, marks &amp; CGPA, to-dos, focus timers.</p></div>
+      <div class="auth-feature reveal" style="--i:4"><div class="af-ic" style="background:linear-gradient(135deg,#34d399,#047857)"><span data-icon="video" data-icon-size="19"></span></div><b>Calls</b><p>Voice and video calls right inside any chat.</p></div>
+      <div class="auth-feature reveal" style="--i:5"><div class="af-ic" style="background:linear-gradient(135deg,#fbbf24,#d97706)"><span data-icon="lock" data-icon-size="19"></span></div><b>Private by design</b><p>Fingerprint chat lock, hidden likes, private account.</p></div>
+    </div>
+  </section>
+
+  <section class="auth-section auth-how">
+    <h3 class="reveal">How it works</h3>
+    <ol class="auth-steps">
+      <li class="reveal" style="--i:0"><i>1</i><div><b>Pick a username</b><p>Choose any username and password. No phone number or email needed.</p></div></li>
+      <li class="reveal" style="--i:1"><i>2</i><div><b>Verify once</b><p>Snap your RPM ID card. It's checked automatically and deleted in 2 minutes.</p></div></li>
+      <li class="reveal" style="--i:2"><i>3</i><div><b>You're in</b><p>Chat, post, watch reels and use the tools — as anonymous as you like.</p></div></li>
+    </ol>
+    <p class="auth-foot">Made by RPM students, for RPM students.</p>
+  </section>
+</main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=42"></script>
-<script src="js/core.js?v=42"></script>
+<script src="js/config.js?v=47"></script>
+<script src="js/core.js?v=47"></script>
 <script>
-  const entryModal = document.getElementById("entryModal");
-  const modalChoice = document.getElementById("modalChoice");
-  const newForm = document.getElementById("newForm");
-  const loginForm = document.getElementById("loginForm");
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const tabs = $("authTabs");
+  const forms = { login: $("loginForm"), signup: $("newForm") };
 
-  function showPane(pane) {
-    [modalChoice, newForm, loginForm].forEach((p) => (p.style.display = "none"));
-    pane.style.display = "block";
-    const first = pane.querySelector("input");
-    if (first) setTimeout(() => first.focus(), 50);
+  function showTab(name, focus = true) {
+    tabs.dataset.on = name;
+    tabs.querySelectorAll("[data-tab]").forEach((b) => { const on = b.dataset.tab === name; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); });
+    Object.entries(forms).forEach(([k, f]) => f.classList.toggle("on", k === name));
+    if (focus && matchMedia("(min-width: 900px)").matches) setTimeout(() => forms[name].querySelector("input")?.focus(), 60);
   }
+  tabs.addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) showTab(b.dataset.tab); });
 
-  // index.html?add=1 → log into another account without logging this one out
-  const ADDING = new URLSearchParams(location.search).get("add") === "1";
-  document.getElementById("enterBtn").addEventListener("click", async () => {
-    const { data } = await sb.auth.getSession();
-    if (data.session && !ADDING) { await routeAfterAuth(); return; }
-    entryModal.style.display = "flex";
-    showPane(modalChoice);
-  });
-
-  document.getElementById("showNewForm").onclick = () => showPane(newForm);
-  document.getElementById("showLoginForm").onclick = () => showPane(loginForm);
-  document.getElementById("backFromNew").onclick = () => showPane(modalChoice);
-  document.getElementById("backFromLogin").onclick = () => showPane(modalChoice);
-
-  document.querySelectorAll(".pw-eye").forEach((b) => b.addEventListener("click", () => {
-    const input = b.previousElementSibling;
-    const show = input.type === "password";
+  document.querySelectorAll(".auth-eye").forEach((b) => b.addEventListener("click", () => {
+    const input = b.previousElementSibling, show = input.type === "password";
     input.type = show ? "text" : "password";
     b.textContent = show ? "Hide" : "Show";
-    b.setAttribute("aria-label", show ? "Hide password" : "Show password");
   }));
 
-  // live username check while typing
-  const uInput = document.getElementById("newUsername");
-  const uHint = document.getElementById("usernameHint");
+  // fade sections in as they scroll into view
+  const io = "IntersectionObserver" in window ? new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: .15 }) : null;
+  document.querySelectorAll(".reveal").forEach((el) => io ? io.observe(el) : el.classList.add("in"));
+
+  Captcha.preload();
+
+  /* ---------- sign up ---------- */
+  const uInput = $("newUsername"), uHint = $("usernameHint");
   let uTimer;
   uInput.addEventListener("input", () => {
     clearTimeout(uTimer);
     const u = uInput.value.trim().toLowerCase();
-    uHint.textContent = "";
+    uHint.textContent = ""; uHint.className = "auth-hint";
     if (!u) return;
-    if (!/^[a-z0-9_]{3,20}$/.test(u)) { uHint.textContent = "3–20 letters, numbers or _"; return; }
+    if (!/^[a-z0-9_]{3,20}$/.test(u)) { uHint.textContent = "3–20 letters, numbers or _"; uHint.classList.add("bad"); return; }
     uTimer = setTimeout(async () => {
-      // profiles are private to signed-out visitors, so the database answers this one question for us
       const { data, error } = await sb.rpc("username_available", { p_username: u });
-      if (uInput.value.trim().toLowerCase() !== u) return;
-      uHint.textContent = error ? "" : data ? "✓ Available" : "✕ Already taken";
+      if (uInput.value.trim().toLowerCase() !== u || error) return;
+      uHint.textContent = data ? "✓ Available" : "✕ Already taken";
+      uHint.classList.add(data ? "ok" : "bad");
     }, 400);
   });
 
-  newForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById("createAccountBtn");
-    const errEl = document.getElementById("newFormError");
-    const name = document.getElementById("displayNameInput").value.trim();
-    const username = uInput.value.trim();
-    const password = document.getElementById("newPassword").value;
-    const password2 = document.getElementById("newPassword2").value;
-    errEl.textContent = "";
+  const pw = $("newPassword"), meter = $("pwMeter"), pwHint = $("pwHint");
+  const WORDS = ["", "Too easy to guess", "Okay — longer is safer", "Good", "Strong"];
+  pw.addEventListener("input", () => {
+    const s = pw.value ? passwordStrength(pw.value, uInput.value.trim()) : 0;
+    meter.dataset.s = s;
+    pwHint.textContent = WORDS[s];
+    pwHint.className = "auth-hint" + (s === 1 ? " bad" : s >= 3 ? " ok" : "");
+  });
 
+  forms.signup.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const btn = $("createAccountBtn"), errEl = $("newFormError");
+    const name = $("displayNameInput").value.trim();
+    const username = uInput.value.trim();
+    const password = pw.value, password2 = $("newPassword2").value;
+    errEl.textContent = "";
     if (!name) { errEl.textContent = "Please enter a display name."; return; }
     if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) { errEl.textContent = "Username must be 3–20 characters: letters, numbers, underscore only."; return; }
     if (password.length < 8) { errEl.textContent = "Password must be at least 8 characters."; return; }
+    if (passwordStrength(password, username) < 2) { errEl.textContent = "That password is too easy to guess. Add more letters, numbers or symbols."; return; }
     if (password !== password2) { errEl.textContent = "Passwords don't match."; return; }
-
-    btn.disabled = true; btn.textContent = "Creating...";
+    btn.disabled = true; btn.textContent = "Creating…";
     try {
       await createNewAccount(name, username, password);
       await routeAfterAuth();
     } catch (err) {
-      errEl.textContent = err.message || "Something went wrong. Try again.";
+      errEl.textContent = authErrorText(err) || err.message || "Something went wrong. Try again.";
     } finally {
-      btn.disabled = false; btn.textContent = "Create Account";
+      btn.disabled = false; btn.textContent = "Create account";
     }
   });
 
-  loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById("loginBtn");
-    const errEl = document.getElementById("loginFormError");
-    const u = document.getElementById("loginUsername").value.trim();
-    const p = document.getElementById("loginPassword").value;
-    errEl.textContent = "";
-    if (!u || !p) { errEl.textContent = "Enter both username and password."; return; }
+  /* ---------- log in (with a cool-down after repeated wrong passwords) ---------- */
+  const lBtn = $("loginBtn"), lErr = $("loginFormError"), lUser = $("loginUsername");
+  let tick = 0;
+  function lockFor(sec) {
+    clearInterval(tick);
+    const end = Date.now() + sec * 1000;
+    const paint = () => {
+      const left = Math.ceil((end - Date.now()) / 1000);
+      if (left <= 0) { clearInterval(tick); lBtn.disabled = false; lBtn.textContent = "Log in"; return; }
+      lBtn.disabled = true;
+      lBtn.textContent = `Try again in ${left >= 60 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : `${left}s`}`;
+    };
+    paint(); tick = setInterval(paint, 500);
+  }
+  lUser.addEventListener("input", () => {
+    const w = LoginGuard.wait(lUser.value.trim().toLowerCase());
+    if (w) lockFor(w); else { clearInterval(tick); lBtn.disabled = false; lBtn.textContent = "Log in"; }
+  });
 
-    btn.disabled = true; btn.textContent = "Logging in...";
+  forms.login.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const u = lUser.value.trim().toLowerCase(), p = $("loginPassword").value;
+    lErr.textContent = "";
+    if (!u || !p) { lErr.textContent = "Enter both username and password."; return; }
+    const w = LoginGuard.wait(u);
+    if (w) { lockFor(w); return; }
+    lBtn.disabled = true; lBtn.textContent = "Logging in…";
+    let locked = 0;
     try {
       await loginExisting(u, p);
+      LoginGuard.ok(u);
       await routeAfterAuth();
     } catch (err) {
-      errEl.textContent = /fetch|network/i.test(err.message || "") ? "No connection — try again." : "Invalid username or password.";
+      const special = authErrorText(err);
+      if (special) { lErr.textContent = special; }
+      else {
+        locked = LoginGuard.fail(u);
+        lErr.textContent = locked ? "Too many wrong tries. Take a short break, then try again." : "Wrong username or password.";
+        $("loginPassword").select();
+      }
     } finally {
-      btn.disabled = false; btn.textContent = "Log In";
+      if (locked) lockFor(locked); else { lBtn.disabled = false; lBtn.textContent = "Log in"; }
     }
   });
 
+  /* ---------- already signed in / adding an account ---------- */
+  const ADDING = new URLSearchParams(location.search).get("add") === "1";
   (async () => {
     const { data } = await sb.auth.getSession();
     if (ADDING) {
       if (data.session && typeof Accounts !== "undefined") Accounts.remember(data.session);
-      entryModal.style.display = "flex";
-      showPane(loginForm);
-      toast("Log in to add another account — your current one stays signed in", 3500);
+      $("loginSub").textContent = "Log in to add another account — your current one stays signed in.";
+      showTab("login");
       return;
     }
     if (data.session) {
-      // already logged in: skip the network check if we know you're verified
       const me = store.get("teaofrpm_me");
       if (me && me.id === data.session.user.id && me.is_verified && !me.banned) { location.replace("home.html"); return; }
       await routeAfterAuth();
       return;
     }
-    document.getElementById("enterBtn").style.display = "none";
-    entryModal.style.display = "flex";
-    showPane(modalChoice);
+    // first visit on this device → sign-up; been here before → log in
+    if (!store.get("teaofrpm_accounts")?.length && !localStorage.getItem("teaofrpm_lg")) showTab("signup", false);
   })();
+})();
 </script>
 </body>
 </html>

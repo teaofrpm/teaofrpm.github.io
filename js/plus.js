@@ -147,13 +147,57 @@
   /* ---------- app lock (PIN) ---------- */
   const hash = async (pin) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode("tp:" + pin)))].map((x) => x.toString(16).padStart(2, "0")).join("");
   const beat = () => store.setRaw(K("seen"), String(Date.now()));
+
+  /* fingerprint / face unlock (WebAuthn platform authenticator, stays on this device) */
+  const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const unb64 = (s) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+  P.bioAvailable = async () => { try { return !!window.PublicKeyCredential && window.isSecureContext && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch { return false; } };
+  P.bioEnrolled = () => !!store.raw(K("bio"));
+  P.bioEnroll = async () => {
+    if (P.bioEnrolled()) return true;
+    if (!(await P.bioAvailable())) return false;
+    try {
+      const u = App.me || {};
+      const cred = await navigator.credentials.create({ publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        rp: { name: "teaofrpm" },
+        user: { id: new TextEncoder().encode(String(u.id || "me")).slice(0, 64), name: u.username || "me", displayName: u.display_name || "me" },
+        pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+        authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "discouraged" },
+        timeout: 60000, attestation: "none",
+      } });
+      if (!cred) return false;
+      store.setRaw(K("bio"), b64(cred.rawId));
+      return true;
+    } catch { return false; }
+  };
+  P.bioCheck = async () => {
+    const id = store.raw(K("bio")); if (!id) return false;
+    try {
+      const a = await navigator.credentials.get({ publicKey: {
+        challenge: crypto.getRandomValues(new Uint8Array(32)),
+        allowCredentials: [{ type: "public-key", id: unb64(id), transports: ["internal", "hybrid"] }],
+        userVerification: "required", timeout: 60000,
+      } });
+      return !!a;
+    } catch { return false; }
+  };
+  P.bioOffer = async () => {
+    if (P.bioEnrolled() || !(await P.bioAvailable())) return;
+    if (await P.bioEnroll()) toast("Fingerprint / Face unlock on ✓");
+  };
+
   P.askPin = (title, check) => new Promise((resolve) => {
     const ov = document.createElement("div");
     ov.className = "tp-lock";
+    const bio = !!check && P.bioEnrolled();
     ov.innerHTML = `<div class="tp-lock-box"><img src="images/icon.svg" alt="" class="tp-lock-logo"><b>${esc(title)}</b><div class="tp-dots">${"<i></i>".repeat(4)}</div><small class="tp-lock-msg"></small>
-      <div class="tp-pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, "", 0, "⌫"].map((k) => k === "" ? "<span></span>" : `<button type="button" data-k="${k}">${k}</button>`).join("")}</div>
+      <div class="tp-pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, "", 0, "⌫"].map((k) => k === "" ? (bio ? `<button type="button" class="tp-bio" data-bio aria-label="Use fingerprint or face"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 11c0 3-1 6-3 8"/><path d="M8 5.5A7 7 0 0 1 19 11c0 2-.3 4-1 6"/><path d="M5 9a7 7 0 0 1 1.5-2.5"/><path d="M5 13c0 1.5-.3 3-1 4"/><path d="M9 11a3 3 0 0 1 6 0c0 3.5-.8 6.5-2.5 9"/><path d="M15.5 15.5c-.2 1.5-.6 3-1.2 4.5"/></svg></button>` : "<span></span>") : `<button type="button" data-k="${k}">${k}</button>`).join("")}</div>
       ${check ? `<button type="button" class="tp-lock-forgot">Forgot PIN? Log out</button>` : `<button type="button" class="tp-lock-forgot" data-cancel>Cancel</button>`}</div>`;
     document.body.appendChild(ov);
+    const tryBio = async () => { if (!ov.isConnected) return; if (await P.bioCheck()) { P.buzz(12); done(true); } };
+    if (bio) setTimeout(tryBio, 250);   // most phones allow it straight away; otherwise the button does it
+    ov.addEventListener("click", (e) => { if (e.target.closest("[data-bio]")) tryBio(); });
     let pin = "", fails = 0, waitTill = 0;
     const dots = ov.querySelectorAll(".tp-dots i"), msg = ov.querySelector(".tp-lock-msg");
     const paint = () => dots.forEach((d, i) => d.classList.toggle("on", i < pin.length));
@@ -192,7 +236,9 @@
     const a = await P.askPin("Choose a 4-digit PIN"); if (!a) return false;
     const b = await P.askPin("Type it again"); if (!b) return false;
     if (a !== b) { toast("PINs didn't match"); return false; }
-    set("pin", await hash(a)); beat(); toast("🔒 App lock on — asks after 1 min away"); return true;
+    set("pin", await hash(a)); beat(); toast("🔒 App lock on — asks after 1 min away");
+    setTimeout(() => P.bioOffer(), 600);
+    return true;
   };
   P.hash = hash;
 
@@ -212,7 +258,7 @@
     // break reminder
     const p = P.prefs();
     P._session = (P._session || 0) + 15;
-    if (p.breakMin && P._session >= p.breakMin * 60) { P._session = 0; P.buzz([60, 60, 60]); P.notify("Break time 🧘", "Aankhon ko aaram chahiye — 2 min break lo"); }
+    if (p.breakMin && P._session >= p.breakMin * 60) { P._session = 0; P.buzz([60, 60, 60]); P.notify("Break time 🧘", "Rest your eyes — take a 2 min break"); }
   }, 15000);
   P.streak = () => {
     const days = new Set(Object.keys(get("st", {}))); let n = 0; const d = new Date();
@@ -237,13 +283,13 @@
     const bdays = get("bdays", []).filter((b) => b.date && b.date.slice(5) === md);
     if (bdays.length && get("bday_shown") !== t) {
       set("bday_shown", t);
-      setTimeout(() => { P.sheet("🎂 Birthday today!", `<div class="tp-center"><div class="tp-big tp-bigic">${I("tp-cake", 44)}</div><p>Aaj <b>${bdays.map((b) => esc(b.name)).join(", ")}</b> ka birthday hai! Wish karna mat bhoolna.</p><a class="btn" href="messages.html" style="margin-top:10px">Send a wish</a></div>`); P.sound("win"); }, 1200);
+      setTimeout(() => { P.sheet("🎂 Birthday today!", `<div class="tp-center"><div class="tp-big tp-bigic">${I("tp-cake", 44)}</div><p>It's <b>${bdays.map((b) => esc(b.name)).join(", ")}</b>'s birthday today! Don't forget to wish them.</p><a class="btn" href="messages.html" style="margin-top:10px">Send a wish</a></div>`); P.sound("win"); }, 1200);
     }
     const bt = P.prefs().bedtime;
     if (bt) {
       const [h, m] = bt.split(":").map(Number), now = new Date(), b = new Date(); b.setHours(h, m, 0, 0);
       let diff = now - b; if (diff < -12 * 3600e3) diff += 24 * 3600e3;
-      if (diff >= 0 && diff < 3 * 3600e3 && get("bed_shown") !== t) { set("bed_shown", t); P.notify("😴 Bedtime", "So jao bhai, kal school hai. Phone side mein rakho."); }
+      if (diff >= 0 && diff < 3 * 3600e3 && get("bed_shown") !== t) { set("bed_shown", t); P.notify("😴 Bedtime", "Time to sleep — school tomorrow. Put the phone away."); }
     }
   }
   setInterval(checkDaily, 60000);
@@ -267,8 +313,8 @@
     if (deferredInstall) { deferredInstall.prompt(); await deferredInstall.userChoice.catch(() => {}); deferredInstall = null; return; }
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
     P.sheet("📲 Install the app", `<div class="tp-steps">${ios
-      ? `<p>1. Safari mein neeche <b>Share</b> ⬆️ dabao</p><p>2. <b>Add to Home Screen</b> chuno</p><p>3. <b>Add</b> — ho gaya!</p>`
-      : `<p>1. Browser ka menu <b>⋮</b> kholo</p><p>2. <b>Install app</b> / <b>Add to Home screen</b> dabao</p><p>3. App icon home screen pe aa jayega</p>`}</div>`);
+      ? `<p>1. In Safari, tap <b>Share</b> ⬆️ at the bottom</p><p>2. Choose <b>Add to Home Screen</b></p><p>3. Tap <b>Add</b> — done!</p>`
+      : `<p>1. Open the browser menu <b>⋮</b></p><p>2. Tap <b>Install app</b> / <b>Add to Home screen</b></p><p>3. The app icon appears on your home screen</p>`}</div>`);
   };
 
   /* ---------- update ready ---------- */
@@ -346,10 +392,10 @@
       <div class="fb-kinds"><button type="button" data-k="bug" class="on">${I("bug", 16)} Bug</button><button type="button" data-k="idea">${I("tp-bulb", 16)} Idea</button><button type="button" data-k="other">${I("tp-mail", 16)} Other</button></div>
       <textarea class="fb-text" maxlength="2000" rows="4" placeholder="Kya hua? Kaunsa page, kya dabaya…"></textarea>
       <button type="button" class="btn tp-fbsend" style="width:100%;margin-top:10px">Send to the team</button>
-      ${fromShake ? `<p class="x3-hint" style="margin-top:8px">Shake band karna ho to Plus settings mein off karo.</p>` : ""}`, "tp-fb");
+      ${fromShake ? `<p class="x3-hint" style="margin-top:8px">You can turn off shake-to-report in Plus settings.</p>` : ""}`, "tp-fb");
     s.body.querySelector(".fb-kinds").onclick = (e) => { const b = e.target.closest("[data-k]"); if (!b) return; kind = b.dataset.k; s.body.querySelectorAll(".fb-kinds button").forEach((x) => x.classList.toggle("on", x === b)); };
     s.body.querySelector(".tp-fbsend").onclick = async (e) => {
-      const body = s.body.querySelector(".fb-text").value.trim(); if (body.length < 3) return toast("Thoda detail mein likho");
+      const body = s.body.querySelector(".fb-text").value.trim(); if (body.length < 3) return toast("Add a little more detail");
       e.target.disabled = true;
       const { error } = await sb.from("feedback").insert({ user_id: App.me.id, kind, body, page: `${PAGE} · ${innerWidth}px` });
       if (error) { e.target.disabled = false; return toast(friendlyError(error, "Could not send.")); }
@@ -364,10 +410,10 @@
     try { if (navigator.share) { await navigator.share({ title, text, url }); return; } } catch (e) { if (e?.name === "AbortError") return; }
     try { await navigator.clipboard.writeText(url ? `${text} ${url}` : text); toast("Copied ✅"); } catch { prompt("Copy this:", url || text); }
   };
-  P.invite = () => P.share("teaofrpm", "Aaja teaofrpm pe — school ka apna chat app ☕", base() + "index.html");
+  P.invite = () => P.share("teaofrpm", "Join me on teaofrpm — our school's own chat app ☕", base() + "index.html");
   let qrLib = null;
   P.qr = async () => {
-    const s = P.sheet("🔳 My QR code", `<div class="tp-center"><div class="tp-qr"></div><p class="x3-hint">Scan karke seedha mera profile khulega</p>
+    const s = P.sheet("🔳 My QR code", `<div class="tp-center"><div class="tp-qr"></div><p class="x3-hint">Scan to open my profile</p>
       <div class="tp-row2"><button type="button" class="btn btn-small" data-s>Share link</button><button type="button" class="btn btn-small btn-ghost" data-d>Save image</button></div></div>`);
     qrLib = qrLib || new Promise((res, rej) => { const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); });
     try { await qrLib; new QRCode(s.body.querySelector(".tp-qr"), { text: P.myLink(), width: 220, height: 220, colorDark: "#2b0a3d", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M }); }
@@ -405,8 +451,10 @@
     if (document.querySelector(".tp-pal")) return;
     const s = P.sheet("", `<input type="search" class="tp-pal-in" placeholder="Search pages, tools, people…" autocomplete="off"><div class="tp-pal-list"></div>`, "tp-pal");
     const inp = s.body.querySelector("input"), list = s.body.querySelector(".tp-pal-list");
-    let people = [];
-    loadAllPeople().then((l) => { people = l || []; if (inp.value.trim().length >= 2) paint(); }).catch(() => {});
+    let people = [], pq = "";
+    const findPeople = debounce(async (q) => {
+      try { const l = await peopleFor(q); if (inp.value.trim().toLowerCase() === q) { people = l; pq = q; paint(); } } catch {}
+    }, 180);
     const tools = (P.toolList || []).map((t) => [t.name, () => P.openTool(t.key), t.icon]);
     const acts = [["Plus settings", () => P.openSettings(), "sparkle"], ["My QR code", () => P.qr(), "tp-qr"], ["Invite friends", () => P.invite(), "tp-mail"], ["Report a problem", () => P.feedback(), "bug"], ["Keyboard shortcuts", () => P.help(), "tp-keyboard"]];
     const run = (fn) => { s.close(); P.after(fn); };
@@ -417,13 +465,13 @@
         ...PAGES.filter(([n]) => m(n)).map(([n, h, ic]) => `<a href="${h}" class="tp-pal-row"><b>${svgIcon(ic, 16)}</b><span>${n}</span><em>Page</em></a>`),
         ...tools.filter(([n]) => m(n)).map(([n, , e], i) => `<button type="button" class="tp-pal-row" data-t="${esc(n)}"><b>${I(e, 16)}</b><span>${esc(n)}</span><em>Tool</em></button>`),
         ...acts.filter(([n]) => m(n)).map(([n, , e]) => `<button type="button" class="tp-pal-row" data-a="${esc(n)}"><b>${I(e, 16)}</b><span>${esc(n)}</span><em>Action</em></button>`),
-        ...(q.length >= 2 ? people.filter((p) => (p.display_name || "").toLowerCase().includes(q) || (p.username || "").includes(q)).slice(0, 8)
+        ...(q.length >= 2 && pq === q ? people.slice(0, 8)
           .map((p) => `<a href="profile.html?u=${encodeURIComponent(p.username)}" class="tp-pal-row"><b>${I("tp-user", 16)}</b><span>${esc(p.display_name)} <small>@${esc(p.username)}</small></span><em>Person</em></a>`) : []),
       ];
       list.innerHTML = rows.join("") || `<div class="settings-empty">Nothing found</div>`;
     };
     paint();
-    inp.addEventListener("input", paint);
+    inp.addEventListener("input", () => { paint(); const q = inp.value.trim().toLowerCase(); if (q.length >= 2 && q !== pq) findPeople(q); });
     inp.addEventListener("keydown", (e) => { if (e.key === "Enter") list.querySelector(".tp-pal-row")?.click(); });
     list.addEventListener("click", (e) => {
       const t = e.target.closest("[data-t]"); if (t) return run(tools.find(([n]) => n === t.dataset.t)[1]);
@@ -459,7 +507,7 @@
   }
 
   /* ---------- home greeting card ---------- */
-  const QUOTES = ["Padhai karo, phir party karo 📚➡️🎉", "Small steps every day = big results.", "Aaj ka kaam aaj — kal pe mat taalo.", "Discipline > motivation.", "Mistakes are proof you're trying.", "Thoda thoda roz, bahut ho jaata hai.", "Be the friend you want to have.", "Focus on progress, not perfection.", "Sapne woh nahi jo neend mein aate hain…", "Hard work beats talent when talent doesn't work hard.", "Kindness is free — use it a lot.", "Ek ghanta phone side, ek chapter done ✅"];
+  const QUOTES = ["Study first, party later 📚➡️🎉", "Small steps every day = big results.", "Do today's work today — don't push it to tomorrow.", "Discipline > motivation.", "Mistakes are proof you're trying.", "A little every day adds up to a lot.", "Be the friend you want to have.", "Focus on progress, not perfection.", "Dreams are the ones that don't let you sleep.", "Hard work beats talent when talent doesn't work hard.", "Kindness is free — use it a lot.", "One hour without the phone = one chapter done ✅"];
   P.quote = () => QUOTES[Math.floor(Date.now() / 864e5) % QUOTES.length];
   function greet() {
     const feed = document.getElementById("feed"); if (!feed || get("greet_hide") === dkey() || document.querySelector(".tp-greet")) return;
@@ -491,7 +539,7 @@
     if (left === 0) P.pomoNext?.();
     if (st.phase === "focus" && st.block && PAGE === "home.html" && !document.querySelector(".tp-block")) {
       const b = document.createElement("div"); b.className = "tp-block";
-      b.innerHTML = `<div><div class="tp-big tp-bigic">${I("tp-timer", 44)}</div><b>Focus mode on</b><p>Feed hidden till the timer ends. Padhai pe dhyan do.</p><a class="btn" href="tools.html#focus">Open timer</a> <a class="btn btn-ghost" href="messages.html">Messages</a></div>`;
+      b.innerHTML = `<div><div class="tp-big tp-bigic">${I("tp-timer", 44)}</div><b>Focus mode on</b><p>Feed hidden till the timer ends. Stay focused.</p><a class="btn" href="tools.html#focus">Open timer</a> <a class="btn btn-ghost" href="messages.html">Messages</a></div>`;
       document.body.appendChild(b);
     }
     if ((st.phase !== "focus" || !st.block) && document.querySelector(".tp-block")) document.querySelector(".tp-block").remove();
@@ -554,7 +602,7 @@
       <a class="settings-row" href="tools.html"><span class="settings-row-icon">${I("tp-grid", 18)}</span><span class="settings-row-text"><b>Tools & games</b><span>Homework, timetable, attendance, focus timer, games</span></span><span class="settings-row-chevron">${svgIcon("chevron", 16)}</span></a>
       <button class="settings-row" type="button" data-tp="plus"><span class="settings-row-icon">${I("sparkle", 18)}</span><span class="settings-row-text"><b>Plus settings</b><span>App lock, screen time, night light, reminders</span></span><span class="settings-row-chevron">${svgIcon("chevron", 16)}</span></button>
       <button class="settings-row" type="button" data-tp="qr"><span class="settings-row-icon">${I("tp-qr", 18)}</span><span class="settings-row-text"><b>My QR code</b><span>Share your profile in one scan</span></span><span class="settings-row-chevron">${svgIcon("chevron", 16)}</span></button>
-      <button class="settings-row" type="button" data-tp="install" data-tp-install ${P.canInstall() ? "" : "hidden"}><span class="settings-row-icon">${I("tp-phone", 18)}</span><span class="settings-row-text"><b>Install app</b><span>Home screen pe app jaisa chalega</span></span><span class="settings-row-chevron">${svgIcon("chevron", 16)}</span></button>`;
+      <button class="settings-row" type="button" data-tp="install" data-tp-install ${P.canInstall() ? "" : "hidden"}><span class="settings-row-icon">${I("tp-phone", 18)}</span><span class="settings-row-text"><b>Install app</b><span>Works like a real app from your home screen</span></span><span class="settings-row-chevron">${svgIcon("chevron", 16)}</span></button>`;
     anchor.parentNode.insertBefore(wrap, anchor);
     wrap.addEventListener("click", (e) => { const t = e.target.closest("[data-tp]")?.dataset.tp; if (t) ({ plus: P.openSettings, qr: P.qr, install: P.install })[t](); });
   }

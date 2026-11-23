@@ -168,6 +168,7 @@ const ICON_PATHS = {
   reply: '<path d="M9 14 4 9l5-5"/><path d="M4 9h9a6 6 0 0 1 6 6v3"/>',
   smilePlus: '<circle cx="9" cy="12" r="7"/><path d="M6.5 13.5s1 1.5 2.5 1.5 2.5-1.5 2.5-1.5"/><path d="M7.5 9.5h.01"/><path d="M10.5 9.5h.01"/><path d="M18 6v6"/><path d="M15 9h6"/>',
   sticker: '<circle cx="12" cy="12" r="9"/><path d="M8 13.5s1.5 2 4 2 4-2 4-2"/><path d="M8.5 9.5h.01"/><path d="M15.5 9.5h.01"/>',
+  gif: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M9.5 10H8a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h1.5v-1.6"/><path d="M12 10v4"/><path d="M17 10h-2.5v4M14.5 12H16.5"/>',
   image: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5-9 9"/>',
   send: '<path d="M4 11l16-7-6 16-3-6.5z"/><path d="M14 13l-3.5 3.5"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
@@ -416,17 +417,44 @@ async function getProfileByUsername(username) {
   return data;
 }
 
-// Everyone verified, loaded once per page and shared by every people picker.
-let _allPeople = null;
-async function loadAllPeople() {
-  if (_allPeople) return _allPeople;
-  const { data, error } = await sb.from("profiles")
-    .select("id,username,display_name,pfp_url,is_private,role")
-    .eq("is_verified", true).order("display_name", { ascending: true }).limit(1000);
-  if (error) { toast("Could not load people."); return []; }
-  (data || []).forEach((p) => { if (!profileCache.has(p.id)) rememberProfile(p); });
-  _allPeople = data || [];
-  return _allPeople;
+/* ---------------- People ----------------
+   Pickers never download the whole school. By default they show *your* people
+   (following, followers, chats, groups); typing 2+ letters searches everyone on
+   the server, 20 at a time. Works the same with 50 users or 50,000. */
+let _circle = null;
+async function loadAllPeople() {   // (old name kept) → your circle, not everyone
+  if (_circle) return _circle;
+  _circle = (async () => {
+    const { data, error } = await sb.rpc("my_circle", { p_limit: 300 });
+    if (error) { console.error(error); _circle = null; return []; }
+    (data || []).forEach((p) => { if (!profileCache.has(p.id)) rememberProfile(p); });
+    return data || [];
+  })();
+  return _circle;
+}
+const _peopleSearch = new Map();
+async function searchPeople(q, limit = 20) {
+  q = String(q || "").trim().toLowerCase().replace(/^@/, "");
+  if (q.length < 2) return [];
+  const key = `${q}|${limit}`;
+  if (!_peopleSearch.has(key)) {
+    _peopleSearch.set(key, sb.rpc("search_people", { p_query: q, p_limit: limit }).then(({ data, error }) => {
+      if (error) { _peopleSearch.delete(key); return []; }
+      (data || []).forEach((p) => { if (!profileCache.has(p.id)) rememberProfile(p); });
+      return data || [];
+    }));
+    if (_peopleSearch.size > 60) _peopleSearch.delete(_peopleSearch.keys().next().value);
+  }
+  return _peopleSearch.get(key);
+}
+const personMatches = (p, q) => !q || (p.display_name || "").toLowerCase().includes(q) || (p.username || "").includes(q);
+// your people that match first, then anyone else the server finds
+async function peopleFor(q = "") {
+  q = String(q || "").trim().toLowerCase().replace(/^@/, "");
+  const mine = (await loadAllPeople()).filter((p) => personMatches(p, q));
+  if (q.length < 2) return mine;
+  const seen = new Set(mine.map((p) => p.id));
+  return [...mine, ...(await searchPeople(q)).filter((p) => !seen.has(p.id))];
 }
 
 /* ---------------- Auth ---------------- */
@@ -438,6 +466,85 @@ function usernameToEmail(username) {
   return `${username.trim().toLowerCase()}@${cfg.AUTH_EMAIL_DOMAIN}`;
 }
 
+/* ---------------- Bot check (Cloudflare Turnstile) ----------------
+   Off until TURNSTILE_SITE_KEY is set in config.js. Once Supabase Auth also has
+   CAPTCHA switched on, every sign-in / sign-up must carry a fresh token, which the
+   Supabase server verifies — scripts that guess passwords can't get past it. */
+const Captcha = (() => {
+  const key = cfg.TURNSTILE_SITE_KEY || "";
+  let ready = null, wid = null;
+  const load = () => ready ||= new Promise((res, rej) => {
+    if (window.turnstile) return res();
+    const s = document.createElement("script");
+    s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    s.async = true;
+    s.onload = () => res();
+    s.onerror = () => { ready = null; rej(new Error("Security check couldn't load. Check your connection.")); };
+    document.head.appendChild(s);
+  });
+  async function token() {
+    if (!key) return undefined;
+    await load();
+    let slot = document.getElementById("captchaSlot");
+    if (!slot) { slot = document.createElement("div"); slot.id = "captchaSlot"; document.body.appendChild(slot); }
+    if (wid != null) { try { turnstile.remove(wid); } catch {} wid = null; }
+    return new Promise((res, rej) => {
+      const t = setTimeout(() => rej(new Error("Security check timed out — try again.")), 45000);
+      wid = turnstile.render(slot, {
+        sitekey: key, appearance: "interaction-only", size: "flexible",
+        theme: document.documentElement.dataset.theme === "dark" ? "dark" : "light",
+        callback: (tok) => { clearTimeout(t); res(tok); },
+        "error-callback": () => { clearTimeout(t); rej(new Error("Security check failed — try again.")); },
+      });
+    });
+  }
+  return { enabled: !!key, token, preload: () => { if (key) load().catch(() => {}); } };
+})();
+
+/* ---------------- Login guard ----------------
+   After 3 wrong passwords for a username, this device has to wait before trying
+   again: 15s, 30s, 1m, 2m… up to 15 minutes. (The server side is Supabase's
+   per-IP limit + the CAPTCHA above.) */
+const LoginGuard = {
+  KEY: "teaofrpm_lg",
+  all() {
+    const a = store.get(this.KEY) || {};
+    for (const k in a) if (Date.now() - (a[k].at || 0) > 864e5) delete a[k];   // forget after a day
+    return a;
+  },
+  wait(u) { const r = this.all()[u]; return r?.until > Date.now() ? Math.ceil((r.until - Date.now()) / 1000) : 0; },
+  fail(u) {
+    const a = this.all(), r = a[u] || { n: 0 };
+    r.n++; r.at = Date.now();
+    if (r.n >= 3) r.until = Date.now() + Math.min(900, 15 * 2 ** (r.n - 3)) * 1000;
+    a[u] = r; store.set(this.KEY, a);
+    return this.wait(u);
+  },
+  ok(u) { const a = this.all(); delete a[u]; store.set(this.KEY, a); },
+};
+
+// 0–4. Short, common, repeated or username-based passwords score low.
+const COMMON_PW = /^(password|passw0rd|12345678|123456789|1234567890|qwerty|qwertyuiop|iloveyou|abcd1234|abc12345|11111111|00000000|987654321|admin123|welcome1|india123|asdfghjkl|zxcvbnm|princess|sunshine|football|baseball|whatever|letmein1)$/i;
+function passwordStrength(pw, username = "") {
+  if (!pw) return 0;
+  if (pw.length < 8 || COMMON_PW.test(pw) || /^(.)\1+$/.test(pw)) return 1;
+  if (username && pw.toLowerCase().includes(username.toLowerCase())) return 1;
+  let s = 1;
+  if (pw.length >= 10) s++;
+  const kinds = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].filter((r) => r.test(pw)).length;
+  if (kinds >= 2) s++;
+  if (kinds >= 3 && pw.length >= 12) s++;
+  return Math.min(4, s);
+}
+
+function authErrorText(err) {
+  const m = String(err?.message || "");
+  if (err?.status === 429 || /rate limit|too many/i.test(m)) return "Too many attempts from this network. Wait a few minutes and try again.";
+  if (/captcha/i.test(m)) return "Security check failed — please try again.";
+  if (/fetch|network|load failed/i.test(m)) return "No connection — try again.";
+  return "";
+}
+
 async function createNewAccount(displayName, username, password) {
   const email = usernameToEmail(username);
   const { data: existing } = await sb.from("profiles").select("id").eq("username", username.toLowerCase()).maybeSingle();
@@ -445,21 +552,21 @@ async function createNewAccount(displayName, username, password) {
 
   const { data, error } = await sb.auth.signUp({
     email, password,
-    options: { data: { username: username.toLowerCase(), display_name: displayName } },
+    options: { data: { username: username.toLowerCase(), display_name: displayName }, captchaToken: await Captcha.token() },
   });
   if (error) {
     if (String(error.message).toLowerCase().includes("already registered")) throw new Error("That username is already taken. Try another.");
-    throw error;
+    throw new Error(authErrorText(error) || error.message);
   }
   if (!data.session) {
-    const { error: signInErr } = await sb.auth.signInWithPassword({ email, password });
+    const { error: signInErr } = await sb.auth.signInWithPassword({ email, password, options: { captchaToken: await Captcha.token() } });
     if (signInErr) throw signInErr;
   }
   return { username, displayName };
 }
 
 async function loginExisting(username, password) {
-  const { data, error } = await sb.auth.signInWithPassword({ email: usernameToEmail(username), password });
+  const { data, error } = await sb.auth.signInWithPassword({ email: usernameToEmail(username), password, options: { captchaToken: await Captcha.token() } });
   if (error) throw error;
   return data;
 }
@@ -542,7 +649,7 @@ const Accounts = {
     if (error || !data.session) {
       banner.remove();
       this.forget(id);
-      toast(`@${a.username} ka session expire ho gaya — dobara log in karo.`, 3500);
+      toast(`@${a.username}'s session expired — please log in again.`, 3500);
       setTimeout(() => { location.href = "index.html?add=1"; }, 900);
       return;
     }
@@ -888,16 +995,17 @@ function pickPeople({ title = "Choose people", multiple = true, exclude = [], se
     s.onClose = () => { finish(null); setTimeout(() => s.el.remove(), 300); };
     s.open();
 
-    const people = (await loadAllPeople()).filter((p) => !exclude.includes(p.id));
     const list = s.body.querySelector(".pick-list");
     const input = s.body.querySelector("input");
     const doneBtn = s.body.querySelector(".pick-done");
     const sync = () => { if (doneBtn) doneBtn.textContent = chosen.size ? `${cta} · ${chosen.size}` : cta; };
 
-    const render = (q = "") => {
-      q = q.toLowerCase();
-      const hits = q ? people.filter((p) => (p.display_name || "").toLowerCase().includes(q) || p.username.includes(q)) : people;
-      if (!hits.length) { list.innerHTML = `<div class="settings-empty">No one found.</div>`; return; }
+    let token = 0;
+    const render = async (q = "") => {
+      const my = ++token;
+      const hits = (await peopleFor(q)).filter((p) => !exclude.includes(p.id));
+      if (my !== token) return;
+      if (!hits.length) { list.innerHTML = `<div class="settings-empty">${q.length < 2 ? "Type a name to find someone." : "No one found."}</div>`; return; }
       const frag = document.createDocumentFragment();
       for (const p of hits.slice(0, 200)) {
         const row = document.createElement("button");
@@ -964,8 +1072,14 @@ async function shareSheet({ title = "Share", build, actions = [], preview = "" }
     sendBtn.textContent = picked.size > 1 ? `Send · ${picked.size}` : "Send";
     s.el.classList.toggle("ss-picking", picked.size > 0);
   };
-  const render = (q = "") => {
+  let token = 0;
+  const render = async (q = "") => {
     q = q.toLowerCase();
+    const my = ++token;
+    if (q.length >= 2) {   // find people beyond your chats on the server
+      for (const p of await searchPeople(q)) if (!seenUsers.has(p.id)) { seenUsers.add(p.id); targets.push({ key: "u" + p.id, person: p }); }
+      if (my !== token) return;
+    }
     const hits = targets.filter((t) => !q || label(t).toLowerCase().includes(q) || (t.person?.username || "").includes(q)).slice(0, 120);
     if (!hits.length) { grid.innerHTML = `<div class="settings-empty">No one found.</div>`; return; }
     const frag = document.createDocumentFragment();
@@ -1324,6 +1438,26 @@ const Skeleton = (() => {
   on("click", ".reaction-chip, .emoji-picker span, .like-btn, .story-like-btn", () => buzz(12));
   on("click", "#sendBtn, .send-btn, .app-sheet-send", () => buzz(8));
 
+  // v47 micro-detail: soft ink ripple where you touch, heart burst when you like something
+  const still = () => document.documentElement.hasAttribute("data-tp-still") || matchMedia("(prefers-reduced-motion: reduce)").matches;
+  on("pointerdown", ".btn, .settings-row, .x3-tile, .tp-tile, .acct-row, .thread-row, .follow-list-row, .member-row, .suggest-row", (e, el) => {
+    if (still() || e.button > 0) return;
+    const r = el.getBoundingClientRect(), d = Math.max(r.width, r.height) * 2.2, s = document.createElement("span");
+    s.className = "tp-ripple"; s.style.cssText = `width:${d}px;height:${d}px;left:${e.clientX - r.left - d / 2}px;top:${e.clientY - r.top - d / 2}px`;
+    el.appendChild(s); setTimeout(() => s.remove(), 650);
+  });
+  on("click", ".like-btn, .story-like-btn", (e, el) => {
+    if (still()) return;
+    setTimeout(() => {
+      if (!el.classList.contains("liked") && !el.classList.contains("on") && el.getAttribute("aria-pressed") !== "true") return;
+      const r = el.getBoundingClientRect(), box = document.createElement("div");
+      box.className = "tp-burst"; box.style.left = `${r.left + r.width / 2}px`; box.style.top = `${r.top + r.height / 2}px`;
+      let html = `<i class="ring"></i>`;
+      for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2 + Math.random() * 0.4, d = 26 + Math.random() * 18; html += `<b style="--dx:${(Math.cos(a) * d).toFixed(1)}px;--dy:${(Math.sin(a) * d).toFixed(1)}px;--s:${(0.6 + Math.random() * 0.6).toFixed(2)};--h:${[345, 330, 0, 20, 300][i % 5]}"></b>`; }
+      box.innerHTML = html; document.body.appendChild(box); setTimeout(() => box.remove(), 900);
+    }, 30);
+  });
+
   // [data-share] → the phone's share sheet, or copy the link
   on("click", "[data-share]", (e, el) => { e.preventDefault(); shareLink(el.dataset.share || location.href, el.dataset.shareTitle); });
 
@@ -1594,7 +1728,7 @@ const EmojiPicker = (() => {
       const found = new Set();
       for (const [words, ems] of Object.entries(WORDS)) if (words.split(" ").some((w) => w.startsWith(q) || (q.length > 2 && w.includes(q)))) for (const e of splitEmoji(ems)) found.add(e);
       for (const c of cats) if (c.label.toLowerCase().includes(q)) c.list.slice(0, 40).forEach((e) => found.add(e));
-      results.firstChild.innerHTML = found.size ? [...found].map((e) => `<button type="button">${e}</button>`).join("") : `<p class="ep-none">Kuch nahi mila — try "hasi", "love", "party"</p>`;
+      results.firstChild.innerHTML = found.size ? [...found].map((e) => `<button type="button">${e}</button>`).join("") : `<p class="ep-none">Nothing found — try "laugh", "love", "party"</p>`;
     });
     body.addEventListener("click", (e) => {
       const b = e.target.closest(".ep-grid button"); if (!b) return;
@@ -1610,4 +1744,156 @@ const EmojiPicker = (() => {
     return s;
   }
   return { open, recents, remember };
+})();
+
+/* ---------------- Settings that follow you to every device ----------------
+   Theme, accent, font, text size, chat look, nicknames, notes, tools data…
+   are mirrored to the user_prefs table. A fresh device (or a new login) pulls
+   them first; after that any change here is pushed a moment later. Things
+   that only make sense on one device (screen time, caches, drafts, PINs for
+   this phone, wallpapers stored as photos) are never synced. */
+const PrefSync = (() => {
+  const SYNC = /^(teaofrpm_(theme|accent|font|textsize|show_active|limit|quick_replies|stickers|recent_stickers|emoji_recent|dictlang)$|tp_)/;
+  const SKIP = /^tp_(pin|st|seen_ver|seen_ver_any|batt_toast|bday_shown|bed_shown|wp_|bio|greet_hide|focus_live)/;
+  const AT = "teaofrpm_prefs_at";
+  const want = (k) => SYNC.test(k) && !SKIP.test(k);
+  let ready = false, uid = null, timer = null, applying = false;
+  const snap = () => {
+    const o = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!want(k)) continue;
+      const v = localStorage.getItem(k);
+      if (v != null && v.length < 40000) o[k] = v;
+    }
+    return o;
+  };
+  const push = async () => {
+    if (!uid) return;
+    const at = new Date().toISOString();
+    const { error } = await sb.from("user_prefs").upsert({ user_id: uid, prefs: snap(), updated_at: at });
+    if (!error) try { localStorage.setItem(AT + uid, at); } catch {}
+  };
+  const dirty = (k) => {
+    if (!ready || applying || !want(k)) return;
+    clearTimeout(timer); timer = setTimeout(push, 2500);
+  };
+  try {
+    const set = Storage.prototype.setItem, rem = Storage.prototype.removeItem;
+    Storage.prototype.setItem = function (k, v) { set.call(this, k, v); if (this === localStorage) dirty(k); };
+    Storage.prototype.removeItem = function (k) { rem.call(this, k); if (this === localStorage) dirty(k); };
+  } catch {}
+  addEventListener("pagehide", () => { if (timer) { clearTimeout(timer); push(); } });
+
+  function applyLookNow() {
+    const de = document.documentElement, g = (k) => localStorage.getItem(k);
+    const t = g("teaofrpm_theme");
+    const dark = t === "dark" || ((t === "auto" || !t) && matchMedia("(prefers-color-scheme: dark)").matches);
+    if (dark) de.setAttribute("data-theme", "dark"); else de.removeAttribute("data-theme");
+    const a = g("teaofrpm_accent"); if (a && a !== "royal") de.setAttribute("data-accent", a); else de.removeAttribute("data-accent");
+    const f = g("teaofrpm_font"); if (f && f !== "default") de.setAttribute("data-font", f); else de.removeAttribute("data-font");
+  }
+
+  async function start(me) {
+    if (uid) return;
+    uid = me.id;
+    // older accounts kept these three on the profile row: use them on a fresh device
+    applying = true;
+    try {
+      if (!localStorage.getItem("teaofrpm_theme") && me.theme_pref) localStorage.setItem("teaofrpm_theme", me.theme_pref);
+      if (!localStorage.getItem("teaofrpm_accent") && me.accent_pref) localStorage.setItem("teaofrpm_accent", me.accent_pref);
+      if (!localStorage.getItem("teaofrpm_font") && me.font_pref) localStorage.setItem("teaofrpm_font", me.font_pref);
+    } catch {}
+    applying = false;
+    applyLookNow();
+    const { data, error } = await sb.from("user_prefs").select("prefs,updated_at").eq("user_id", uid).maybeSingle();
+    if (error) { ready = true; return; }
+    const localAt = localStorage.getItem(AT + uid);
+    if (data && (!localAt || new Date(data.updated_at) > new Date(localAt))) {
+      applying = true;
+      let changed = false;
+      try {
+        for (const [k, v] of Object.entries(data.prefs || {})) {
+          if (!want(k) || typeof v !== "string") continue;
+          if (localStorage.getItem(k) !== v) { localStorage.setItem(k, v); changed = true; }
+        }
+        localStorage.setItem(AT + uid, data.updated_at);
+      } catch {}
+      applying = false;
+      applyLookNow();
+      if (changed) window.dispatchEvent(new CustomEvent("app:prefs"));
+    } else if (!data || (localAt && new Date(localAt) > new Date(data.updated_at))) {
+      ready = true; push(); return;
+    }
+    ready = true;
+  }
+  addEventListener("app:me", (e) => { if (e.detail?.id) start(e.detail); });
+  return { push, applyLookNow };
+})();
+/* ---------------- Glass top bars ----------------
+   The page header floats over the content (content scrolls underneath it and
+   shows through the frosted glass), like the bottom navigation already does. */
+(() => {
+  const setup = () => {
+    const pairs = [
+      [".profile-shell", ":scope > .profile-topbar"],
+      [".home-shell", ":scope > .home-header"],
+    ];
+    for (const [shellSel, barSel] of pairs) {
+      const shell = document.querySelector(shellSel);
+      const bar = shell?.querySelector(barSel);
+      if (!shell || !bar || shell.classList.contains("has-glass")) continue;
+      const sync = () => shell.style.setProperty("--bar-h", `${Math.ceil(bar.getBoundingClientRect().height)}px`);
+      sync();
+      shell.classList.add("has-glass");
+      try { new ResizeObserver(sync).observe(bar); } catch { addEventListener("resize", sync); }
+      // a soft shadow appears only once something has scrolled under the bar
+      shell.addEventListener("scroll", (e) => {
+        const t = e.target;
+        if (t && t !== bar && !bar.contains(t) && typeof t.scrollTop === "number") bar.classList.toggle("is-scrolled", t.scrollTop > 4);
+      }, { capture: true, passive: true });
+    }
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setup); else setup();
+})();
+/* ---------------- Error monitoring ----------------
+   Crashes and failed calls on real phones get written (quietly, capped) to
+   public.client_errors, so problems can be found without the user reporting them. */
+(() => {
+  const APP_VER = "v47";
+  const seen = new Set();
+  let queue = [], sent = 0, timer = 0;
+  const NOISE = /ResizeObserver loop|^Script error\.?$|chrome-extension:|moz-extension:|safari-extension:|AbortError|The user aborted|NotAllowedError|play\(\) request was interrupted|Load failed$|Failed to fetch$|NetworkError/i;
+  const text = (v) => {
+    if (v == null) return "";
+    if (typeof v === "string") return v;
+    if (v instanceof Error) return `${v.name}: ${v.message}`;
+    if (v.message) return [v.code, v.message, v.details].filter(Boolean).join(" · ");
+    try { return JSON.stringify(v).slice(0, 300); } catch { return String(v); }
+  };
+  const flush = async () => {
+    timer = 0;
+    if (!queue.length || typeof sb === "undefined") return;
+    const rows = queue.splice(0);
+    try {
+      const { data } = await sb.auth.getSession();
+      if (!data?.session) return;            // only signed-in users write logs
+      await sb.from("client_errors").insert(rows);
+    } catch {}
+  };
+  const report = (msg, stack) => {
+    msg = String(msg || "").slice(0, 600);
+    if (!msg || NOISE.test(msg) || sent >= 12) return;
+    const key = msg.slice(0, 160);
+    if (seen.has(key)) return;
+    seen.add(key); sent++;
+    queue.push({ message: msg, stack: stack ? String(stack).slice(0, 3000) : null, page: (location.pathname.split("/").pop() || "index.html") + location.search.slice(0, 120), ua: navigator.userAgent.slice(0, 400), app_ver: APP_VER });
+    if (!timer) timer = setTimeout(flush, 3000);
+  };
+  addEventListener("error", (e) => { if (e.error || e.message) report(text(e.error || e.message), e.error?.stack || `${e.filename || ""}:${e.lineno || ""}:${e.colno || ""}`); });
+  addEventListener("unhandledrejection", (e) => report("Unhandled: " + text(e.reason), e.reason?.stack));
+  const ce = console.error.bind(console);
+  console.error = (...a) => { ce(...a); try { report(a.map(text).join(" ").trim(), a.find((x) => x?.stack)?.stack); } catch {} };
+  addEventListener("pagehide", () => { if (queue.length) flush(); });
+  window.reportError2 = report;
 })();

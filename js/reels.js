@@ -80,7 +80,7 @@ function flushView(reel) {
   if (!reel?._seenAt || !reel.dataset.id) return;
   const ms = Math.round(performance.now() - reel._seenAt);
   reel._seenAt = 0;
-  if (ms > 1200) sb.rpc("log_reel_view", { p_reel: reel.dataset.id, p_ms: ms }).then(() => {}, () => {});
+  if (ms > 500) sb.rpc("log_reel_view", { p_reel: reel.dataset.id, p_ms: ms }).then(() => {}, () => {});
   if (reel.dataset.yt) {
     // quick swipe = "not for me", watched through = "more of this"
     reelSignal(reel.dataset.id, "view", ms);
