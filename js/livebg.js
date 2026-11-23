@@ -1117,7 +1117,7 @@
       if (!ready && !size()) { raf = requestAnimationFrame(loop); return; }
       if (REDUCE) { S.t = 6; draw(1 / 60); return; }
       raf = requestAnimationFrame(loop);
-      if (document.hidden || document.documentElement.hasAttribute("data-tp-still")) { last = 0; return; }
+      if (document.hidden || document.documentElement.hasAttribute("data-tp-still") || document.documentElement.hasAttribute("data-cp-wp")) { last = 0; return; }
       let dt = last ? (now - last) / 1000 : 1 / 60;
       if (S.half && dt < 1 / 40) return;
       last = now; dt = Math.min(dt, 0.05); S.t += dt;

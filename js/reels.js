@@ -409,15 +409,6 @@ function setPaused(el, paused) {
   }
 }
 
-function enterImmersive() {
-  reelsState.immersive = true;
-  document.body.classList.add("reels-immersive");
-  AppNav.enterFullscreen(() => {
-    reelsState.immersive = false;
-    document.body.classList.remove("reels-immersive");
-  });
-}
-
 function toggleMute() {
   reelsState.muted = !reelsState.muted;
   document.querySelectorAll(".reel video").forEach((v) => { v.muted = reelsState.muted; });

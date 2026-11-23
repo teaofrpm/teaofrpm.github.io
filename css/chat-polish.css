@@ -111,20 +111,6 @@
 .chat-header > div{ min-width:0; }
 .chat-header > div:first-child{ flex:1; }
 .chat-header > div:last-child{ flex-shrink:0; }
-#headerRoomName{
-  flex:1; min-width:0;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  font-size:clamp(16px, 4.6vw, 20px);
-  line-height:1.2;
-}
-.chat-header .online-count{
-  margin:0;
-  white-space:nowrap;
-  font-size:12px;
-}
-.chat-header .x4-room-av{ width:32px; height:32px; font-size:10px; }
 
 @media (max-width:760px){
   .chat-header{ padding:10px 12px; }
@@ -160,23 +146,7 @@
    These lived only in messages.css, which chat.html never loads, so the
    public room showed "You pinned a message" as bare text. */
 
-.system-msg-row{ display:flex; justify-content:center; margin:10px 0; }
-.system-msg-chip{
-  max-width:86%;
-  padding:6px 13px;
-  border-radius:999px;
-  background:var(--warm-cream);
-  border:1px solid var(--border-soft);
-  color:var(--text-muted);
-  font-size:11.5px; line-height:1.45; text-align:center;
-}
-.system-msg-chip b{ color:var(--text-dark); font-weight:700; }
-.system-msg-chip small{ opacity:.75; margin-left:5px; font-size:10.5px; }
-
 /* public room header: name on top, "N online" underneath */
-.x4-title-wrap{ display:flex; flex-direction:column; justify-content:center; flex:1; min-width:0; }
-.x4-title-wrap #headerRoomName{ flex:none; }
-.x4-title-wrap .online-count{ font-size:11.5px; font-weight:700; line-height:1.2; margin-top:1px; }
 
 .extras2-seen{ text-align:right; margin-top:3px; font-size:10.5px; color:var(--text-muted); }
 

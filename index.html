@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂 — RPM Student Chat</title>
+<title>𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</title>
 <meta name="description" content="The live chat room, DMs, reels and study tools built only for the students of RPM." />
 <script>
 /* Already logged in + verified? Jump straight to Home before this page even
@@ -17,6 +17,11 @@
     sessionStorage.setItem("teaofrpm_jump",String(Date.now()));
     document.documentElement.style.visibility="hidden";
     location.replace("home.html");
+  }else if(auth&&location.search.indexOf("add=1")===-1){
+    /* signed in but the quick jump was skipped: stay hidden while we route,
+       so the login screen never flashes up for a split second */
+    document.documentElement.style.visibility="hidden";
+    setTimeout(function(){document.documentElement.style.visibility="";},3000);
   }
 }catch(e){}})();
 </script>
@@ -30,11 +35,11 @@
 <meta name="theme-color" content="#8B0000" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<link rel="apple-touch-icon" href="images/apple-touch-icon.png" />
-<link rel="icon" href="images/icon.svg" type="image/svg+xml" /><link rel="alternate icon" href="images/icon-192.png" />
+<link rel="apple-touch-icon" href="images/apple-touch-icon.png?v=2" />
+<link rel="icon" href="images/icon.svg?v=2" type="image/svg+xml" /><link rel="alternate icon" href="images/icon-192.png?v=2" />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
-<link rel="stylesheet" href="css/app.css?v=47" />
-<link rel="stylesheet" href="css/landing.css?v=47" />
+<link rel="stylesheet" href="css/app.css?v=51" />
+<link rel="stylesheet" href="css/landing.css?v=51" />
 </head>
 <body class="auth-page">
 
@@ -42,7 +47,7 @@
 
 <main class="auth-wrap">
   <header class="auth-hero">
-    <img class="auth-logo" src="images/icon.svg" alt="" width="76" height="76" fetchpriority="high" onerror="this.onerror=null;this.src='images/icon-192.png'" />
+    <img class="auth-logo" src="images/icon.svg?v=2" alt="" width="76" height="76" fetchpriority="high" onerror="this.onerror=null;this.src='images/icon-192.png?v=2'" />
     <h1 class="auth-brand">𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂</h1>
     <p class="auth-tagline">The live chat room, DMs, reels and study tools — built only for the students of RPM.</p>
     <div class="auth-pills">
@@ -122,8 +127,8 @@
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=47"></script>
-<script src="js/core.js?v=47"></script>
+<script src="js/config.js?v=51"></script>
+<script src="js/core.js?v=51"></script>
 <script>
 (() => {
   const $ = (id) => document.getElementById(id);
@@ -248,7 +253,9 @@
   const ADDING = new URLSearchParams(location.search).get("add") === "1";
   (async () => {
     const { data } = await sb.auth.getSession();
+    const reveal = () => { document.documentElement.style.visibility = ""; };
     if (ADDING) {
+      reveal();
       if (data.session && typeof Accounts !== "undefined") Accounts.remember(data.session);
       $("loginSub").textContent = "Log in to add another account — your current one stays signed in.";
       showTab("login");
@@ -258,8 +265,10 @@
       const me = store.get("teaofrpm_me");
       if (me && me.id === data.session.user.id && me.is_verified && !me.banned) { location.replace("home.html"); return; }
       await routeAfterAuth();
+      setTimeout(reveal, 1200);   // still here (profile failed to load / banned) → show the page
       return;
     }
+    reveal();
     // first visit on this device → sign-up; been here before → log in
     if (!store.get("teaofrpm_accounts")?.length && !localStorage.getItem("teaofrpm_lg")) showTab("signup", false);
   })();

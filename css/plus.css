@@ -213,8 +213,7 @@ html { --cp-size: 15px; }
 .cp-tr { margin-top: 6px; padding: 6px 8px; border-radius: 8px; background: rgba(127,127,127,.14); font-size: 13.5px; }
 .cp-tr small { display: block; font-size: 10.5px; opacity: .7; font-weight: 700; text-transform: uppercase; }
 .msg-row.cp-kw .bubble { box-shadow: 0 0 0 2px #f59e0b !important; }
-.cp-heart { position: fixed; z-index: 99999; pointer-events: none; font-size: 64px; transform: translate(-50%, -50%) scale(0); animation: cpHeart .9s cubic-bezier(.2,.9,.3,1.3) forwards; }
-@keyframes cpHeart { 30% { transform: translate(-50%, -50%) scale(1.25); } 60% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(-50%, -140%) scale(.9); opacity: 0; } }
+
 html[data-cp-blur] #messages .msg-row:not(.cp-peek) .bubble { filter: blur(7px); }
 html[data-cp-blur] #messages .msg-row .bubble { transition: filter .2s; }
 html[data-cp-compact] #messages .msg-row { margin-top: 1px !important; margin-bottom: 1px !important; }
@@ -493,9 +492,9 @@ img.tp-in { animation: smImg .55s var(--ease-soft); }
 
 /* ---------- glass, where it looks good ---------- */
 .app-sheet { background: color-mix(in srgb, var(--white) 88%, transparent) !important; backdrop-filter: blur(26px) saturate(1.6); -webkit-backdrop-filter: blur(26px) saturate(1.6); box-shadow: 0 -10px 40px rgba(0,0,0,.14); border-top: 1px solid color-mix(in srgb, #fff 55%, transparent); }
-.new-chat-menu, .mf-menu, .x2-more, .plus-menu, .slash-pop, .cp-pop { background: color-mix(in srgb, var(--white) 82%, transparent) !important; backdrop-filter: blur(20px) saturate(1.5); -webkit-backdrop-filter: blur(20px) saturate(1.5); }
+.new-chat-menu, .x2-more, .cp-pop { background: color-mix(in srgb, var(--white) 82%, transparent) !important; backdrop-filter: blur(20px) saturate(1.5); -webkit-backdrop-filter: blur(20px) saturate(1.5); }
 .date-divider span, .system-chip { background: color-mix(in srgb, var(--white) 70%, transparent) !important; backdrop-filter: blur(10px) saturate(1.3); -webkit-backdrop-filter: blur(10px) saturate(1.3); }
-.room-page .composer, .composer { background: color-mix(in srgb, var(--white) 84%, transparent); backdrop-filter: blur(18px) saturate(1.5); -webkit-backdrop-filter: blur(18px) saturate(1.5); }
+.composer { background: color-mix(in srgb, var(--white) 84%, transparent); backdrop-filter: blur(18px) saturate(1.5); -webkit-backdrop-filter: blur(18px) saturate(1.5); }
 .ss-actions button span, .ss-preview { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
 .reel-actions > button { -webkit-tap-highlight-color: transparent; }
 .feed-card, .post-card { transition: transform .25s var(--ease-out, ease), box-shadow .25s; }
@@ -557,7 +556,6 @@ img.tp-in { animation: smImg .55s var(--ease-soft); }
 :root[data-chat-theme]:not([data-chat-theme="default"]) .composer .icon-btn { color: var(--ct-accent) !important; }
 :root[data-chat-theme]:not([data-chat-theme="default"]) #msgInput { color: var(--ct-other-fg) !important; background: transparent !important; }
 :root[data-chat-theme]:not([data-chat-theme="default"]) #msgInput::placeholder { color: var(--ct-meta); opacity: .8; }
-:root[data-chat-theme]:not([data-chat-theme="default"]) .room-header-accent,
 :root[data-chat-theme]:not([data-chat-theme="default"]) .chat-header { box-shadow: none !important; }
 /* a wallpaper photo shows behind header + composer glass too */
 html[data-cp-wp] .messages-wrap.cp-wp { background-size: cover; background-position: center; }
@@ -734,3 +732,140 @@ html[data-tp-still] body::after { display: none; }
 :focus-visible { outline: 2px solid color-mix(in srgb, var(--slate-blue) 80%, transparent); outline-offset: 2px; border-radius: 8px; }
 @media (hover: hover) { ::-webkit-scrollbar { width: 10px; height: 10px; } ::-webkit-scrollbar-thumb { background: rgba(127,127,127,.3); border-radius: 10px; border: 3px solid transparent; background-clip: padding-box; } ::-webkit-scrollbar-thumb:hover { background-color: rgba(127,127,127,.5); } }
 @media (prefers-reduced-motion: reduce) { .tp-ripple, .tp-burst { display: none; } .theme-swatch .live, .app-nav a.active svg, .like-btn.liked svg { animation: none; } }
+/* v47 fix: a chat wallpaper is the user's own choice, so it wins over the live scene (which also stops drawing) */
+html[data-cp-wp] .chat-motion.cm-canvas { display: none; }
+
+/* ============================================================
+   v49 — the Plus tools & games wear the app's own look:
+   royal purple, crimson and gold, serif headings, solid cards.
+   ============================================================ */
+/* plus.css used --text everywhere but it never existed, so text/board colours fell through */
+:root { --text: var(--text-dark); }
+
+/* sheets: brighter, same serif heading as every page header */
+.app-sheet { background: color-mix(in srgb, var(--white) 97%, transparent) !important; }
+.app-sheet-title { font-family: var(--serif); font-size: 20px; font-weight: 700; letter-spacing: .2px; color: var(--deep-royal); display: flex; align-items: center; justify-content: center; gap: 8px; }
+.app-sheet-title .tp-tic { display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; color: #fff; background: linear-gradient(135deg, #6A1B9A, #4A148C); box-shadow: 0 4px 10px -4px rgba(74,20,140,.6); }
+.app-sheet-title .tp-tic svg { width: 15px; height: 15px; }
+
+/* tools page hero = the home greeting card */
+.tp-hero { position: relative; overflow: hidden; background: linear-gradient(135deg, #4A148C, #8b0000 70%, #c2410c); box-shadow: 0 10px 28px rgba(74,20,140,.25); }
+.tp-hero::after { content: ""; position: absolute; right: -46px; top: -56px; width: 150px; height: 150px; border-radius: 50%; background: rgba(255,255,255,.1); pointer-events: none; }
+.tp-hero > * { position: relative; z-index: 1; }
+.tp-hero b { font-family: var(--sans); font-variant-numeric: tabular-nums; }
+
+/* tiles: app cards, one brand colour per section */
+.tp-tile { border-radius: 16px; background: var(--white); box-shadow: 0 1px 2px rgba(74,20,140,.05), 0 8px 22px -14px rgba(74,20,140,.35); }
+.tp-tile .tp-ic { border-radius: 16px; background: linear-gradient(135deg, #7B1FA2, #4A148C); box-shadow: 0 8px 18px -6px rgba(74,20,140,.55), inset 0 1px 0 rgba(255,255,255,.25); }
+.tp-tile[data-sec=Everyday] .tp-ic { background: linear-gradient(135deg, #C62828, #8B0000); box-shadow: 0 8px 18px -6px rgba(139,0,0,.5), inset 0 1px 0 rgba(255,255,255,.25); }
+.tp-tile[data-sec=Fun] .tp-ic { color: #3a2400; background: linear-gradient(135deg, #FFC93C, #F59E0B); box-shadow: 0 8px 18px -6px rgba(245,158,11,.55), inset 0 1px 0 rgba(255,255,255,.45); }
+.tp-tile[data-sec=Games] .tp-ic { background: linear-gradient(135deg, #4A148C, #8B0000 65%, #C2410C); box-shadow: 0 8px 18px -6px rgba(139,0,0,.5), inset 0 1px 0 rgba(255,255,255,.25); }
+.tp-tile em { background: linear-gradient(135deg, #8B0000, #C2410C); }
+.x3-t-fun .x3-tile-ic { background: linear-gradient(135deg, #FFC93C, #F59E0B); color: #3a2400; }
+
+/* numbers: the app font with even digits, not a code font */
+.tp-clock { font: 700 46px var(--sans); font-variant-numeric: tabular-nums; letter-spacing: -1.5px; color: var(--deep-royal); }
+.tp-time { font-family: var(--sans); font-variant-numeric: tabular-nums; }
+.tp-ring .bg { stroke: color-mix(in srgb, var(--deep-royal) 12%, transparent); }
+.tp-ring .fg { stroke: var(--deep-red); stroke-width: 10; }
+#tpFocus { background: linear-gradient(135deg, #8B0000, #C2410C); font: 700 13px var(--sans); font-variant-numeric: tabular-nums; box-shadow: 0 6px 18px rgba(139,0,0,.4); }
+
+/* games */
+.tp-ttt button { background: color-mix(in srgb, var(--deep-royal) 6%, var(--white)); border: 1px solid var(--border-soft); font-family: var(--serif); font-size: 46px; box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--deep-royal) 8%, transparent); }
+.tp-ttt .vX { color: var(--deep-red); } .tp-ttt .vO { color: var(--deep-royal); }
+.tp-c4 { background: linear-gradient(160deg, #4A148C, #2b0a3d); box-shadow: 0 12px 28px -12px rgba(74,20,140,.7); }
+.tp-c4 button { background: color-mix(in srgb, #fff 92%, #4A148C); box-shadow: inset 0 3px 6px rgba(0,0,0,.18); }
+.tp-c4 button.r { background: radial-gradient(circle at 35% 30%, #E53935, #8B0000); } .tp-c4 button.y { background: radial-gradient(circle at 35% 30%, #FFE08A, #F59E0B); }
+.tp-card .b { background: linear-gradient(135deg, #4A148C, #8B0000); }
+.tp-prompt { background: linear-gradient(135deg, #4A148C, #8B0000 70%, #C2410C); }
+.tp-react.res { background: var(--deep-royal); }
+.tp-best, .tp-coin svg { color: var(--gold-deep); }
+.tp-mem button, .tp-week button { border-radius: 12px; }
+
+/* chat extras */
+#tpNet { background: #2b0a3d; }
+.cp-fbar { background: #2b0a3d; }
+.cp-bar i { background: linear-gradient(90deg, #4A148C, #8B0000); }
+.cp-hours i.pk { background: var(--deep-red); }
+
+:root[data-theme="dark"] .tp-tile { box-shadow: 0 8px 22px -14px rgba(0,0,0,.8); }
+:root[data-theme="dark"] .app-sheet-title { color: var(--gold); }
+:root[data-theme="dark"] .tp-c4 button { background: #1e1c19; }
+
+/* ============================================================
+   v51 — detailing pass across the whole app:
+   warmer colours, lit avatars, a proper owner seal, badges,
+   buttons and little finishes, light + dark.
+   ============================================================ */
+:root { --pale-bg: #F3EEF6; --link: #7B1FA2; --seal-1: #FFF4C9; --seal-2: #FFD76E; --seal-3: #E9A92E; --seal-ink: #5A3700; }
+:root[data-theme="dark"] { --link: #D6A9FF; }
+
+/* links & mentions: brand purple instead of teal */
+a { color: var(--link); }
+a.mention, .bubble a.mention { color: var(--link); font-weight: 700; }
+.msg-row.own .bubble a.mention { color: #FFE9A8; }
+
+/* ---------- avatars: lit from the top, soft ring, crisp initials ---------- */
+.avatar { box-shadow: inset 0 1px 0 rgba(255,255,255,.32), inset 0 -3px 6px rgba(0,0,0,.14), 0 2px 8px -2px rgba(40,10,70,.35); text-shadow: 0 1px 2px rgba(0,0,0,.28); letter-spacing: .3px; }
+.avatar.is-online::after { background: radial-gradient(circle at 35% 35%, #6EE7A0, #16A34A); box-shadow: 0 0 0 0 rgba(34,197,94,.55); animation: v51Online 2.6s ease-out infinite; }
+@keyframes v51Online { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,.55); } 70%, 100% { box-shadow: 0 0 0 6px rgba(34,197,94,0); } }
+
+/* ---------- owner seal: gold, crown, a slow shine (was a loud red box) ---------- */
+.owner-badge {
+  position: relative; overflow: hidden; isolation: isolate;
+  display: inline-flex; align-items: center; gap: 3px; vertical-align: middle; flex: none;
+  padding: 2px 8px 2px 6px; border: 0; border-radius: 999px;
+  font: 700 10px/1.35 var(--sans); letter-spacing: .25px; text-transform: none; color: var(--seal-ink);
+  background: linear-gradient(135deg, var(--seal-1) 0%, var(--seal-2) 48%, var(--seal-3) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.85), inset 0 -1px 0 rgba(150,90,0,.28), 0 1px 3px rgba(170,110,0,.35);
+}
+.owner-badge::before {
+  content: ""; width: 11px; height: 11px; flex: none; background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2.5 7.6l5.1 4.3L12 4.2l4.4 7.7 5.1-4.3-2.2 10.6H4.7z'/%3E%3Crect x='4.7' y='19.7' width='14.6' height='2.1' rx='1.05'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M2.5 7.6l5.1 4.3L12 4.2l4.4 7.7 5.1-4.3-2.2 10.6H4.7z'/%3E%3Crect x='4.7' y='19.7' width='14.6' height='2.1' rx='1.05'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.owner-badge::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(110deg, transparent 28%, rgba(255,255,255,.8) 47%, transparent 64%); transform: translateX(-130%); animation: v51Shine 5s ease-in-out 1.2s infinite; }
+@keyframes v51Shine { 0%, 62% { transform: translateX(-130%); } 82%, 100% { transform: translateX(130%); } }
+#profileDisplayName .owner-badge { font-size: 11.5px; padding: 3px 10px 3px 8px; gap: 4px; margin-left: 4px; transform: translateY(-2px); }
+#profileDisplayName .owner-badge::before { width: 13px; height: 13px; }
+
+/* owner messages: a fine gold hairline + warm glow, not a thick yellow frame */
+.msg-row.owner-msg:not(.own) .bubble { background: linear-gradient(160deg, color-mix(in srgb, var(--seal-1) 55%, var(--white)), var(--white)) !important; border: 1px solid color-mix(in srgb, var(--seal-3) 55%, transparent) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--seal-2) 16%, transparent), 0 6px 16px -10px rgba(170,110,0,.55) !important; }
+.msg-row.owner-msg.own .bubble { border: 1px solid color-mix(in srgb, var(--seal-2) 70%, transparent) !important; box-shadow: 0 0 0 3px color-mix(in srgb, var(--seal-2) 18%, transparent), 0 8px 18px -10px rgba(139,0,0,.55) !important; }
+:root[data-theme="dark"] .msg-row.owner-msg:not(.own) .bubble { background: linear-gradient(160deg, #2a2312, #1d1a14) !important; border-color: rgba(233,169,46,.45) !important; }
+
+/* ---------- counters & small chips ---------- */
+.nav-badge, .notif-badge { background: linear-gradient(135deg, #E5506A, #8B0000) !important; color: #fff !important; box-shadow: 0 0 0 2px var(--white), 0 3px 8px -2px rgba(139,0,0,.55) !important; font-variant-numeric: tabular-nums; }
+.tea-ai-chip { background: linear-gradient(135deg, #7B1FA2, #4A148C); box-shadow: inset 0 1px 0 rgba(255,255,255,.3); }
+.private-badge { background: color-mix(in srgb, var(--deep-royal) 9%, var(--white)); color: var(--deep-royal); border: 1px solid color-mix(in srgb, var(--deep-royal) 18%, transparent); display: inline-flex; align-items: center; gap: 4px; }
+
+/* notifications */
+.notif-filters button { border: 1px solid var(--border-soft); background: var(--white); box-shadow: 0 1px 2px rgba(74,20,140,.05); transition: background .2s, color .2s, transform .15s; }
+.notif-filters button:active { transform: scale(.95); }
+.notif-filters button.on { background: linear-gradient(135deg, #6A1B9A, #4A148C); color: #fff; border-color: transparent; box-shadow: 0 6px 14px -8px rgba(74,20,140,.8); }
+.notif-row.unread, .notif-page .notif-row.unread { background: color-mix(in srgb, var(--deep-royal) 6%, var(--white)); box-shadow: inset 3px 0 0 color-mix(in srgb, var(--deep-royal) 55%, transparent); }
+:root[data-theme="dark"] .notif-filters button.on { background: var(--gold); color: #2a1d00; }
+
+/* profile buttons: white cards like the rest of the app, not flat grey */
+:root:not([data-theme="dark"]) .pa-btn:not(.primary) { background: var(--white); border: 1px solid var(--border-soft); color: var(--text-dark); box-shadow: 0 1px 2px rgba(74,20,140,.06), 0 6px 14px -12px rgba(74,20,140,.45); }
+.pa-btn.primary { box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 6px 14px -8px rgba(245,158,11,.7); }
+.stat-item b { font-variant-numeric: tabular-nums; }
+
+/* stories rail: warm fade in light, no grey slab in dark */
+.story-rail { background: linear-gradient(180deg, color-mix(in srgb, var(--warm-cream) 85%, transparent), color-mix(in srgb, var(--warm-cream) 15%, transparent)); }
+:root[data-theme="dark"] .story-rail { background: linear-gradient(180deg, #1c1915, rgba(28,25,21,0)); border-right-color: var(--border-soft); }
+
+/* feed + cards: hairline highlight on top edge, like glass catching light */
+.post-card, .feed-card, .settings-group, .thread-row { background-image: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 28px); }
+:root[data-theme="dark"] .post-card, :root[data-theme="dark"] .feed-card, :root[data-theme="dark"] .settings-group, :root[data-theme="dark"] .thread-row { background-image: linear-gradient(180deg, rgba(255,255,255,.035), rgba(255,255,255,0) 28px); }
+
+/* bot rows: brand gold accent instead of plain yellow */
+.bot-thread .avatar { background: linear-gradient(145deg, #FFC93C, #D9480F) !important; }
+
+/* text selection + caret in brand colours */
+::selection { background: color-mix(in srgb, var(--gold) 70%, transparent); }
+input, textarea { caret-color: var(--deep-red); }
+
+@media (prefers-reduced-motion: reduce) { .owner-badge::after, .avatar.is-online::after { animation: none; } }
+.private-badge { flex-direction: row !important; white-space: nowrap; padding: 4px 10px; line-height: 1; } .private-badge > span, .private-badge svg { display: inline-flex; flex: none; }
+.tea-ai-chip { color: #fff !important; } .thread-unread { background: linear-gradient(135deg, #E5506A, #8B0000) !important; color: #fff !important; box-shadow: 0 3px 8px -3px rgba(139,0,0,.6); font-variant-numeric: tabular-nums; }

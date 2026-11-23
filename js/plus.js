@@ -136,8 +136,8 @@
     try {
       if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
         const reg = await navigator.serviceWorker?.getRegistration();
-        if (reg) return reg.showNotification(title, { body, icon: "images/icon-192.png", data: { url } });
-        return new Notification(title, { body, icon: "images/icon-192.png" });
+        if (reg) return reg.showNotification(title, { body, icon: "images/icon-192.png?v=2", data: { url } });
+        return new Notification(title, { body, icon: "images/icon-192.png?v=2" });
       }
     } catch {}
     toast(`${title}${body ? " — " + body : ""}`, 5000);
@@ -191,7 +191,7 @@
     const ov = document.createElement("div");
     ov.className = "tp-lock";
     const bio = !!check && P.bioEnrolled();
-    ov.innerHTML = `<div class="tp-lock-box"><img src="images/icon.svg" alt="" class="tp-lock-logo"><b>${esc(title)}</b><div class="tp-dots">${"<i></i>".repeat(4)}</div><small class="tp-lock-msg"></small>
+    ov.innerHTML = `<div class="tp-lock-box"><img src="images/icon.svg?v=2" alt="" class="tp-lock-logo"><b>${esc(title)}</b><div class="tp-dots">${"<i></i>".repeat(4)}</div><small class="tp-lock-msg"></small>
       <div class="tp-pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9, "", 0, "⌫"].map((k) => k === "" ? (bio ? `<button type="button" class="tp-bio" data-bio aria-label="Use fingerprint or face"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 11c0 3-1 6-3 8"/><path d="M8 5.5A7 7 0 0 1 19 11c0 2-.3 4-1 6"/><path d="M5 9a7 7 0 0 1 1.5-2.5"/><path d="M5 13c0 1.5-.3 3-1 4"/><path d="M9 11a3 3 0 0 1 6 0c0 3.5-.8 6.5-2.5 9"/><path d="M15.5 15.5c-.2 1.5-.6 3-1.2 4.5"/></svg></button>` : "<span></span>") : `<button type="button" data-k="${k}">${k}</button>`).join("")}</div>
       ${check ? `<button type="button" class="tp-lock-forgot">Forgot PIN? Log out</button>` : `<button type="button" class="tp-lock-forgot" data-cancel>Cancel</button>`}</div>`;
     document.body.appendChild(ov);

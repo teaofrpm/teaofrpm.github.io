@@ -96,13 +96,6 @@
 .new-chat-menu button span{ color:var(--bright-red); display:flex; flex-shrink:0; }
 
 /* Rows you tap to start a DM */
-.people-pick-row{
-  width:100%; text-align:left; cursor:pointer;
-  transition:transform .12s ease, border-color .15s ease;
-}
-.people-pick-row:hover{ border-color:var(--gold-deep); }
-.people-pick-row:active{ transform:scale(.99); }
-.people-pick-row.busy{ opacity:.55; pointer-events:none; }
 
 /* ===== System messages (group renamed, photo changed, theme changed) ===== */
 .system-row{
@@ -152,28 +145,7 @@
 .new-chat-menu button:hover{ background:var(--dusty-rose); }
 .new-chat-menu button span{ color:var(--bright-red); display:flex; }
 
-.people-pick-row{
-  width:100%; text-align:left; cursor:pointer;
-  font-family:inherit;
-  transition:transform .12s ease, border-color .15s ease;
-}
-.people-pick-row:hover{ border-color:var(--gold-deep); }
-.people-pick-row:active{ transform:scale(.99); }
-.people-pick-row.busy{ opacity:.55; pointer-events:none; }
-
 /* ===== System messages (group renamed, photo changed, theme changed) ===== */
-.system-msg-row{ display:flex; justify-content:center; margin:10px 0; }
-.system-msg-chip{
-  max-width:86%;
-  padding:6px 13px;
-  border-radius:999px;
-  background:var(--warm-cream);
-  border:1px solid var(--border-soft);
-  color:var(--text-muted);
-  font-size:11.5px; line-height:1.45; text-align:center;
-}
-.system-msg-chip b{ color:var(--text-dark); font-weight:700; }
-.system-msg-chip small{ opacity:.75; margin-left:5px; font-size:10.5px; }
 
 .member-admin-tag{ color:var(--gold-deep); font-weight:700; }
 .settings-list-row button + button{ margin-left:6px; }

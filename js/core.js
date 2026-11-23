@@ -96,10 +96,13 @@ function escapeHTML(str) {
 }
 
 function colorFromName(name) {
-  const palette = ["#d8a53d", "#b52a3a", "#1fb6ad", "#c8863c", "#8f1e2b", "#3fa79d"];
+  // jewel tones that sit with the brand (royal / crimson / gold); each is a soft lit gradient
+  const palette = [["#9B4DD6", "#4A148C"], ["#E5506A", "#8B0000"], ["#F7BE4F", "#C2730A"], ["#D0609F", "#6E1A5C"],
+    ["#2FB7A6", "#0F6B66"], ["#7A72E8", "#33259A"], ["#F2925A", "#A23B12"], ["#E7A07E", "#9C4A33"]];
   let hash = 0;
   for (let i = 0; i < (name || "").length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return palette[Math.abs(hash) % palette.length];
+  const [a, b] = palette[Math.abs(hash) % palette.length];
+  return `linear-gradient(145deg, ${a}, ${b})`;
 }
 
 function initials(name) {
@@ -404,17 +407,6 @@ async function getProfiles(userIds) {
   }
   if (missing.length) await fetchProfiles(missing);
   return wanted.map((id) => profileCache.get(id)).filter(Boolean);
-}
-
-async function getProfileByUsername(username) {
-  const u = String(username || "").toLowerCase();
-  for (const p of profileCache.values()) {
-    if (p.username === u && isFresh(p.id)) return p;
-  }
-  const { data, error } = await sb.from("profiles").select("*").eq("username", u).maybeSingle();
-  if (error) { console.error(error); return null; }
-  if (data) rememberProfile(data);
-  return data;
 }
 
 /* ---------------- People ----------------
@@ -1860,7 +1852,7 @@ const PrefSync = (() => {
    Crashes and failed calls on real phones get written (quietly, capped) to
    public.client_errors, so problems can be found without the user reporting them. */
 (() => {
-  const APP_VER = "v47";
+  const APP_VER = "v51";
   const seen = new Set();
   let queue = [], sent = 0, timer = 0;
   const NOISE = /ResizeObserver loop|^Script error\.?$|chrome-extension:|moz-extension:|safari-extension:|AbortError|The user aborted|NotAllowedError|play\(\) request was interrupted|Load failed$|Failed to fetch$|NetworkError/i;
