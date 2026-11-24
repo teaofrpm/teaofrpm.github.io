@@ -1941,7 +1941,7 @@ const PrefSync = (() => {
    Crashes and failed calls on real phones get written (quietly, capped) to
    public.client_errors, so problems can be found without the user reporting them. */
 (() => {
-  const APP_VER = "v65";
+  const APP_VER = "v70";
   const seen = new Set();
   let queue = [], sent = 0, timer = 0;
   const NOISE = /ResizeObserver loop|^Script error\.?$|chrome-extension:|moz-extension:|safari-extension:|AbortError|The user aborted|NotAllowedError|play\(\) request was interrupted|Load failed$|Failed to fetch$|NetworkError/i;

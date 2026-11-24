@@ -624,6 +624,26 @@ function buildBotRow(m) {
   return row;
 }
 
+/* group calls: the header phone/video buttons + a "Join" banner while a call is on */
+function wireGroupCall() {
+  if (!window.GroupCall || !ME) return;
+  const a = document.getElementById("callAudioBtn"), v = document.getElementById("callVideoBtn");
+  a.style.display = v.style.display = "flex";
+  a.title = "Group voice call"; v.title = "Group video call";
+  a.onclick = () => GroupCall.join(false);
+  v.onclick = () => GroupCall.join(true);
+  if (document.getElementById("gcBanner")) return;
+  GroupCall.watch(convo, ME);
+  const b = document.createElement("div");
+  b.id = "gcBanner"; b.className = "gc-banner";
+  document.querySelector(".messages-wrap")?.prepend(b);
+  GroupCall.mountBanner(b);
+  GroupCall.onCount((n) => {
+    a.classList.toggle("gc-live-btn", n > 0); v.classList.toggle("gc-live-btn", n > 0);
+    document.querySelectorAll(".system-row .gc-join").forEach((j) => { j.hidden = !n; });
+  });
+}
+
 function buildSystemRow(m) {
   const row = document.createElement("div");
   row.className = "system-row";
@@ -633,6 +653,13 @@ function buildSystemRow(m) {
   const text = m.content || "updated the chat";
   // one quiet line, like Instagram: "Riya added Aman · 4:12 PM"
   row.innerHTML = `<div class="system-chip"><span><b>${escapeHTML(who)}</b> ${escapeHTML(text)}</span><small>${formatTime(m.created_at)}</small></div>`;
+  if (/^started a group call/.test(text) && window.GroupCall) {
+    const j = document.createElement("button");
+    j.type = "button"; j.className = "gc-join"; j.innerHTML = `${svgIcon("phone", 13)} Join`;
+    j.hidden = !GroupCall.count();
+    j.addEventListener("click", (e) => { e.stopPropagation(); GroupCall.join(false); });
+    row.querySelector(".system-chip").appendChild(j);
+  }
   row.title = new Date(m.created_at).toLocaleString();
   return row;
 }
@@ -778,6 +805,16 @@ function onLiveUpdate(m) {
 function removeRow(id) {
   const row = rendered.get(id);
   if (!row) return;
+  // GTA 6 Vibes theme: a deleted message gets stamped before it vanishes
+  if (document.documentElement.getAttribute("data-chat-theme") === "heist" && !row.dataset.stamped && row.querySelector(".bubble") && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    row.dataset.stamped = "1";
+    const s = document.createElement("div");
+    s.className = "caught-stamp"; s.textContent = "CAUGHT 🚨";
+    row.querySelector(".bubble").appendChild(s);
+    row.classList.add("is-caught");
+    setTimeout(() => removeRow(id), 950);
+    return;
+  }
   const next = row.nextElementSibling;
   const prev = row.previousElementSibling;
   row.remove();
@@ -1151,10 +1188,12 @@ function renderHeader() {
     setGroupAvatar(av, convo);
     link.removeAttribute("href");
     link.onclick = () => document.getElementById("roomInfoBtn").click();
+    wireGroupCall();
   }
   document.title = `${title.textContent} — 𝓉𝑒𝒶𝑜𝒻𝓇𝓅𝓂`;
   paintVanishChip();
   applyChatTheme(convo.theme);
+  if (!loadDbThemes.started) { loadDbThemes.started = true; loadDbThemes(); }
   window.ChatPlus?.applyLook?.();     // shared chat wallpaper
   renderPresence();
   const prev = store.get(headerKey()) || {};
@@ -1224,6 +1263,7 @@ const CHAT_THEMES = [
   ["coffee", "Coffee", "#ecdfd4", "#94704f", "#fffaf5"],
   ["mono", "Mono", "#f4f4f5", "#18181b", "#fff"],
   ["galaxy", "Galaxy", "#1d1650", "#b14bb0", "#2d2766"],
+  ["heist", "GTA 6 Vibes", "#12061f", "#fc3f93", "#2b1055"],
   // live (animated) backgrounds
   ["stars", "Starry night", "linear-gradient(180deg,#0b1026,#1b2550)", "#6d8cff", "#26325c"],
   ["northern", "Northern lights", "linear-gradient(160deg,#020617,#064e3b 55%,#312e81)", "#34d399", "#1e293b"],
@@ -1266,11 +1306,45 @@ function applyChatMotion(theme) {
 }
 document.addEventListener("visibilitychange", () => document.documentElement.classList.toggle("cm-paused", document.hidden));
 
+/* ---------- themes from the database (chat_themes): new ones need no app update ---------- */
+const DB_THEMES = new Map();
+function useDbThemes(list) {
+  for (const t of list || []) {
+    DB_THEMES.set(t.key, t);
+    const row = [t.key, t.name, t.swatch_bg || "#1f1b2e", t.swatch_own || "#8b5cf6", t.swatch_other || "#2d2766"];
+    const i = CHAT_THEMES.findIndex(([k]) => k === t.key);
+    if (i >= 0) CHAT_THEMES[i] = row; else CHAT_THEMES.push(row);
+  }
+  let st = document.getElementById("dbThemeVars");
+  if (!st) { st = document.createElement("style"); st.id = "dbThemeVars"; document.head.appendChild(st); }
+  // only well-formed --ct-* variables get through
+  st.textContent = [...DB_THEMES.values()].map((t) => `:root[data-chat-theme="${t.key.replace(/[^a-z0-9_-]/g, "")}"]{${Object.entries(t.vars || {})
+    .filter(([k, v]) => /^--ct-[a-z0-9-]+$/.test(k) && !/[;{}<>]/.test(String(v))).map(([k, v]) => `${k}:${v}`).join(";")}}`).join("\n");
+}
+async function loadDbThemes() {
+  useDbThemes(store.get("teaofrpm_dbthemes", []));
+  const { data, error } = await sb.from("chat_themes")
+    .select("key,name,swatch_bg,swatch_own,swatch_other,vars,is_dark,art_url,art_wide_url,art_dark_url,sort,version")
+    .eq("builtin", false).eq("active", true).order("sort");
+  if (error || !data) return;
+  store.set("teaofrpm_dbthemes", data);
+  useDbThemes(data);
+  if (convo && DB_THEMES.has(convo.theme)) applyChatTheme(convo.theme);
+  if (document.querySelector("#roomInfoSheet .theme-row")) renderThemeRow();
+}
+
 function applyChatTheme(theme) {
   const t = CHAT_THEMES.some(([k]) => k === theme) ? theme : "default";
   if (t === "default") document.documentElement.removeAttribute("data-chat-theme");
   else document.documentElement.setAttribute("data-chat-theme", t);
   applyChatMotion(t);
+  const wrap = document.querySelector(".messages-wrap");
+  const dbt = DB_THEMES.get(t);
+  document.documentElement.toggleAttribute("data-ct-dark", !!dbt?.is_dark);
+  if (wrap && window.ThemeArt) {
+    if (dbt?.art_url) ThemeArt.applyUrl(wrap, dbt);
+    else ThemeArt.apply(wrap, MOTION_COUNTS[t] ? "" : t);
+  }
 }
 
 function renderThemeRow() {
@@ -1289,7 +1363,7 @@ function renderThemeRow() {
       `<span class="ri-val"><i class="ri-dot" style="background:${curT[2]};box-shadow:inset 0 0 0 4px ${curT[3]}"></i>${escapeHTML(curT[1])}</span><span class="ri-chev">${svgIcon("chevronDown", 16)}</span>`)}</button>
     <div class="ri-acc-body"><span class="hint">${canEdit ? "Everyone in this chat sees the theme you pick." : "Only the owner can change the public room's theme."}</span>
     <div class="theme-grid">${CHAT_THEMES.map(([k, name, bg, own, other]) =>
-      `<button type="button" class="theme-swatch${k === cur ? " on" : ""}" data-k="${k}" style="background:${bg}" ${canEdit ? "" : "disabled"} aria-label="${name}">
+      `<button type="button" class="theme-swatch${k === cur ? " on" : ""}${window.ThemeArt?.has(k) || DB_THEMES.get(k)?.art_url ? " has-art" : ""}" data-k="${k}" style="background:${window.ThemeArt?.has(k) ? `center/cover no-repeat url('data:image/svg+xml;charset=utf-8,${encodeURIComponent(ThemeArt.svgFor(k, document.documentElement.dataset.theme === "dark"))}'), ${bg}` : DB_THEMES.get(k)?.art_url ? `center/cover no-repeat url("${encodeURI(DB_THEMES.get(k).art_url)}"), ${bg}` : bg}" ${canEdit ? "" : "disabled"} aria-label="${escapeHTML(name)}">
         <i style="background:${other}"></i><i class="o" style="background:${own}"></i><i style="background:${other}"></i><em>${name}</em>${MOTION_COUNTS[k] ? `<s class="live">LIVE</s>` : ""}</button>`).join("")}</div></div>`;
   wireAccordion(row, "theme");
   row.querySelectorAll(".theme-swatch").forEach((b) => b.addEventListener("click", async () => {
@@ -3201,18 +3275,23 @@ function plusMenu(input) {
   ];
   const QUICK = ["😂", "❤️", "🔥", "👍", "🙏", "😭", "💯", "🎉"];
   const menu = document.createElement("div");
-  menu.className = "x3-plus";
+  menu.className = "x3-plus x3-plus-dial";
   menu.setAttribute("role", "menu");
   menu.innerHTML = `
     <div class="x3-plus-emoji">${[...new Set([...EmojiPicker.recents().slice(0, 4), ...QUICK])].slice(0, 8).map((e) => `<button type="button" data-emoji="${e}">${e}</button>`).join("")}<button type="button" class="x3-emoji-more" data-more-emoji aria-label="All emoji">${svgIcon("plus", 16)}</button></div>
-    <div class="x3-plus-grid">${tiles.map(([icon, label, cls], i) => `
-      <button type="button" class="x3-tile ${cls}" data-tile="${i}" style="--i:${i}"><span class="x3-tile-ic">${svgIcon(icon, 20)}</span><span class="x3-tile-label">${label}</span></button>`).join("")}</div>
+    <div class="x3-dial" role="group" aria-label="Tools — drag to turn">
+      <svg class="x3-dial-art" aria-hidden="true"></svg>
+      <div class="x3-dial-items">${tiles.map(([icon, label, cls], i) => `
+        <button type="button" class="x3-tile ${cls}" data-tile="${i}" data-key="${cls}"><span class="x3-tile-ic">${svgIcon(icon, 21)}</span><span class="x3-tile-label">${label}</span></button>`).join("")}</div>
+      <div class="x3-dial-hub"><b>Most used</b><small>${tiles.length > 6 ? "drag to turn ⟲" : "tools"}</small></div>
+    </div>
     ${dictation ? `<div class="x3-plus-lang"><span>Voice typing language</span><div class="x3-seg" role="radiogroup"><button type="button" data-lang="en-IN">English</button><button type="button" data-lang="hi-IN">हिंदी</button></div></div>` : ""}`;
   composer.appendChild(menu);
 
   const syncLang = () => menu.querySelectorAll("[data-lang]").forEach((b) => b.classList.toggle("on", b.dataset.lang === dictation.getLang()));
   if (dictation) syncLang();
-  const open = () => { menu.classList.add("show"); btn.classList.add("open"); btn.setAttribute("aria-expanded", "true"); };
+  const dial = wireDial(menu, tiles);
+  const open = () => { dial.arrange(); menu.classList.add("show"); btn.classList.add("open"); btn.setAttribute("aria-expanded", "true"); };
   const close = () => { menu.classList.remove("show"); btn.classList.remove("open"); btn.setAttribute("aria-expanded", "false"); };
   btn.addEventListener("click", (e) => { e.stopPropagation(); menu.classList.contains("show") ? close() : open(); });
   document.addEventListener("click", (e) => { if (menu.classList.contains("show") && !menu.contains(e.target)) close(); });
@@ -3236,11 +3315,119 @@ function plusMenu(input) {
     const lang = e.target.closest("[data-lang]");
     if (lang && dictation) { dictation.setLang(lang.dataset.lang); syncLang(); return; }
     const tile = e.target.closest("[data-tile]");
-    if (tile) { close(); if (convo) tiles[Number(tile.dataset.tile)][3](); }
+    if (tile) { if (dial.dragged()) return; dial.used(tile.dataset.key); close(); if (convo) tiles[Number(tile.dataset.tile)][3](); }
   });
 }
 
-// GIF search (gif-search edge function → GIPHY/Tenor). Tap one to send it straight away.
+/* ---------- the + dial: a half-circle of tools, most used first, turn it for the rest ---------- */
+function wireDial(menu, tiles) {
+  const box = menu.querySelector(".x3-dial"), art = box.querySelector(".x3-dial-art"), hub = box.querySelector(".x3-dial-hub b");
+  const KEY = "teaofrpm_dial_use", STEP = 30, SHOW = 6;
+  let order = [], rot = 0, R = 130, cx = 0, cy = 0, moved = false, dragging = false;
+  const btns = () => [...box.querySelectorAll(".x3-tile")];
+  const maxRot = () => Math.max(0, (order.length - SHOW) * STEP);
+  function place(animate) {
+    btns().forEach((b) => {
+      const i = order.indexOf(b.dataset.key);
+      const th = 165 - STEP * i + rot;                     // degrees, 180 = left end of the arc
+      const rad = th * Math.PI / 180;
+      const vis = th > -8 && th < 188;
+      const edge = Math.min(1, Math.max(0, Math.min(th + 8, 188 - th) / 22));
+      b.style.transition = animate ? "" : "none";
+      b.style.transform = `translate(${(cx + R * Math.cos(rad)).toFixed(1)}px, ${(cy - R * Math.sin(rad)).toFixed(1)}px) translate(-50%, -50%) scale(${(0.7 + 0.3 * edge).toFixed(3)})`;
+      b.style.opacity = vis ? edge.toFixed(3) : "0";
+      b.style.pointerEvents = vis && edge > 0.5 ? "" : "none";
+      b.tabIndex = vis ? 0 : -1;
+    });
+    const top = order[Math.round((rot + 75) / STEP)] ;
+    const t = tiles.find((x) => x[2] === top);
+    if (t) hub.textContent = rot < 1 ? "Most used" : t[1];
+    box.style.setProperty("--rot", `${rot}deg`);
+  }
+  function measure() {
+    const w = box.clientWidth || 340;
+    R = Math.max(104, Math.min(150, (w - 64) / 2));
+    cx = w / 2; cy = R + 34;
+    box.style.height = `${cy + 22}px`;
+    // the dial face: rings, tick marks and a soft glow (drawn once per size)
+    const ticks = Array.from({ length: 37 }, (_, i) => {
+      const a = Math.PI * i / 36, long = i % 6 === 0, r1 = R + 30, r2 = r1 - (long ? 9 : 5);
+      return `<line x1="${(cx + r1 * Math.cos(a)).toFixed(1)}" y1="${(cy - r1 * Math.sin(a)).toFixed(1)}" x2="${(cx + r2 * Math.cos(a)).toFixed(1)}" y2="${(cy - r2 * Math.sin(a)).toFixed(1)}" class="${long ? "tk-l" : "tk"}"/>`;
+    }).join("");
+    art.setAttribute("viewBox", `0 0 ${w} ${cy + 22}`);
+    art.innerHTML = `<defs><radialGradient id="dlg" cx="50%" cy="100%" r="75%"><stop offset="0" stop-color="var(--dial-glow)" stop-opacity=".55"/><stop offset="1" stop-color="var(--dial-glow)" stop-opacity="0"/></radialGradient></defs>
+      <path d="M ${cx - R - 34} ${cy} A ${R + 34} ${R + 34} 0 0 1 ${cx + R + 34} ${cy} Z" fill="url(#dlg)"/>
+      <path class="ring" d="M ${cx - R - 26} ${cy} A ${R + 26} ${R + 26} 0 0 1 ${cx + R + 26} ${cy}"/>
+      <path class="ring2" d="M ${cx - R} ${cy} A ${R} ${R} 0 0 1 ${cx + R} ${cy}"/>
+      <path class="ring3" d="M ${cx - R + 30} ${cy} A ${R - 30} ${R - 30} 0 0 1 ${cx + R - 30} ${cy}"/>
+      <g class="ticks">${ticks}</g>`;
+  }
+  function arrange() {
+    const use = store.get(KEY, {}) || {};
+    const base = tiles.map((t) => t[2]);
+    order = [...base].sort((a, b) => (use[b] || 0) - (use[a] || 0) || base.indexOf(a) - base.indexOf(b));
+    rot = 0;
+    requestAnimationFrame(() => { measure(); place(false); requestAnimationFrame(() => box.classList.add("ready")); });
+  }
+  let sx = 0, sRot = 0, lastX = 0, lastT = 0, vel = 0;
+  box.addEventListener("pointerdown", (e) => { dragging = true; moved = false; sx = lastX = e.clientX; sRot = rot; lastT = e.timeStamp; vel = 0; });
+  addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const dx = e.clientX - sx;
+    if (!moved && Math.abs(dx) < 6) return;
+    if (!moved) { moved = true; try { box.setPointerCapture(e.pointerId); } catch {} }
+    let r = sRot - (dx / R) * (180 / Math.PI);
+    if (r < 0) r = r / 3; if (r > maxRot()) r = maxRot() + (r - maxRot()) / 3;   // rubber band at the ends
+    vel = (e.clientX - lastX) / Math.max(1, e.timeStamp - lastT); lastX = e.clientX; lastT = e.timeStamp;
+    rot = r; place(false);
+  });
+  const end = () => {
+    if (!dragging) return;
+    dragging = false;
+    if (!moved) return;
+    const fling = -vel * 140;                                // a quick flick spins a little further
+    rot = Math.min(maxRot(), Math.max(0, Math.round((rot + fling) / STEP) * STEP));
+    place(true);
+    setTimeout(() => { moved = false; }, 60);
+  };
+  addEventListener("pointerup", end); addEventListener("pointercancel", end);
+  box.addEventListener("wheel", (e) => { e.preventDefault(); rot = Math.min(maxRot(), Math.max(0, rot + Math.sign(e.deltaY || e.deltaX) * STEP)); place(true); }, { passive: false });
+  addEventListener("resize", () => { if (menu.classList.contains("show")) { measure(); place(false); } });
+  return {
+    arrange,
+    dragged: () => moved,
+    used(k) { const u = store.get(KEY, {}) || {}; u[k] = (u[k] || 0) + 1; store.set(KEY, u); },
+  };
+}
+
+// Built-in animated emoji (Google Noto Animated Emoji, CC BY 4.0) - works with no GIF key at all.
+const NOTO_GIFS = [
+  ["1f602", "haha lol laugh joy funny"], ["1f923", "haha rofl lol laugh rolling"], ["1f606", "haha laugh lol xd"], ["1f605", "haha sweat nervous oops"],
+  ["1f60d", "love heart eyes crush"], ["1f970", "love hearts cute aww"], ["1f618", "love kiss bye"], ["2764_fe0f", "love heart red"], ["1f496", "love heart sparkle"],
+  ["1f494", "sad broken heart"], ["1f62d", "sad cry crying sob"], ["1f622", "sad cry tear"], ["1f97a", "sad please pleading cute"], ["1f614", "sad pensive"],
+  ["1f44d", "ok yes thumbs up good"], ["1f44c", "ok perfect"], ["1f64f", "thank you thanks please pray"], ["1f44f", "clap wow nice congrats"], ["1f64c", "yay celebrate praise"],
+  ["1f62e", "wow surprised shock"], ["1f632", "wow astonished shock"], ["1f92f", "wow mind blown"], ["1f631", "wow scream scared omg"], ["1f633", "wow flushed embarrassed"],
+  ["1f483", "dance party girl"], ["1f57a", "dance party boy"], ["1f389", "party congrats celebrate"], ["1f973", "party birthday celebrate"], ["1f38a", "party confetti"],
+  ["1f44b", "bye hi hello wave"], ["1f60e", "cool sunglasses"], ["1f525", "fire lit hot"], ["1f4af", "100 perfect"], ["2728", "sparkles magic"],
+  ["1f914", "think hmm"], ["1f644", "eye roll whatever"], ["1f612", "unamused meh"], ["1f624", "angry huff"], ["1f621", "angry mad rage"], ["1f620", "angry mad"],
+  ["1f92c", "angry swear"], ["1f608", "devil naughty"], ["1f480", "dead skull dying lol"], ["1f47b", "ghost boo"], ["1f921", "clown"], ["1f4a9", "poop"],
+  ["1f634", "sleep tired zzz"], ["1f971", "yawn bored tired"], ["1f924", "drool yummy"], ["1f60b", "yummy tasty food"], ["1f911", "money rich"], ["1f917", "hug"],
+  ["1f92d", "oops giggle"], ["1f92b", "shh secret quiet"], ["1f910", "zip quiet"], ["1f62c", "grimace awkward"], ["1f925", "liar"], ["1f975", "hot sweat"],
+  ["1f976", "cold freezing"], ["1f974", "woozy drunk"], ["1f635", "dizzy"], ["1f920", "cowboy yeehaw"], ["1f913", "nerd study exam"], ["1f9d0", "monocle hmm"],
+  ["1f607", "angel innocent"], ["1f642", "smile ok"], ["1f609", "wink"], ["1f61c", "tongue wink crazy"], ["1f92a", "crazy zany"], ["1f601", "grin happy"],
+  ["1f600", "happy smile"], ["1f603", "happy smile"], ["1f604", "happy smile"], ["1f60a", "blush happy"], ["1f929", "star struck wow"], ["1f60c", "relieved"],
+  ["1f440", "eyes look"], ["1f4aa", "strong muscle gym"], ["1f91d", "deal handshake"], ["270c_fe0f", "peace victory"], ["1f91e", "fingers crossed luck"],
+  ["1f3cf", "cricket bat"], ["26bd", "football goal"], ["1f3c6", "trophy win champion"], ["1f382", "birthday cake"], ["1f381", "gift present"],
+  ["1f4a5", "boom"], ["1f4a8", "dash fast"], ["1f30d", "world earth"], ["2600_fe0f", "sun sunny"], ["1f308", "rainbow"], ["2614", "rain"], ["26a1", "lightning"],
+  ["1f431", "cat"], ["1f436", "dog"], ["1f648", "monkey see no evil oops"], ["1f649", "monkey hear"], ["1f64a", "monkey speak"], ["1f984", "unicorn"],
+];
+function notoGifs(q) {
+  const words = String(q || "").toLowerCase().split(/\s+/).filter(Boolean);
+  const hits = words.length ? NOTO_GIFS.filter(([, k]) => words.every((w) => k.includes(w))) : NOTO_GIFS;
+  return (hits.length ? hits : NOTO_GIFS).map(([c, k]) => ({ id: c, url: `https://fonts.gstatic.com/s/e/notoemoji/latest/${c}/512.gif`, preview: `https://fonts.gstatic.com/s/e/notoemoji/latest/${c}/512.webp`, w: 1, h: 1, title: k.split(" ")[0] }));
+}
+
+// GIF search (gif-search edge function -> KLIPY/GIPHY), else built-in animated emoji. Tap one to send it.
 function openGifPicker(uploadOwn) {
   const s = makeSheet({ title: "GIFs", className: "gif-sheet", html: `
     <div class="ss-search"><span>${svgIcon("search", 15)}</span><input type="search" placeholder="Search GIFs…" autocomplete="off" enterkeyhint="search" /></div>
@@ -3251,27 +3438,32 @@ function openGifPicker(uploadOwn) {
   s.onClose = () => setTimeout(() => s.el.remove(), 300);
   s.open();
   const grid = s.body.querySelector(".gif-grid"), input = s.body.querySelector("input");
-  let q = "", next = "", busy = false, token = 0;
+  let q = "", next = "", busy = false, token = 0, noKey = false;
+  const anonId = () => { let h = 0; for (const c of String(ME?.id || "")) h = (Math.imul(h, 31) + c.charCodeAt(0)) | 0; return "u" + (h >>> 0).toString(36); };
   const load = async (more = false) => {
     if (busy && more) return;
     busy = true;
     const my = ++token;
     if (!more) { next = ""; grid.innerHTML = `<div class="settings-empty">Loading…</div>`; }
-    const { data, error } = await sb.functions.invoke("gif-search", { body: { q, pos: next, limit: 24 } });
+    let { data, error } = noKey ? { data: { error: "no_key" } } : await sb.functions.invoke("gif-search", { body: { q, pos: next, limit: 24, uid: anonId() } });
     busy = false;
     if (my !== token) return;
     if (error || data?.error) {
-      grid.innerHTML = `<div class="settings-empty">${data?.error === "no_key" ? "GIF search is coming soon — you can still send a GIF from your phone 👇" : "Couldn't load GIFs. Try again."}</div>`;
-      return;
+      // no GIF key on the server (or it's down): free animated emoji instead (Google Noto, CC BY 4.0)
+      if (data?.error === "no_key") noKey = true;
+      if (more) return;
+      data = { provider: "noto", items: notoGifs(q), next: "" };
     }
     if (!more) grid.innerHTML = "";
-    s.body.querySelector(".gif-credit").textContent = data.provider === "giphy" ? "Powered by GIPHY" : data.provider === "tenor" ? "Via Tenor" : "";
+    s.body.querySelector(".gif-credit").textContent = data.provider === "giphy" ? "Powered by GIPHY" : data.provider === "tenor" ? "Via Tenor" : data.provider === "klipy" ? "Powered by KLIPY" : data.provider === "noto" ? "Animated emoji · Google Noto" : "";
+    grid.classList.toggle("gif-noto", data.provider === "noto");
     for (const g of data.items || []) {
       const b = document.createElement("button");
       b.type = "button"; b.className = "gif-item";
       b.style.aspectRatio = `${g.w || 1} / ${g.h || 1}`;
       b.innerHTML = `<img alt="${escapeHTML(g.title || "GIF")}" loading="lazy" decoding="async" />`;
       b.querySelector("img").src = g.preview || g.url;
+      b.querySelector("img").addEventListener("error", () => b.remove(), { once: true });
       b.addEventListener("click", async () => {
         s.close();
         await new Promise((r) => setTimeout(r, 80));
@@ -3801,3 +3993,20 @@ async function leaveGroup() {
 }
 
 init();
+
+/* the composer floats over the chat: keep its live height in --cmp-h so the last message,
+   the typing bubble and the jump button always sit just above it */
+(() => {
+  const c = document.querySelector(".room-shell .composer"), shell = document.querySelector(".room-shell");
+  if (!c || !shell || !window.ResizeObserver) return;
+  let last = 0;
+  new ResizeObserver(() => {
+    const h = Math.round(c.getBoundingClientRect().height);
+    if (h === last) return;
+    const list = document.getElementById("messages");
+    const atBottom = list && list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+    last = h;
+    shell.style.setProperty("--cmp-h", `${h}px`);
+    if (atBottom) requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
+  }).observe(c);
+})();
