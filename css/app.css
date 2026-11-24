@@ -2785,3 +2785,71 @@ html.pe-open, html.pe-open body{ overflow:hidden; }
 .fb-kinds button{ flex:1; border:1px solid var(--border-soft); background:var(--white); color:var(--text); border-radius:12px; padding:10px 6px; font:600 13.5px var(--sans); cursor:pointer; }
 .fb-kinds button.on{ border-color:var(--deep-royal); background:color-mix(in srgb, var(--deep-royal) 10%, transparent); }
 .fb-text{ width:100%; box-sizing:border-box; border:1px solid var(--border-soft); border-radius:14px; padding:12px; font:inherit; resize:vertical; background:var(--white); color:var(--text); }
+
+/* ---------- preview before anything goes out ---------- */
+.pv-wrap{ position:fixed; inset:0; z-index:9000; display:flex; flex-direction:column; background:rgba(8,7,7,.96); color:#fff;
+  padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px); opacity:0; transition:opacity .22s ease; -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
+.pv-wrap.show{ opacity:1; }
+.pv-top{ display:grid; grid-template-columns:44px 1fr 44px; align-items:center; padding:8px 10px; }
+.pv-top b{ text-align:center; font:700 16px var(--sans); }
+.pv-x{ width:40px; height:40px; border-radius:50%; border:0; background:rgba(255,255,255,.12); color:#fff; display:grid; place-items:center; cursor:pointer; }
+.pv-stage{ flex:1; min-height:0; display:grid; place-items:center; padding:8px 16px; transform:scale(.96); transition:transform .32s cubic-bezier(.16,1,.3,1); }
+.pv-wrap.show .pv-stage{ transform:none; }
+.pv-media{ display:block; max-width:100%; max-height:100%; border-radius:16px; object-fit:contain; box-shadow:0 18px 50px rgba(0,0,0,.5); }
+.pv-f-circle .pv-media{ width:min(72vw, 300px); height:min(72vw, 300px); max-height:none; border-radius:50%; object-fit:cover; border:3px solid rgba(255,255,255,.9); }
+.pv-story{ position:relative; height:100%; max-height:min(100%, 720px); aspect-ratio:9/16; max-width:100%; border-radius:18px; overflow:hidden; background:#000; box-shadow:0 18px 50px rgba(0,0,0,.5); }
+.pv-story .pv-media{ width:100%; height:100%; max-height:none; border-radius:0; object-fit:contain; box-shadow:none; }
+.pv-story-top{ position:absolute; left:10px; right:10px; top:10px; height:3px; border-radius:3px; background:rgba(255,255,255,.35); }
+.pv-story-top span{ display:block; width:30%; height:100%; border-radius:3px; background:#fff; }
+.pv-chat{ position:relative; width:min(100%, 380px); height:100%; max-height:560px; border-radius:22px; overflow:hidden; background:#1c1917 center/cover no-repeat;
+  display:flex; flex-direction:column; justify-content:flex-end; gap:8px; padding:16px; box-sizing:border-box; box-shadow:0 18px 50px rgba(0,0,0,.5); }
+.pv-chat-plain{ background:linear-gradient(160deg,#2a2321,#141110); justify-content:center; }
+.pv-chat-dim{ position:absolute; inset:0; background:rgba(0,0,0,.25); }
+.pv-b{ position:relative; max-width:72%; padding:9px 13px; border-radius:18px; font:500 14.5px var(--sans); line-height:1.35; }
+.pv-b-in{ align-self:flex-start; background:rgba(255,255,255,.92); color:#1a1a1a; border-bottom-left-radius:6px; }
+.pv-b-out{ align-self:flex-end; background:linear-gradient(135deg,#8B0000,#c0392b); color:#fff; border-bottom-right-radius:6px; }
+.pv-out-media{ align-self:flex-end; max-width:70%; }
+.pv-out-media .pv-media{ max-height:260px; box-shadow:none; }
+.pv-note{ margin:0; padding:0 24px; text-align:center; font:500 13px var(--sans); color:rgba(255,255,255,.7); }
+.pv-acts{ display:flex; gap:10px; padding:14px 16px 16px; }
+.pv-acts .btn{ flex:1; display:inline-flex; align-items:center; justify-content:center; gap:7px; min-height:48px; border-radius:999px; }
+.pv-acts .btn-ghost{ background:rgba(255,255,255,.12); color:#fff; border-color:transparent; }
+@media (min-width:700px){ .pv-acts{ width:min(520px, 100%); margin:0 auto; box-sizing:border-box; } }
+/* ---------- call: minimise button, more controls, floating mini call ---------- */
+.call-min-btn{ position:absolute; z-index:3; left:14px; top:calc(12px + env(safe-area-inset-top, 0px)); width:42px; height:42px; border-radius:50%; border:0;
+  display:grid; place-items:center; color:#fff; background:rgba(255,255,255,.16); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); cursor:pointer; -webkit-tap-highlight-color:transparent; }
+.call-min-btn:active{ transform:scale(.92); }
+.call-name-wrap{ display:flex; flex-direction:column; align-items:center; gap:6px; min-width:0; }
+.call-name{ font-family:var(--display, var(--sans)); letter-spacing:-.02em; }
+.call-overlay.is-video.mode-connected .call-name-wrap{ flex-direction:row; align-items:baseline; gap:10px; }
+.call-overlay.is-video.mode-connected .call-center{ padding:0 64px; }
+.call-overlay.no-cam .call-local-video{ display:none !important; }
+.call-controls{ flex-wrap:wrap; padding:0 12px; }
+.call-controls.many{ gap:12px; }
+.call-controls.many .call-btn{ width:54px; height:54px; }
+.call-overlay.is-audio .call-remote-video{ display:none !important; }
+
+.call-overlay.mini{ inset:auto; right:12px; bottom:calc(var(--nav-h, 64px) + 14px + env(safe-area-inset-bottom, 0px)); z-index:950;
+  display:flex; align-items:center; height:62px; max-width:calc(100vw - 24px); border-radius:999px; padding:0 8px 0 9px; gap:10px;
+  box-shadow:0 14px 34px -8px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.12) inset; cursor:grab; touch-action:none; animation:callMiniIn .32s cubic-bezier(.16,1,.3,1); }
+@keyframes callMiniIn{ from{ transform:scale(.6); opacity:0; } to{ transform:none; opacity:1; } }
+.call-overlay.mini .call-min-btn, .call-overlay.mini .call-local-video{ display:none !important; }
+.call-overlay.mini .call-center{ position:static; flex-direction:row; align-items:center; gap:9px; padding:0; text-align:left; text-shadow:none; }
+.call-overlay.mini .call-avatar{ display:inline-flex !important; width:44px; height:44px; font-size:16px; border-width:2px; animation:none; flex:none; }
+.call-overlay.mini .call-name-wrap{ flex-direction:column; align-items:flex-start; gap:1px; }
+.call-overlay.mini .call-name{ font-size:14.5px; font-weight:700; max-width:130px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.call-overlay.mini .call-status{ font-size:12px; }
+.call-overlay.mini .call-controls{ position:static; gap:6px; padding:0; flex-wrap:nowrap; }
+.call-overlay.mini .call-btn{ width:42px !important; height:42px !important; animation:none; }
+.call-overlay.mini .call-btn svg{ width:19px; height:19px; }
+.call-overlay.mini .call-btn:not(.decline):not(.accept){ display:none; }
+.call-overlay.mini.mode-connected .call-status::before{ content:""; display:inline-block; width:7px; height:7px; border-radius:50%; background:#22c55e; margin-right:5px; vertical-align:1px; animation:callDot 1.6s ease-in-out infinite; }
+@keyframes callDot{ 50%{ opacity:.35; } }
+/* a video call shrinks to a small live window instead */
+.call-overlay.mini.is-video.mode-connected{ width:118px; height:170px; padding:0; border-radius:20px; display:block; }
+.call-overlay.mini.is-video.mode-connected .call-remote-video{ display:block; border-radius:20px; }
+.call-overlay.mini.is-video.mode-connected .call-center{ position:absolute; left:8px; right:8px; top:8px; }
+.call-overlay.mini.is-video.mode-connected .call-avatar, .call-overlay.mini.is-video.mode-connected .call-name{ display:none !important; }
+.call-overlay.mini.is-video.mode-connected .call-status{ font-size:11px; text-shadow:0 1px 3px rgba(0,0,0,.7); }
+.call-overlay.mini.is-video.mode-connected .call-controls{ position:absolute; left:0; right:0; bottom:8px; justify-content:center; }
+.call-overlay.mini.is-video.mode-connected .call-btn{ width:36px !important; height:36px !important; }

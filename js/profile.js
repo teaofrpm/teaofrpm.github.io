@@ -485,10 +485,18 @@ function wirePfpUpload() {
       compressed = await editAndCompress(file, { title: "Profile photo", aspects: ["1:1"], circle: true, maxSize: 1080 }, 600);   // avatars never show bigger than this
     } catch (err) { toast(err.message || "Could not process this photo."); return; }
     if (!compressed) return;
+    const up = () => uploadPublic("avatars", `${ME.id}/${fileId()}.jpg`, compressed);
+    uploadSoon(compressed, up);
+    const look = URL.createObjectURL(compressed);
+    const ok = await previewMedia({ src: look, frame: "circle", title: "Profile photo", note: "This is how everyone will see you", actions: [
+      { label: "Cancel", value: false, ghost: true }, { label: "Set photo", value: true, icon: "check" },
+    ] });
+    setTimeout(() => URL.revokeObjectURL(look), 1000);
+    if (!ok) { dropUpload(compressed); return; }
     const pfp = document.getElementById("pfpCircle");
     pfp.classList.add("uploading");
     try {
-      const url = await uploadPublic("avatars", `${ME.id}/${Date.now()}.jpg`, compressed);
+      const url = await takeUpload(compressed, up);
       const { error } = await sb.from("profiles").update({ pfp_url: url }).eq("id", ME.id);
       if (error) throw error;
       ME.pfp_url = url;

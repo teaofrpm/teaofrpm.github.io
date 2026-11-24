@@ -30,6 +30,9 @@ const CallManager = (() => {
   let incoming = null;   // a call ringing on this device, not yet answered
   let tone = null;
   let el = null;         // overlay element
+  let layerOn = false;   // the full-screen call holds a back-button step (back = minimise)
+  let closingLayer = false;
+  let wake = null;       // keeps the screen on during a video call
 
   /* ================= Setup ================= */
 
@@ -59,6 +62,25 @@ const CallManager = (() => {
       if (active) { e.preventDefault(); e.returnValue = ""; }
     });
     window.addEventListener("pagehide", () => { if (active) hangUp(); });
+
+    // Every page is its own document, so opening another page would cut the call.
+    // While a call is on, links ask first instead of silently hanging up.
+    document.addEventListener("click", (e) => {
+      if (!active || active.finishing) return;
+      const a = e.target.closest?.("a[href]");
+      if (!a || a.target === "_blank" || e.ctrlKey || e.metaKey) return;
+      let url;
+      try { url = new URL(a.href); } catch { return; }
+      if (!/^https?:$/.test(url.protocol)) return;   // tel:, mailto: etc. don't leave the page
+      const here = new URL(document.baseURI);
+      if (url.origin !== here.origin || (url.pathname === here.pathname && url.search === here.search)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      actionSheet("You're on a call", [
+        { icon: "phoneOff", label: "End call and open", danger: true, onClick: () => { hangUp(); setTimeout(() => { location.href = url.href; }, 500); } },
+        { icon: "phone", label: "Stay on the call", onClick: () => {} },
+      ]);
+    }, true);
   }
 
   function isBusy() { return !!(active || incoming); }
@@ -90,7 +112,7 @@ const CallManager = (() => {
       return;
     }
 
-    active = { call, role: "caller", peer: callee, local, pendingIce: [] };
+    active = { call, role: "caller", peer: callee, local, pendingIce: [], isVideo: kind === "video", route: kind === "video" ? "speaker" : "earpiece" };
     showUI("outgoing");
     playTone("ringback");
     openSignalChannel();
@@ -159,7 +181,7 @@ const CallManager = (() => {
     }
 
     incoming = null;
-    active = { call: { ...call, status: "accepted" }, role: "callee", peer: call.peer, local, pendingIce: [] };
+    active = { call: { ...call, status: "accepted" }, role: "callee", peer: call.peer, local, pendingIce: [], isVideo: call.kind === "video", route: call.kind === "video" ? "speaker" : "earpiece" };
     showUI("connecting");
     openSignalChannel();
   }
@@ -253,6 +275,23 @@ const CallManager = (() => {
       } else if (p.type === "answer" && active.role === "caller" && active.pc && !active.pc.remoteDescription) {
         await active.pc.setRemoteDescription(p.sdp);
         await flushPendingIce();
+      } else if (p.type === "reoffer" && active.pc) {
+        // the other side changed what it sends mid-call (e.g. turned its camera on)
+        const pc = active.pc;
+        if (pc.signalingState !== "stable") {
+          if (active.role === "caller") return;            // both offered at once: the caller's offer wins
+          await pc.setLocalDescription({ type: "rollback" });
+          active.renegLater = true;                        // ours goes again after this one
+        }
+        await pc.setRemoteDescription(p.sdp);
+        await flushPendingIce();
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        send({ type: "reanswer", sdp: pc.localDescription.toJSON() });
+        if (active.renegLater) { active.renegLater = false; renegotiate(); }
+      } else if (p.type === "reanswer" && active.pc && active.pc.signalingState === "have-local-offer") {
+        await active.pc.setRemoteDescription(p.sdp);
+        if (active.renegLater) { active.renegLater = false; renegotiate(); }
       } else if (p.type === "ice") {
         if (active.pc && active.pc.remoteDescription) {
           await active.pc.addIceCandidate(p.candidate).catch(() => {});
@@ -278,7 +317,11 @@ const CallManager = (() => {
     active.local.getTracks().forEach((t) => pc.addTrack(t, active.local));
 
     pc.onicecandidate = (e) => { if (e.candidate) send({ type: "ice", candidate: e.candidate.toJSON() }); };
-    pc.ontrack = (e) => attachRemote(e.streams[0]);
+    pc.ontrack = (e) => {
+      attachRemote(e.streams[0] || new MediaStream([e.track]));
+      // their camera came on during a voice call: switch this screen to video too
+      if (e.track.kind === "video" && active && !active.isVideo) setVideoMode();
+    };
     pc.onconnectionstatechange = () => {
       if (!active || active.pc !== pc) return;
       const state = pc.connectionState;
@@ -309,6 +352,26 @@ const CallManager = (() => {
     showUI("connected");
     renderTimer();
     active.durationTimer = setInterval(renderTimer, 1000);
+    applyRoute();
+    keepAwake(active.isVideo);
+  }
+
+  async function renegotiate() {
+    const pc = active && active.pc;
+    if (!pc) return;
+    if (pc.signalingState !== "stable") { active.renegLater = true; return; }
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      send({ type: "reoffer", sdp: pc.localDescription.toJSON() });
+    } catch (err) { console.error("renegotiate", err); }
+  }
+
+  async function keepAwake(on) {
+    try {
+      if (on && !wake && navigator.wakeLock) { wake = await navigator.wakeLock.request("screen"); wake.addEventListener?.("release", () => { wake = null; }); }
+      if (!on && wake) { await wake.release(); wake = null; }
+    } catch { wake = null; }
   }
 
   function renderTimer() {
@@ -345,6 +408,7 @@ const CallManager = (() => {
     if (a.pc) a.pc.close();
     stopStream(a.local);
     setControlsDisabled(true);
+    keepAwake(false);
 
     setTimeout(() => {
       if (a.channel) sb.removeChannel(a.channel);
@@ -366,35 +430,112 @@ const CallManager = (() => {
     if (stream) stream.getTracks().forEach((t) => t.stop());
   }
 
+  // Sound always plays from the <audio> element (the video element stays muted), so a
+  // voice call can turn into a video call without the sound jumping or doubling.
   function attachRemote(stream) {
     if (!el || !active) return;
-    if (active.call.kind === "video") {
-      const v = el.querySelector(".call-remote-video");
-      v.srcObject = stream;
-      v.play().catch(() => {});
-    } else {
-      const a = el.querySelector(".call-remote-audio");
-      a.srcObject = stream;
-      a.play().catch(() => {});
+    const a = el.querySelector(".call-remote-audio");
+    if (a.srcObject !== stream) { a.srcObject = stream; }
+    a.play().catch(() => {});
+    const v = el.querySelector(".call-remote-video");
+    if (v.srcObject !== stream) v.srcObject = stream;
+    v.play().catch(() => {});
+    applyRoute();
+  }
+
+  /* ---- speaker / earpiece ----
+     Browsers decide where call sound goes. Where they allow choosing (Chrome/Edge on
+     computers, some newer phones) we pick the earpiece or loudspeaker device. */
+  async function audioOutputs() {
+    try { return (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === "audiooutput"); } catch { return []; }
+  }
+  async function applyRoute() {
+    const a = el && el.querySelector(".call-remote-audio");
+    if (!a || !active || typeof a.setSinkId !== "function") return false;
+    const outs = await audioOutputs();
+    const ear = active.route === "earpiece";
+    const pick = ear
+      ? outs.find((d) => /earpiece|receiver|handset|phone/i.test(d.label)) || outs.find((d) => d.deviceId === "communications")
+      : outs.find((d) => /speaker/i.test(d.label) && !/head|blue|bt/i.test(d.label)) || outs.find((d) => d.deviceId === "default");
+    if (!pick) return false;
+    try { if (a.sinkId !== pick.deviceId) await a.setSinkId(pick.deviceId); return true; } catch { return false; }
+  }
+  async function toggleSpeaker(btn) {
+    if (!active) return;
+    const before = active.route;
+    active.route = before === "speaker" ? "earpiece" : "speaker";
+    const ok = await applyRoute();
+    if (!ok) {
+      active.route = before;
+      toast(active.route === "speaker"
+        ? "This phone's browser keeps call sound on the loudspeaker — use earphones or lower the volume."
+        : "This browser can't switch the sound output.", 3500);
     }
+    paintSpeaker(btn);
+  }
+  function paintSpeaker(btn) {
+    if (!btn || !active) return;
+    const on = active.route === "speaker";
+    btn.classList.toggle("off", on);   // white = loudspeaker on
+    btn.innerHTML = svgIcon(on ? "volume" : "phone", 22);
+    btn.setAttribute("aria-label", on ? "Speaker on — tap for earpiece" : "Earpiece — tap for speaker");
   }
 
   function toggleMute(btn) {
     const track = active && active.local.getAudioTracks()[0];
     if (!track) return;
     track.enabled = !track.enabled;
-    btn.classList.toggle("off", !track.enabled);
-    btn.innerHTML = svgIcon(track.enabled ? "mic" : "micOff", 22);
-    btn.setAttribute("aria-label", track.enabled ? "Mute" : "Unmute");
+    paintMute(btn);
+  }
+  function paintMute(btn) {
+    const track = active && active.local.getAudioTracks()[0];
+    const on = !track || track.enabled;
+    btn.classList.toggle("off", !on);
+    btn.innerHTML = svgIcon(on ? "mic" : "micOff", 22);
+    btn.setAttribute("aria-label", on ? "Mute" : "Unmute");
   }
 
-  function toggleCamera(btn) {
+  async function toggleCamera(btn) {
     const track = active && active.local.getVideoTracks()[0];
-    if (!track) return;
+    if (!track) { await addVideo(); return; }
     track.enabled = !track.enabled;
-    btn.classList.toggle("off", !track.enabled);
-    btn.innerHTML = svgIcon(track.enabled ? "video" : "videoOff", 22);
-    el.querySelector(".call-local-video").style.visibility = track.enabled ? "visible" : "hidden";
+    paintCamera(btn);
+  }
+  function paintCamera(btn) {
+    const track = active && active.local.getVideoTracks()[0];
+    const on = !!track && track.enabled;
+    btn.classList.toggle("off", !on);
+    btn.innerHTML = svgIcon(on ? "video" : "videoOff", 22);
+    btn.setAttribute("aria-label", on ? "Turn camera off" : "Turn camera on");
+    if (el) el.classList.toggle("no-cam", !on);
+  }
+
+  // voice → video in the middle of a call
+  async function addVideo() {
+    if (!active || !active.pc || !active.connectedAt) { toast("Wait for the call to connect."); return; }
+    let fresh;
+    try {
+      fresh = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } });
+    } catch { toast("Allow the camera to turn on video."); return; }
+    if (!active) { stopStream(fresh); return; }
+    const track = fresh.getVideoTracks()[0];
+    active.local.addTrack(track);
+    active.pc.addTrack(track, active.local);
+    active.facing = "user";
+    setVideoMode();
+    await renegotiate();
+  }
+
+  function setVideoMode() {
+    if (!el || !active) return;
+    const first = !active.isVideo;
+    active.isVideo = true;
+    el.classList.add("is-video");
+    el.classList.remove("is-audio");
+    const lv = el.querySelector(".call-local-video");
+    if (active.local.getVideoTracks()[0]) { lv.srcObject = active.local; lv.play?.().catch(() => {}); }
+    renderControls(active.connectedAt ? "connected" : "connecting", true);
+    if (first) { active.route = "speaker"; applyRoute(); keepAwake(true); }
   }
 
   async function flipCamera() {
@@ -459,25 +600,93 @@ const CallManager = (() => {
     el = document.createElement("div");
     el.className = "call-overlay";
     el.innerHTML = `
-      <video class="call-remote-video" autoplay playsinline></video>
-      <audio class="call-remote-audio" autoplay></audio>
+      <video class="call-remote-video" autoplay playsinline muted></video>
+      <audio class="call-remote-audio" autoplay playsinline></audio>
+      <button type="button" class="call-min-btn" aria-label="Minimise call">${svgIcon("chevronDown", 24)}</button>
       <div class="call-center">
         <span class="avatar call-avatar"></span>
-        <div class="call-name"></div>
-        <div class="call-status"></div>
+        <div class="call-name-wrap"><div class="call-name"></div><div class="call-status"></div></div>
       </div>
       <video class="call-local-video mirrored" autoplay playsinline muted></video>
       <div class="call-controls"></div>`;
     document.body.appendChild(el);
+    el.querySelector(".call-min-btn").addEventListener("click", (e) => { e.stopPropagation(); minimise(); });
+    wireMiniDrag();
+  }
+
+  /* ---- minimise: the call shrinks to a floating bubble so the app stays usable ---- */
+  function pushLayer() {
+    if (layerOn) return;
+    layerOn = true;
+    AppNav.enterFullscreen(() => {
+      layerOn = false;
+      if (closingLayer) { closingLayer = false; return; }
+      // phone back button during a call = minimise, never "leave the page and drop the call"
+      if (el && el.classList.contains("show")) setMini(true);
+    });
+  }
+  function dropLayer() {
+    if (!layerOn) return;
+    closingLayer = true;
+    AppNav.exitFullscreen();
+  }
+  function minimise() {
+    if (layerOn) AppNav.exitFullscreen();   // its exit handler shrinks the call
+    else setMini(true);
+  }
+  function setMini(on) {
+    if (!el) return;
+    el.classList.toggle("mini", on);
+    if (on) {
+      el.style.left = el.dataset.x || ""; el.style.top = el.dataset.y || "";
+      AppNav.show();
+    } else {
+      el.style.left = el.style.top = "";
+      pushLayer();
+    }
+  }
+  function wireMiniDrag() {
+    let sx = 0, sy = 0, ox = 0, oy = 0, moved = false, down = false;
+    el.addEventListener("pointerdown", (e) => {
+      if (!el.classList.contains("mini") || e.target.closest(".call-btn")) return;
+      down = true; moved = false;
+      const r = el.getBoundingClientRect();
+      sx = e.clientX; sy = e.clientY; ox = r.left; oy = r.top;
+      try { el.setPointerCapture(e.pointerId); } catch {}
+    });
+    el.addEventListener("pointermove", (e) => {
+      if (!down) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!moved && Math.hypot(dx, dy) < 6) return;
+      moved = true;
+      const r = el.getBoundingClientRect();
+      el.style.left = `${Math.min(innerWidth - r.width - 6, Math.max(6, ox + dx))}px`;
+      el.style.top = `${Math.min(innerHeight - r.height - 6, Math.max(6, oy + dy))}px`;
+    });
+    const up = () => {
+      if (!down) return;
+      down = false;
+      if (!moved) { setMini(false); return; }   // a tap opens the call again
+      // settle against the nearest side
+      const r = el.getBoundingClientRect();
+      el.style.transition = "left .25s cubic-bezier(.16,1,.3,1)";
+      el.style.left = `${r.left + r.width / 2 < innerWidth / 2 ? 10 : innerWidth - r.width - 10}px`;
+      setTimeout(() => { el.style.transition = ""; }, 260);
+      el.dataset.x = el.style.left; el.dataset.y = el.style.top;
+    };
+    el.addEventListener("pointerup", up);
+    el.addEventListener("pointercancel", up);
   }
 
   function showUI(mode) {
     if (!el) buildUI();
     const call = mode === "incoming" ? incoming : active.call;
     const peer = mode === "incoming" ? incoming.peer : active.peer;
-    const isVideo = call.kind === "video";
+    const isVideo = mode === "incoming" ? call.kind === "video" : !!active.isVideo;
+    const wasMini = el.classList.contains("mini") && el.classList.contains("show") && mode !== "incoming";
 
-    el.className = `call-overlay show ${isVideo ? "is-video" : "is-audio"} mode-${mode}`;
+    el.className = `call-overlay show ${isVideo ? "is-video" : "is-audio"} mode-${mode}${wasMini ? " mini" : ""}`;
+    if (mode !== "incoming" && active && isVideo && !active.local.getVideoTracks().some((t) => t.enabled)) el.classList.add("no-cam");
     setAvatarContent(el.querySelector(".call-avatar"), peer);
     el.querySelector(".call-name").textContent = peer?.display_name || "Unknown";
 
@@ -497,7 +706,7 @@ const CallManager = (() => {
     if (statusText) setStatus(statusText);
 
     renderControls(mode, isVideo);
-    AppNav.hide();
+    if (wasMini) AppNav.show(); else pushLayer();
   }
 
   function renderControls(mode, isVideo) {
@@ -505,10 +714,11 @@ const CallManager = (() => {
     box.innerHTML = "";
     const add = (cls, icon, label, handler) => {
       const b = document.createElement("button");
+      b.type = "button";
       b.className = `call-btn ${cls}`;
       b.innerHTML = svgIcon(icon, 24);
       b.setAttribute("aria-label", label);
-      b.addEventListener("click", () => handler(b));
+      b.addEventListener("click", (e) => { e.stopPropagation(); handler(b); });
       box.appendChild(b);
       return b;
     };
@@ -516,15 +726,20 @@ const CallManager = (() => {
     if (mode === "incoming") {
       add("decline", "phoneOff", "Decline", decline);
       add("accept", isVideo ? "video" : "phone", "Answer", accept);
+      box.classList.remove("many");
       return;
     }
 
-    add("", "mic", "Mute", toggleMute);
+    paintMute(add("", "mic", "Mute", toggleMute));
     if (isVideo) {
-      add("", "video", "Turn camera off", toggleCamera);
-      add("", "flip", "Switch camera", flipCamera);
+      paintCamera(add("cam", "video", "Turn camera off", toggleCamera));
+      if (active && active.local.getVideoTracks()[0]) add("", "flip", "Switch camera", flipCamera);
+    } else {
+      add("to-video", "video", "Switch to video", () => addVideo());
     }
+    paintSpeaker(add("spk", "volume", "Speaker", toggleSpeaker));
     add("decline", "phoneOff", "End call", hangUp);
+    box.classList.toggle("many", box.children.length > 4);
   }
 
   function setControlsDisabled(disabled) {
@@ -538,7 +753,9 @@ const CallManager = (() => {
 
   function hideUI() {
     if (!el) return;
-    el.classList.remove("show");
+    dropLayer();
+    el.classList.remove("show", "mini");
+    el.style.left = el.style.top = "";
     el.querySelector(".call-remote-video").srcObject = null;
     el.querySelector(".call-remote-audio").srcObject = null;
     el.querySelector(".call-local-video").srcObject = null;

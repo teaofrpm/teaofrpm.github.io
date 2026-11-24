@@ -111,11 +111,11 @@
     const dark = lum(avg) < .5;
     return { a: rgb(A), b: rgb(Bc), t: rgb(avg), ink: lum(mid) > .62 ? "#1a1a1a" : "#ffffff", acc: rgb(tune(A, dark ? .55 : .3, dark ? .78 : .45)), dark };
   }
-  async function setSharedWallpaper(file) {
+  async function setSharedWallpaper(file, ready) {
     if (typeof convo === "undefined" || !convo) return;
     toast("Setting wallpaper for everyone…");
     try {
-      const blob = await (await fetch(await compress(file, 1400))).blob();
+      const blob = await (await fetch(ready || await compress(file, 1400))).blob();
       const url = await uploadPublic("chat-images", `${me().id}/wp-${CID}-${Date.now()}.jpg`, blob, "image/jpeg");
       const { error } = await sb.from("conversations").update({ wallpaper_url: url }).eq("id", CID);
       if (error) throw error;
@@ -155,8 +155,15 @@
     const fi = s.body.querySelector("input[type=file]");
     fi.onchange = async () => {
       const f = fi.files[0]; if (!f) return;
-      if (target === "this") { fi.value = ""; return setSharedWallpaper(f); }
-      try { const d = await compress(f); set("wp_all", d); applyLook(); toast("Wallpaper set ✨"); } catch { toast("Could not use that photo"); }
+      fi.value = "";
+      let d;
+      try { d = await compress(f, target === "this" ? 1400 : undefined); } catch { toast("Could not use that photo"); return; }
+      const ok = await previewMedia({ src: d, frame: "chat", title: "Wallpaper",
+        note: target === "this" ? "Everyone in this chat will see this wallpaper" : "Only you will see it, in all your chats",
+        actions: [{ label: "Cancel", value: false, ghost: true }, { label: target === "this" ? "Set for everyone" : "Set wallpaper", value: true, icon: "check" }] });
+      if (!ok) return;
+      if (target === "this") return setSharedWallpaper(f, d);
+      set("wp_all", d); applyLook(); toast("Wallpaper set ✨");
     };
     s.body.addEventListener("click", (e) => {
       const w = e.target.closest("[data-wp]"); if (w) { if (w.dataset.wp === "none") { store.remove("tp_wp_" + CID); store.remove("tp_wp_all"); clearSharedWallpaper(); applyLook(); } else { target = w.dataset.wp; fi.click(); } }
@@ -517,13 +524,21 @@
     body.querySelector(".cp-info")?.remove();
     const d = document.createElement("div"); d.className = "cp-info";
     const locked = !!get("chatlocks", {})[CID];
-    d.innerHTML = `<div class="cp-info-title">Chat extras</div><div class="cp-info-grid">
-      <button type="button" data-x="look">${I("tp-wall", 20)}<span>Wallpaper & look</span></button><button type="button" data-x="ins">${I("tp-chart", 20)}<span>Insights</span></button>
-      <button type="button" data-x="nick">${I("tp-tag", 20)}<span>Nicknames</span></button><button type="button" data-x="kw">${I("bell", 20)}<span>Keyword alerts</span></button>
-      <button type="button" data-x="lock">${I(locked ? "tp-unlock" : "lock", 20)}<span>${locked ? "Unlock chat" : "Lock chat"}</span></button><button type="button" data-x="exp">${I("download", 20)}<span>Export chat</span></button>
-      <button type="button" data-x="cmd">${I("tp-slash", 20)}<span>Commands</span></button><button type="button" data-x="short">${I("pen", 20)}<span>Text shortcuts</span></button></div>`;
-    const anchor = body.querySelector(":scope > .settings-group-title");
-    body.insertBefore(d, anchor);
+    const row = (x, icon, title, small, end = "") => `<button type="button" class="ri-row" data-x="${x}"><span class="ri-ic">${I(icon, 17)}</span><span class="ri-txt"><b>${title}</b>${small ? `<small>${small}</small>` : ""}</span>${end}<span class="ri-chev ri-go">${I("chevron", 15)}</span></button>`;
+    d.innerHTML = `<div class="ri-title">Personalise</div><div class="ri-card cp-info-grid">
+        ${row("look", "tp-wall", "Wallpaper & look", "Background, bubbles, text size")}
+        ${row("nick", "tp-tag", "Nicknames", "Seen by everyone in this chat")}
+        ${row("short", "pen", "Text shortcuts", "Type less, say more")}
+        ${row("cmd", "tp-slash", "Commands", "/roll, /calc and more")}
+      </div>
+      <div class="ri-title">Privacy & data</div><div class="ri-card cp-info-grid">
+        ${row("lock", locked ? "tp-unlock" : "lock", locked ? "Unlock chat" : "Lock chat", locked ? "Locked on this device" : "Ask for a PIN to open it")}
+        ${row("kw", "bell", "Keyword alerts", "Get pinged when a word comes up")}
+        ${row("ins", "tp-chart", "Insights", "Who talks most, busiest hours")}
+        ${row("exp", "download", "Export chat", "Save a copy as a text file")}
+      </div>`;
+    const slot = body.querySelector("#riExtras");
+    if (slot) slot.appendChild(d); else body.insertBefore(d, body.querySelector(":scope > .settings-group-title"));
     d.onclick = (e) => { const x = e.target.closest("[data-x]")?.dataset.x; if (!x) return; const fn = { look: lookSheet, ins: insights, nick: nickSheet, kw: kwSheet, lock: toggleLock, exp: exportChat, cmd: cmdHelp, short: shortSheet }[x]; if (x === "exp" || x === "lock") fn().then?.(() => C.renderInfo(body)); else fn(); };
   };
 

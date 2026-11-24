@@ -63,6 +63,7 @@
 
 const PUBLIC_ROOM_ID = "11111111-1111-4111-8111-111111111111";
 const PAGE = location.pathname.split("/").pop() || "index.html";
+document.documentElement.dataset.pg = PAGE.replace(/\.html$/, "");   // lets each page style its own title art
 
 /* ---------------- Small helpers ---------------- */
 
@@ -1009,6 +1010,57 @@ function actionSheet(title, items) {
   return s;
 }
 
+/* Look before it goes: a full-screen preview with the real framing (story, round photo,
+   chat wallpaper, sticker…) and the action buttons. Resolves with the chosen action's
+   value, or null if closed.
+   frame: "story" | "circle" | "chat" | "bubble" | "free"
+   actions: [{ label, value, icon, ghost }] */
+function previewMedia({ src, kind = "image", frame = "free", title = "", note = "", actions = [{ label: "Done", value: true }] } = {}) {
+  return new Promise((resolve) => {
+    let done = false;
+    const el = document.createElement("div");
+    el.className = `pv-wrap pv-f-${frame}`;
+    const media = kind === "video"
+      ? `<video class="pv-media" src="${escapeHTML(src)}" autoplay muted loop playsinline></video>`
+      : `<img class="pv-media" src="${escapeHTML(src)}" alt="" />`;
+    const stage = frame === "chat"
+      ? `<div class="pv-chat" style="background-image:url('${escapeHTML(src)}')"><div class="pv-chat-dim"></div>
+           <div class="pv-b pv-b-in">Hey! 👋</div><div class="pv-b pv-b-out">New wallpaper looks so good</div><div class="pv-b pv-b-in">Haan yaar ✨</div></div>`
+      : frame === "bubble"
+        ? `<div class="pv-chat pv-chat-plain"><div class="pv-b pv-b-in">…</div><div class="pv-out-media">${media}</div></div>`
+        : frame === "story"
+          ? `<div class="pv-story">${media}<div class="pv-story-top"><span></span></div></div>`
+          : media;
+    el.innerHTML = `
+      <div class="pv-top"><button type="button" class="pv-x" aria-label="Close">${svgIcon("close", 20)}</button><b>${escapeHTML(title)}</b><span></span></div>
+      <div class="pv-stage">${stage}</div>
+      ${note ? `<p class="pv-note">${escapeHTML(note)}</p>` : ""}
+      <div class="pv-acts">${actions.map((a, i) => `<button type="button" class="btn ${a.ghost ? "btn-ghost" : ""}" data-i="${i}">${a.icon ? svgIcon(a.icon, 16) : ""}${escapeHTML(a.label)}</button>`).join("")}</div>`;
+    document.body.appendChild(el);
+    void el.offsetWidth;   // start the fade from the first frame
+    el.classList.add("show");
+    let chosen = null;
+    // resolves once the back-stack entry is gone, so the caller can open the next screen safely
+    const finish = () => {
+      if (done) return;
+      done = true;
+      el.classList.remove("show");
+      el.querySelector("video")?.pause();
+      setTimeout(() => el.remove(), 260);
+      setTimeout(() => resolve(chosen), 30);
+    };
+    AppNav.enterFullscreen(finish);
+    el.querySelector(".pv-x").addEventListener("click", () => AppNav.exitFullscreen());
+    el.querySelector(".pv-acts").addEventListener("click", (e) => {
+      const b = e.target.closest("[data-i]");
+      if (!b || done) return;
+      chosen = actions[Number(b.dataset.i)].value;
+      buzz(8);
+      AppNav.exitFullscreen();
+    });
+  });
+}
+
 // Pick people from everyone verified. Resolves with an array of profiles (or null).
 function pickPeople({ title = "Choose people", multiple = true, exclude = [], selected = [], cta = "Done" } = {}) {
   return new Promise(async (resolve) => {
@@ -1889,7 +1941,7 @@ const PrefSync = (() => {
    Crashes and failed calls on real phones get written (quietly, capped) to
    public.client_errors, so problems can be found without the user reporting them. */
 (() => {
-  const APP_VER = "v59";
+  const APP_VER = "v65";
   const seen = new Set();
   let queue = [], sent = 0, timer = 0;
   const NOISE = /ResizeObserver loop|^Script error\.?$|chrome-extension:|moz-extension:|safari-extension:|AbortError|The user aborted|NotAllowedError|play\(\) request was interrupted|Load failed$|Failed to fetch$|NetworkError/i;

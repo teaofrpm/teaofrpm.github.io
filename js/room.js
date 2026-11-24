@@ -348,6 +348,92 @@ function buildRow(m, grouped) {
   return row;
 }
 
+/* ---------- voice notes: round play button, a waveform that fills as it plays ---------- */
+const VN_BARS = 34;
+function vnShape(seed) {
+  // the same message always draws the same, speech-like wave
+  let h = 2166136261;
+  for (const ch of String(seed)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+  const rnd = () => ((h = Math.imul(h ^ (h >>> 15), 2246822507) ^ Math.imul(h ^ (h >>> 13), 3266489909)) >>> 0) / 4294967296;
+  const out = [];
+  let prev = 0.4;
+  for (let i = 0; i < VN_BARS; i++) {
+    const env = 0.55 + 0.45 * Math.sin((i / VN_BARS) * Math.PI);       // louder in the middle
+    prev = Math.min(1, Math.max(0.12, prev * 0.45 + rnd() * 0.75 * env + (rnd() < 0.12 ? 0.3 : 0)));
+    out.push(prev);
+  }
+  return out;
+}
+const vnTime = (s) => (Number.isFinite(s) && s > 0 ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "0:00");
+const VN_PLAY = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.2-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" fill="currentColor"/></svg>';
+const VN_PAUSE = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="6.5" y="5" width="4" height="14" rx="1.4" fill="currentColor"/><rect x="13.5" y="5" width="4" height="14" rx="1.4" fill="currentColor"/></svg>';
+let vnSeen = null;
+function buildVoiceNote(m) {
+  const wrap = document.createElement("div");
+  wrap.className = "vn";
+  const bars = vnShape(m.id || m.audio_url).map((v) => `<i style="--h:${(v * 100).toFixed(0)}%"></i>`).join("");
+  wrap.innerHTML = `<button type="button" class="vn-play" aria-label="Play voice note">${VN_PLAY}</button>
+    <div class="vn-body"><div class="vn-wave" role="slider" aria-label="Seek" tabindex="-1"><div class="vn-bars">${bars}</div><div class="vn-bars vn-fill">${bars}</div></div>
+    <div class="vn-meta"><span class="vn-time">0:00</span><button type="button" class="aud-speed">1×</button></div></div>`;
+  const audio = document.createElement("audio");
+  audio.className = "chat-audio";
+  audio.preload = "none";
+  audio.src = m.audio_url;
+  wrap.appendChild(audio);
+  wireVoiceNote(wrap, audio);
+  // read the length only once it scrolls into view, so a long chat doesn't fetch every clip
+  vnSeen ||= new IntersectionObserver((ents) => ents.forEach((en) => {
+    if (!en.isIntersecting) return;
+    vnSeen.unobserve(en.target);
+    const a = en.target.querySelector("audio");
+    if (a && a.preload === "none") { a.preload = "metadata"; try { a.load(); } catch {} }
+  }), { rootMargin: "200px" });
+  vnSeen.observe(wrap);
+  return wrap;
+}
+function wireVoiceNote(wrap, audio) {
+  const btn = wrap.querySelector(".vn-play"), time = wrap.querySelector(".vn-time"), wave = wrap.querySelector(".vn-wave");
+  let raf = 0, dur = NaN, fixing = false;
+  const paint = () => {
+    const d = Number.isFinite(audio.duration) ? audio.duration : dur;
+    const p = d > 0 ? Math.min(1, audio.currentTime / d) : 0;
+    wrap.style.setProperty("--p", p.toFixed(4));
+    time.textContent = audio.paused && !audio.currentTime ? vnTime(d) : vnTime(audio.currentTime);
+  };
+  const loop = () => { paint(); if (!audio.paused) raf = requestAnimationFrame(loop); };
+  audio.addEventListener("loadedmetadata", () => {
+    // recorded webm clips often report an endless length until you jump to the end once
+    if (audio.duration === Infinity && !fixing) {
+      fixing = true;
+      audio.addEventListener("durationchange", function once() {
+        if (!Number.isFinite(audio.duration)) return;
+        audio.removeEventListener("durationchange", once);
+        dur = audio.duration; fixing = false; audio.currentTime = 0; paint();
+      });
+      audio.currentTime = 1e7;
+    } else { dur = audio.duration; paint(); }
+  });
+  audio.addEventListener("play", () => {
+    document.querySelectorAll(".vn.playing audio").forEach((a) => { if (a !== audio) a.pause(); });
+    wrap.classList.add("playing"); btn.innerHTML = VN_PAUSE; btn.setAttribute("aria-label", "Pause voice note");
+    cancelAnimationFrame(raf); loop();
+  });
+  audio.addEventListener("pause", () => { wrap.classList.remove("playing"); btn.innerHTML = VN_PLAY; btn.setAttribute("aria-label", "Play voice note"); cancelAnimationFrame(raf); paint(); });
+  audio.addEventListener("ended", () => { audio.currentTime = 0; wrap.classList.add("heard"); paint(); });
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (audio.paused) { audio.preload = "auto"; audio.play().catch(() => toast("Couldn't play this voice note.")); } else audio.pause();
+  });
+  wave.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const d = Number.isFinite(audio.duration) ? audio.duration : dur;
+    const r = wave.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+    if (d > 0) { audio.currentTime = ratio * d; paint(); }
+    if (audio.paused) audio.play().catch(() => {});
+  });
+}
+
 function fillBubble(bubble, m, isOwn) {
   bubble.innerHTML = "";
   if (m.sticker_url && !m.content && !m.image_url) bubble.classList.add("sticker-only");
@@ -380,19 +466,7 @@ function fillBubble(bubble, m, isOwn) {
     img.alt = "Sticker";
     bubble.appendChild(img);
   }
-  if (m.audio_url) {
-    const audio = document.createElement("audio");
-    audio.className = "chat-audio";
-    audio.controls = true;
-    audio.preload = "none";
-    audio.src = m.audio_url;
-    bubble.appendChild(audio);
-    const sp = document.createElement("button");
-    sp.type = "button";
-    sp.className = "aud-speed";
-    sp.textContent = "1×";
-    bubble.appendChild(sp);
-  }
+  if (m.audio_url) bubble.appendChild(buildVoiceNote(m));
   if (m.view_once) {
     const card = document.createElement("div");
     card.className = "vo-card";
@@ -409,8 +483,12 @@ function fillBubble(bubble, m, isOwn) {
     bubble.appendChild(sc);
   }
   if (m.image_url && !m.shared_post_id) {
+    // photo + caption: the photo sits flush in the bubble with a thin inset, caption under it
+    bubble.classList.toggle("photo-cap", !!m.content && !bubble.classList.contains("media-only"));
     const img = document.createElement("img");
-    img.className = "chat-img";
+    img.className = "chat-img is-loading";
+    img.addEventListener("load", () => img.classList.remove("is-loading"), { once: true });
+    img.addEventListener("error", () => img.classList.remove("is-loading"), { once: true });
     img.src = m.image_url;
     img.loading = "lazy";
     img.decoding = "async";
@@ -1201,15 +1279,19 @@ function renderThemeRow() {
   const canEdit = !isPublic || ME.role === "owner";
   if (!row) {
     row = document.createElement("div");
-    row.className = "theme-row";
-    body.insertBefore(row, body.querySelector(".mute-row") || body.querySelector(".settings-group-title"));
+    row.className = "theme-row ri-acc";
+    row.dataset.acc = "theme";
+    (body.querySelector(".ri-slot-theme") || body).appendChild(row);
   }
   const cur = convo.theme || "default";
-  row.innerHTML = `<b>${svgIcon("palette", 14)} Chat theme</b>
-    <span class="hint">${canEdit ? "Everyone in this chat sees the theme you pick." : "Only the owner can change the public room's theme."}</span>
+  const curT = CHAT_THEMES.find(([k]) => k === cur) || CHAT_THEMES[0];
+  row.innerHTML = `<button type="button" class="ri-row ri-acc-head">${riRow("palette", "Chat theme", "",
+      `<span class="ri-val"><i class="ri-dot" style="background:${curT[2]};box-shadow:inset 0 0 0 4px ${curT[3]}"></i>${escapeHTML(curT[1])}</span><span class="ri-chev">${svgIcon("chevronDown", 16)}</span>`)}</button>
+    <div class="ri-acc-body"><span class="hint">${canEdit ? "Everyone in this chat sees the theme you pick." : "Only the owner can change the public room's theme."}</span>
     <div class="theme-grid">${CHAT_THEMES.map(([k, name, bg, own, other]) =>
       `<button type="button" class="theme-swatch${k === cur ? " on" : ""}" data-k="${k}" style="background:${bg}" ${canEdit ? "" : "disabled"} aria-label="${name}">
-        <i style="background:${other}"></i><i class="o" style="background:${own}"></i><i style="background:${other}"></i><em>${name}</em>${MOTION_COUNTS[k] ? `<s class="live">LIVE</s>` : ""}</button>`).join("")}</div>`;
+        <i style="background:${other}"></i><i class="o" style="background:${own}"></i><i style="background:${other}"></i><em>${name}</em>${MOTION_COUNTS[k] ? `<s class="live">LIVE</s>` : ""}</button>`).join("")}</div></div>`;
+  wireAccordion(row, "theme");
   row.querySelectorAll(".theme-swatch").forEach((b) => b.addEventListener("click", async () => {
     const k = b.dataset.k, before = convo.theme || "default";
     if (k === before) return;
@@ -1251,13 +1333,16 @@ function renderVanishRow() {
   const canEdit = convo.kind === "dm" || amAdmin;
   if (!row) {
     row = document.createElement("div");
-    row.className = "vanish-row";
-    body.insertBefore(row, body.querySelector(".settings-group-title"));
+    row.className = "vanish-row ri-acc";
+    row.dataset.acc = "vanish";
+    (body.querySelector(".ri-slot-vanish") || body).appendChild(row);
   }
-  row.innerHTML = `<b>${svgIcon("clock", 14)} Disappearing messages</b>
-    <span>${canEdit ? "New messages vanish for everyone after the time you pick." : "Only group admins can change this."}</span>
-    <div class="vanish-options">${VANISH.map(([v, l]) => `<button type="button" data-v="${v ?? ""}" class="${(convo.disappear_seconds ?? null) === v ? "on" : ""}" ${canEdit ? "" : "disabled"}>${l}</button>`).join("")}</div>`;
-  row.querySelectorAll("button").forEach((b) => b.addEventListener("click", async () => {
+  row.innerHTML = `<button type="button" class="ri-row ri-acc-head">${riRow("clock", "Disappearing messages", "",
+      `<span class="ri-val${convo.disappear_seconds ? " is-on" : ""}">${vanishLabel(convo.disappear_seconds ?? null)}</span><span class="ri-chev">${svgIcon("chevronDown", 16)}</span>`)}</button>
+    <div class="ri-acc-body"><span class="hint">${canEdit ? "New messages vanish for everyone after the time you pick." : "Only group admins can change this."}</span>
+    <div class="vanish-options">${VANISH.map(([v, l]) => `<button type="button" data-v="${v ?? ""}" class="${(convo.disappear_seconds ?? null) === v ? "on" : ""}" ${canEdit ? "" : "disabled"}>${l}</button>`).join("")}</div></div>`;
+  wireAccordion(row, "vanish");
+  row.querySelectorAll(".vanish-options button").forEach((b) => b.addEventListener("click", async () => {
     const v = b.dataset.v ? Number(b.dataset.v) : null;
     if ((convo.disappear_seconds ?? null) === v) return;
     const { error } = await sb.rpc("set_disappearing", { p_conversation: convo.id, p_seconds: v });
@@ -1338,8 +1423,12 @@ function wireTypingBroadcast(input) {
   });
 }
 
+let typingBeatAt = 0;
 function sendTypingState(typing) {
-  if (typing === isTypingBroadcasted || !channel) return;
+  if (!channel) return;
+  // while you keep typing, a quiet heartbeat every 3 s stops the other side timing it out and flickering
+  if (typing === isTypingBroadcasted && !(typing && Date.now() - typingBeatAt > 3000)) return;
+  if (typing) typingBeatAt = Date.now();
   isTypingBroadcasted = typing;
   channel.send({ type: "broadcast", event: "typing", payload: { user_id: ME.id, display_name: ME.display_name, typing } });
 }
@@ -1364,20 +1453,49 @@ function clearTypingUser(userId) {
 
 function renderTypingIndicator() {
   const el = document.getElementById("typingIndicator");
-  const names = [...typingUsers.entries()].map(([uid, t]) => (nicknames.get(uid) || t.display_name || "Someone").split(" ")[0]);
-  if (!names.length) { el.textContent = ""; el.classList.remove("show"); renderPresence(); return; }
-  const text = names.length === 1 ? `${names[0]} is typing…`
-    : names.length === 2 ? `${names[0]} and ${names[1]} are typing…`
-    : `${names.slice(0, 2).join(", ")} and ${names.length - 2} others are typing…`;
-  el.innerHTML = `<span class="typing-dots"><i></i><i></i><i></i></span> ${escapeHTML(text)}`;
-  el.classList.add("show");
+  const wrap = el.parentElement, list = document.getElementById("messages");
+  const ids = [...typingUsers.keys()];
+  const names = ids.map((uid) => (nicknames.get(uid) || typingUsers.get(uid).display_name || "Someone").split(" ")[0]);
+  if (!names.length) {
+    if (!el.classList.contains("show")) return;
+    el.classList.remove("show"); wrap.classList.remove("typing-on");
+    el.dataset.key = "";
+    renderPresence();
+    return;
+  }
+  // build the bubble once; afterwards only swap faces/text, so the dots never restart mid-bounce
+  if (!el.querySelector(".ty-bub")) {
+    el.innerHTML = `<span class="ty-avs"></span><span class="ty-bub"><i></i><i></i><i></i></span><span class="ty-txt"></span>`;
+  }
+  const key = ids.join(",") + "|" + names.join(",");
+  if (el.dataset.key !== key) {
+    el.dataset.key = key;
+    const avs = el.querySelector(".ty-avs");
+    avs.innerHTML = "";
+    ids.slice(0, 3).forEach((uid) => {
+      const a = document.createElement("span");
+      a.className = "avatar ty-av";
+      const p = profileCache.get(uid) || { id: uid, display_name: typingUsers.get(uid).display_name };
+      try { setAvatarContent(a, p); } catch { a.textContent = (p.display_name || "?")[0]; }
+      avs.appendChild(a);
+    });
+    el.querySelector(".ty-txt").textContent = convo.kind === "dm" ? ""
+      : names.length === 1 ? names[0]
+      : names.length === 2 ? `${names[0]} & ${names[1]}`
+      : `${names[0]} +${names.length - 1}`;
+  }
+  if (!el.classList.contains("show")) {
+    // make room under the last message so the bubble never covers it
+    const nearBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 120;
+    el.classList.add("show"); wrap.classList.add("typing-on");
+    if (nearBottom) requestAnimationFrame(() => { list.scrollTop = list.scrollHeight; });
+  }
   if (convo.kind === "dm") {
     const sub = document.getElementById("roomSubtitle");
     sub.textContent = "typing…";
     sub.classList.add("is-online");
   }
 }
-
 /* ============================================================
    Taps, swipes and the action bar — one owner for every gesture
    ============================================================ */
@@ -1407,7 +1525,7 @@ function wireMessageEvents() {
     }
     if (t.closest(".msg-failed")) { retrySend(id); return; }
     if (t.closest(".aud-speed")) {
-      const b = t.closest(".aud-speed"), a = b.parentNode.querySelector("audio");
+      const b = t.closest(".aud-speed"), a = (b.closest(".vn") || b.parentNode).querySelector("audio");
       const next = { "1×": 1.5, "1.5×": 2, "2×": 1 }[b.textContent] || 1;
       if (a) { a.playbackRate = next; a.preservesPitch = true; }
       b.textContent = `${next}×`;
@@ -2488,7 +2606,7 @@ function paintAttachOpts() {
   const vo = document.getElementById("viewOnceBtn"), ed = document.getElementById("editAttach");
   if (!vo || !ed) return;
   const hasMedia = !!(pendingImageFile || pendingVideoFile);
-  vo.hidden = !hasMedia || isPublic || convo?.kind === "bot";
+  vo.hidden = !hasMedia || convo?.kind === "bot";
   vo.classList.toggle("on", pendingViewOnce);
   vo.innerHTML = `${svgIcon("once", 15)}${pendingViewOnce ? "View once" : ""}`;
   ed.hidden = !pendingImageFile || !pendingOriginal;
@@ -2527,7 +2645,7 @@ async function handlePickedImage(file, label, { viewOnce = false } = {}) {
     startChatImage(blob);
     pendingOriginal = file;
     pendingVideoFile = null;
-    pendingViewOnce = viewOnce && !isPublic;
+    pendingViewOnce = viewOnce && convo?.kind !== "bot";
     if (pendingImagePreviewUrl) URL.revokeObjectURL(pendingImagePreviewUrl);
     pendingImagePreviewUrl = URL.createObjectURL(blob);
     document.getElementById("attachImg").src = pendingImagePreviewUrl;
@@ -2552,7 +2670,7 @@ function handlePickedVideo(file, { viewOnce = false } = {}) {
   clearPendingImage();
   pendingVideoFile = file;
   if (ME) uploadSoon(file, (rep) => uploadVideo(file, rep));
-  pendingViewOnce = viewOnce && !isPublic;
+  pendingViewOnce = viewOnce && convo?.kind !== "bot";
   pendingVideoUrl = URL.createObjectURL(file);
   const v = document.getElementById("attachVideo");
   v.src = pendingVideoUrl + "#t=0.1";
@@ -2683,8 +2801,18 @@ async function openViewOnce(m, card) {
   };
   v.addEventListener("pointerdown", (e) => { if (!e.target.closest(".vo-bar")) { e.preventDefault(); hold(true); } });
   ["pointerup", "pointercancel", "pointerleave"].forEach((ev) => v.addEventListener(ev, () => hold(false)));
-  const away = () => close();
-  const keys = (e) => { if (e.key === "PrintScreen" || (e.metaKey && e.shiftKey) || (e.ctrlKey && e.key === "p")) { e.preventDefault(); close(); } };
+  // a web page can't block screenshots, but it can notice the usual signs and tell the sender
+  let reported = false;
+  const caught = () => {
+    if (reported) return; reported = true;
+    sb.rpc("report_view_once_capture", { p_message: m.id }).then(({ data }) => { if (data) toast("The sender will see that you took a screenshot."); });
+  };
+  const away = () => { if (v.classList.contains("holding")) caught(); close(); };
+  const keys = (e) => { if (e.key === "PrintScreen" || (e.metaKey && e.shiftKey) || (e.ctrlKey && e.key === "p")) { e.preventDefault(); caught(); close(); } };
+  // three-finger screenshot swipe (most Android phones)
+  const fingers = new Set();
+  v.addEventListener("pointerdown", (e) => { if (e.pointerType === "touch") { fingers.add(e.pointerId); if (fingers.size >= 3) { caught(); close(); } } });
+  ["pointerup", "pointercancel"].forEach((ev) => v.addEventListener(ev, (e) => fingers.delete(e.pointerId)));
   document.addEventListener("visibilitychange", away);
   addEventListener("blur", away);
   addEventListener("keydown", keys, true);
@@ -2709,11 +2837,12 @@ async function paintVoCard(card, m, isOwn) {
   const kind = m._voKind || "Photo";
   card.innerHTML = `${svgIcon("once", 22)}<div>${isOwn ? `${kind} · view once` : `Tap to view`}<small>${m._pending ? "Sending…" : isOwn ? "…" : "Opens one time only"}</small></div>`;
   if (m._pending) return;
-  const { data } = await sb.from("view_once_opens").select("user_id").eq("message_id", m.id);
+  const { data } = await sb.from("view_once_opens").select("user_id, captured_at").eq("message_id", m.id);
   const opens = data || [];
   if (isOwn) {
     card.classList.toggle("opened", opens.length > 0);
-    card.querySelector("small").textContent = opens.length ? (convo.kind === "dm" ? "Opened ✓" : `Opened by ${opens.length}`) : "Not opened yet";
+    const caps = opens.filter((o) => o.captured_at).length;
+    card.querySelector("small").textContent = (opens.length ? (convo.kind === "dm" ? "Opened ✓" : `Opened by ${opens.length}`) : "Not opened yet") + (caps ? ` · 📸 ${caps}` : "");
   } else if (opens.some((o) => o.user_id === ME.id)) markVoOpened(card);
   else card.addEventListener("click", (e) => { e.stopPropagation(); if (!card.classList.contains("opened")) openViewOnce(m, card); }, { once: true });
 }
@@ -3007,11 +3136,12 @@ function buildStickerPanel() {
   panel.innerHTML = html + STICKERS.map(asImg).join("");
   if (!panel.dataset.wired) {
     panel.dataset.wired = "1";
-    panel.addEventListener("click", (e) => {
+    panel.addEventListener("click", async (e) => {
       const img = e.target.closest("img[data-url]");
       if (!img) return;
       const sticker = STICKERS.find((st) => st.url === img.dataset.url);
       if (!sticker) return;
+      if (!(await previewMedia({ src: sticker.url, frame: "bubble", title: "Send sticker", actions: [{ label: "Cancel", value: false, ghost: true }, { label: "Send", value: true, icon: "send" }] }))) return;
       const recentsNow = store.get(RECENT_STICKERS_KEY, []).filter((st) => st.url !== sticker.url);
       recentsNow.unshift(sticker);
       store.set(RECENT_STICKERS_KEY, recentsNow.slice(0, 8));
@@ -3062,7 +3192,7 @@ function plusMenu(input) {
     ["gif", "GIF", "x3-t-gif", () => openGifPicker(() => pick("image/gif", false))],
     ["bolt", "Quick replies", "x3-t-quick", () => openQuickReplies(input)],
     ["sparkle", "More fun", "x3-t-fun", () => window.ChatPlus?.openFun(input)],
-    ...(!isPublic && convo?.kind !== "bot" ? [["once", "View once", "x3-t-once", () => pick("image/*,video/*", true)]] : []),
+    ...(convo?.kind !== "bot" ? [["once", "View once", "x3-t-once", () => pick("image/*,video/*", true)]] : []),
     ["poll", "Poll", "x3-t-poll", openPollSheet],
     ["hourglass", "Countdown", "x3-t-cd", openCountdownSheet],
     ["clock", "Schedule", "x3-t-sch", openScheduleSheet],
@@ -3143,7 +3273,9 @@ function openGifPicker(uploadOwn) {
       b.innerHTML = `<img alt="${escapeHTML(g.title || "GIF")}" loading="lazy" decoding="async" />`;
       b.querySelector("img").src = g.preview || g.url;
       b.addEventListener("click", async () => {
-        s.close(); buzz(8);
+        s.close();
+        await new Promise((r) => setTimeout(r, 80));
+        if (!(await previewMedia({ src: g.url, frame: "bubble", title: "Send GIF", actions: [{ label: "Cancel", value: false, ghost: true }, { label: "Send", value: true, icon: "send" }] }))) return;
         const { error: e } = await sb.from("messages").insert({ user_id: ME.id, conversation_id: convo.id, image_url: g.url, reply_to: replyingTo?.id || null });
         if (e) toast(friendlyError(e, "Couldn't send the GIF."));
         else clearReply();
@@ -3411,6 +3543,10 @@ async function renderInfoSheet() {
     setGroupAvatar(document.getElementById("groupPfp"), convo);
   }
 
+  // fixed order inside the settings card, whatever finishes first
+  const card = document.getElementById("riSettings");
+  if (!card.querySelector(".ri-slot-mute")) card.innerHTML = `<div class="ri-slot-mute"></div><div class="ri-slot-theme"></div><div class="ri-slot-vanish"></div>`;
+  renderInfoHero();
   renderMuteRow();
   try { window.ChatPlus?.renderInfo?.(document.querySelector("#roomInfoSheet .room-info-body")); } catch (e) { console.error(e); }
   renderThemeRow();
@@ -3418,6 +3554,7 @@ async function renderInfoSheet() {
   renderMediaGrid();
 
   const list = document.getElementById("roomMembers");
+  document.getElementById("riMembersTitle").textContent = isPublic ? "Members" : `${members.length} member${members.length === 1 ? "" : "s"}`;
   if (isPublic) {
     list.innerHTML = `<div class="settings-empty">Everyone at RPM is in this room · ${memberCount()} members</div>`;
     return;
@@ -3475,20 +3612,61 @@ async function reloadMembersNow() {
   await renderInfoSheet();
 }
 
+// Top of the details sheet: who this chat is with, and the few things people reach for most
+function renderInfoHero() {
+  const h = document.getElementById("riHero");
+  if (!h) return;
+  const dm = convo.kind === "dm", bot = convo.kind === "bot";
+  const name = dm ? (nameOf(otherUser?.id, otherUser) || "Unknown") : bot ? "Tea AI" : (convo.name || (isPublic ? "Global room" : "Group"));
+  const sub = dm ? (otherUser ? `@${otherUser.username}${nameOf(otherUser.id, otherUser) !== otherUser.display_name ? ` · ${otherUser.display_name}` : ""}` : "")
+    : bot ? "Always online · ask anything"
+    : `${isPublic ? memberCount() : members.length} members${isPublic ? " · everyone at RPM" : ""}`;
+  const muted = !!members.find((m) => m.user_id === ME.id)?.muted;
+  const acts = [];
+  if (dm && otherUser) {
+    acts.push(["person", "Profile", () => { location.href = `profile.html?u=${encodeURIComponent(otherUser.username)}`; }]);
+    acts.push(["phone", "Call", () => { AppNav.exitFullscreen(); setTimeout(() => CallManager.start(convo.id, otherUser, "audio"), 120); }]);
+    acts.push(["video", "Video", () => { AppNav.exitFullscreen(); setTimeout(() => CallManager.start(convo.id, otherUser, "video"), 120); }]);
+  }
+  if (convo.kind === "group" && amAdmin && !isPublic) acts.push(["userPlus", "Add", () => { const s = document.getElementById("addMemberSearch"); s.scrollIntoView({ behavior: "smooth", block: "center" }); setTimeout(() => s.focus(), 350); }]);
+  acts.push(["search", "Search", () => { AppNav.exitFullscreen(); setTimeout(() => document.getElementById("searchToggle").click(), 160); }]);
+  if (!bot) acts.push([muted ? "bellOff" : "bell", muted ? "Unmute" : "Mute", () => document.querySelector("#roomInfoSheet .mute-row input")?.click(), muted ? "on" : ""]);
+  h.innerHTML = `<span class="ri-hero-av"></span><div class="ri-hero-name">${escapeHTML(name)}</div>${sub ? `<div class="ri-hero-sub">${escapeHTML(sub)}</div>` : ""}
+    <div class="ri-quick">${acts.map(([ic, label, , cls], i) => `<button type="button" class="${cls || ""}" data-qa="${i}"><span>${svgIcon(ic, 19)}</span>${label}</button>`).join("")}</div>`;
+  const av = h.querySelector(".ri-hero-av");
+  if (dm) setAvatarContent(av, otherUser);
+  else if (bot) av.innerHTML = `<img src="images/bot.png" alt="" />`;
+  else setGroupAvatar(av, convo);
+  h.querySelector(".ri-quick").onclick = (e) => { const b = e.target.closest("[data-qa]"); if (b) acts[Number(b.dataset.qa)][2](); };
+}
+
+// one tidy row: icon · title (+ small line) · value / control
+const riRow = (icon, title, small, end = "") =>
+  `<span class="ri-ic">${svgIcon(icon, 17)}</span><span class="ri-txt"><b>${title}</b>${small ? `<small>${small}</small>` : ""}</span>${end}`;
+let riOpen = null;   // which tap-to-open row is expanded: "theme" | "vanish"
+function wireAccordion(row, key) {
+  row.querySelector(".ri-acc-head").onclick = () => {
+    riOpen = riOpen === key ? null : key;
+    document.querySelectorAll("#riSettings .ri-acc").forEach((r) => r.classList.toggle("open", r.dataset.acc === riOpen));
+  };
+  row.classList.toggle("open", riOpen === key);
+}
+
 async function renderMuteRow() {
   const body = document.querySelector("#roomInfoSheet .room-info-body");
   let row = body.querySelector(".mute-row");
   if (!row) {
     row = document.createElement("label");
-    row.className = "settings-toggle-row mute-row";
-    row.innerHTML = `<div><b>Mute notifications</b><span>You'll still get messages, just quietly</span></div><input type="checkbox" />`;
-    body.insertBefore(row, body.querySelector(".settings-group-title"));
+    row.className = "ri-row ri-toggle mute-row";
+    row.innerHTML = riRow("bell", "Mute notifications", "Messages still arrive, just quietly", `<input type="checkbox" /><i class="ri-switch"></i>`);
+    (body.querySelector(".ri-slot-mute") || body).appendChild(row);
     row.querySelector("input").addEventListener("change", async (e) => {
       const { error } = await sb.from("conversation_members").update({ muted: e.target.checked }).eq("conversation_id", convo.id).eq("user_id", ME.id);
       if (error) { e.target.checked = !e.target.checked; toast("Could not update."); return; }
       const mine = members.find((m) => m.user_id === ME.id);
       if (mine) mine.muted = e.target.checked;
       toast(e.target.checked ? "Muted" : "Unmuted");
+      renderInfoHero();
     });
   }
   row.querySelector("input").checked = !!members.find((m) => m.user_id === ME.id)?.muted;
@@ -3502,7 +3680,7 @@ async function renderMediaGrid() {
   if (!wrap) {
     wrap = document.createElement("div");
     wrap.className = "room-media";
-    body.insertBefore(wrap, body.querySelector(".settings-group-title"));
+    (document.getElementById("riMedia") || body).appendChild(wrap);
   }
   const base = () => sb.from("messages").select("id,image_url,video_url,audio_url,content,created_at,user_id")
     .eq("conversation_id", convo.id).eq("deleted", false).order("created_at", { ascending: false });
@@ -3525,8 +3703,8 @@ async function renderMediaGrid() {
     else if (mediaTab === "videos") html = `<div class="room-media-grid">${list.map((m) => `<button type="button" class="rm-vid" data-v="${escapeHTML(m.video_url)}"><video src="${escapeHTML(m.video_url)}#t=0.1" preload="metadata" muted playsinline></video><span>▶</span></button>`).join("")}</div>`;
     else if (mediaTab === "links") html = `<div class="rm-links">${list.map(({ url, m }) => { let host = url; try { host = new URL(url).hostname.replace(/^www\./, ""); } catch {} return `<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer"><span class="rm-ic">${svgIcon("link", 16)}</span><div><b>${escapeHTML(host)}</b><small>${escapeHTML(url.slice(0, 80))}</small></div><em>${when(m.created_at)}</em></a>`; }).join("")}</div>`;
     else html = `<div class="rm-voice">${list.map((m) => `<div><small>${escapeHTML(profileCache.get(m.user_id)?.display_name || "")} · ${when(m.created_at)}</small><audio controls preload="none" src="${escapeHTML(m.audio_url)}"></audio></div>`).join("")}</div>`;
-    wrap.innerHTML = `<div class="settings-group-title">Media, links & voice</div>
-      <div class="rm-tabs">${tabs.map(([k, label, l]) => `<button type="button" data-t="${k}" class="${k === mediaTab ? "on" : ""}" ${l.length ? "" : "disabled"}>${label}<i>${l.length}</i></button>`).join("")}</div>${html}`;
+    wrap.innerHTML = `<div class="ri-title">Media, links & voice</div>
+      <div class="ri-card ri-media"><div class="rm-tabs">${tabs.map(([k, label, l]) => `<button type="button" data-t="${k}" class="${k === mediaTab ? "on" : ""}" ${l.length ? "" : "disabled"}>${label}<i>${l.length}</i></button>`).join("")}</div>${html}</div>`;
   };
   paint();
   wrap.onclick = (e) => {
@@ -3593,7 +3771,14 @@ async function uploadGroupPfp(e) {
   e.target.value = "";
   if (!file) return;
   try {
-    const blob = await compressImageFile(file, 600);
+    let blob = await editAndCompress(file, { title: isPublic ? "Room photo" : "Group photo", aspects: ["1:1"], circle: true, maxSize: 1080 }, 600);
+    if (!blob) return;
+    const look = URL.createObjectURL(blob);
+    const ok = await previewMedia({ src: look, frame: "circle", title: isPublic ? "Room photo" : "Group photo", note: "Everyone in this chat will see it", actions: [
+      { label: "Cancel", value: false, ghost: true }, { label: "Set photo", value: true, icon: "check" },
+    ] });
+    setTimeout(() => URL.revokeObjectURL(look), 1000);
+    if (!ok) return;
     const url = await uploadPublic("avatars", `${isPublic ? "public-room" : `group-${convo.id}`}/${Date.now()}.jpg`, blob);
     const { error } = isPublic
       ? await sb.rpc("set_room_profile", { p_pfp_url: url })

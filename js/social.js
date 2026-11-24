@@ -225,14 +225,24 @@ const Social = (() => {
   }
 
   async function postToStory(post) {
+    let blob = null, look = post.image_url;
+    if (!look) {
+      try { blob = await textCardBlob(post.content || "", profileCache.get(post.user_id)); } catch { blob = null; }
+      if (!blob) { toast("Could not make the story card."); return; }
+      look = URL.createObjectURL(blob);
+    }
+    const up = blob && (() => uploadPublic("stories", `${me().id}/${fileId()}-post.jpg`, blob));
+    if (blob) uploadSoon(blob, up);
+    const audience = await previewMedia({ src: look, frame: "story", title: "Share to story", actions: [
+      { label: "Close friends", value: "close_friends", icon: "star", ghost: true },
+      { label: "Your story", value: "everyone", icon: "send" },
+    ] });
+    if (blob) setTimeout(() => URL.revokeObjectURL(look), 1000);
+    if (!audience) { dropUpload(blob); return; }
     toast("Adding to your story…");
     try {
-      let image_url = post.image_url;
-      if (!image_url) {
-        const blob = await textCardBlob(post.content || "", profileCache.get(post.user_id));
-        image_url = await uploadPublic("stories", `${me().id}/${Date.now()}-post.jpg`, blob);
-      }
-      const { error } = await sb.from("stories").insert({ user_id: me().id, image_url, shared_post_id: post.id, audience: "everyone" });
+      const image_url = blob ? await takeUpload(blob, up) : post.image_url;
+      const { error } = await sb.from("stories").insert({ user_id: me().id, image_url, shared_post_id: post.id, audience });
       if (error) throw error;
       toast("Added to your story");
       if (typeof loadStories === "function") loadStories();

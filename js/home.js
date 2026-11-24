@@ -164,7 +164,12 @@ function wireStoryUpload() {
     if (!blob) return;
     const up = () => uploadPublic("stories", `${ME.id}/${fileId()}.jpg`, blob);
     uploadSoon(blob, up);
-    const audience = await askStoryAudience();
+    const look = URL.createObjectURL(blob);
+    const audience = await previewMedia({ src: look, frame: "story", title: "Your story", actions: [
+      { label: "Close friends", value: "close_friends", icon: "star", ghost: true },
+      { label: "Your story", value: "everyone", icon: "send" },
+    ] });
+    setTimeout(() => URL.revokeObjectURL(look), 1000);
     if (!audience) { dropUpload(blob); return; }
 
     toast("Uploading story…", 10000);

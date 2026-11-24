@@ -17,12 +17,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <link rel="apple-touch-icon" href="images/apple-touch-icon.png?v=2" />
 <link rel="icon" href="images/icon.svg?v=2" type="image/svg+xml" /><link rel="alternate icon" href="images/icon-192.png?v=2" />
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
-<link rel="stylesheet" href="css/app.css?v=59" />
-<link rel="stylesheet" href="css/messages.css?v=59" />
-<link rel="stylesheet" href="css/bot.css?v=59" />
-<link rel="stylesheet" href="css/chat-polish.css?v=59" />
-<link rel="stylesheet" href="css/plus.css?v=59" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&display=swap" media="print" onload="this.media='all'" />
+<link rel="stylesheet" href="css/app.css?v=65" />
+<link rel="stylesheet" href="css/messages.css?v=65" />
+<link rel="stylesheet" href="css/bot.css?v=65" />
+<link rel="stylesheet" href="css/chat-polish.css?v=65" />
+<link rel="stylesheet" href="css/plus.css?v=65" />
 </head>
 <body>
 
@@ -94,46 +94,57 @@
     <div class="app-sheet-handle"></div>
     <div class="app-sheet-title" id="roomInfoTitle">Details</div>
     <div class="room-info-body">
-      <div id="groupEditArea" style="display:none;">
-        <div class="pfp-wrap" style="margin:0 auto 14px;">
-          <div class="pfp" id="groupPfp" style="width:70px;height:70px;font-size:24px;"></div>
-          <label class="pfp-edit-btn" id="groupPfpEdit" for="groupPfpInput" style="width:26px;height:26px;">
-            <span data-icon="edit" data-icon-size="12"></span>
-          </label>
-          <input type="file" id="groupPfpInput" accept="image/*" style="display:none;" />
-        </div>
-        <div class="field">
-          <label>Name</label>
-          <input type="text" id="groupNameEdit" maxlength="40" />
+      <div class="ri-hero" id="riHero"></div>
+
+      <div id="groupEditArea" class="ri-card ri-edit" style="display:none;">
+        <div class="ri-edit-row">
+          <div class="pfp-wrap">
+            <div class="pfp" id="groupPfp" style="width:56px;height:56px;font-size:20px;"></div>
+            <label class="pfp-edit-btn" id="groupPfpEdit" for="groupPfpInput" style="width:24px;height:24px;" aria-label="Change photo">
+              <span data-icon="edit" data-icon-size="11"></span>
+            </label>
+            <input type="file" id="groupPfpInput" accept="image/*" style="display:none;" />
+          </div>
+          <div class="field ri-edit-field">
+            <label for="groupNameEdit">Name</label>
+            <input type="text" id="groupNameEdit" maxlength="40" />
+          </div>
         </div>
         <button class="btn btn-small" id="saveGroupBtn" style="width:100%;">Save changes</button>
-        <div class="rule"></div>
       </div>
 
-      <div class="settings-group-title">Members</div>
-      <div class="settings-list" id="roomMembers"></div>
+      <div class="ri-title">Chat settings</div>
+      <div class="ri-card" id="riSettings"></div>
 
-      <div id="addMemberArea" style="display:none; margin-top:14px;">
-        <div class="settings-group-title">Add people</div>
-        <input type="text" class="settings-search" id="addMemberSearch" placeholder="Search anyone on teaofrpm…" autocomplete="off" />
-        <div class="settings-list" id="addMemberList"></div>
+      <div id="riExtras"></div>
+      <div id="riMedia"></div>
+
+      <div class="ri-title" id="riMembersTitle">Members</div>
+      <div class="ri-card ri-members settings-list" id="roomMembers"></div>
+
+      <div id="addMemberArea" style="display:none;">
+        <div class="ri-title">Add people</div>
+        <div class="ri-card ri-add">
+          <input type="text" class="settings-search" id="addMemberSearch" placeholder="Search anyone on teaofrpm…" autocomplete="off" />
+          <div class="settings-list" id="addMemberList"></div>
+        </div>
       </div>
 
-      <button class="btn-outline btn btn-small" id="leaveGroupBtn" style="width:100%; margin-top:16px; display:none;">Leave group</button>
+      <button type="button" class="ri-danger" id="leaveGroupBtn" style="display:none;">Leave group</button>
     </div>
   </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=59"></script>
-<script src="js/core.js?v=59"></script>
-<script src="js/plus.js?v=59"></script>
-<script src="js/plus-tools.js?v=59"></script>
-<script src="js/plus-games.js?v=59"></script>
-<script src="js/editor.js?v=59"></script>
-<script src="js/calls.js?v=59"></script>
-<script src="js/livebg.js?v=59"></script>
-<script src="js/room.js?v=59"></script>
-<script src="js/chatplus.js?v=59"></script>
+<script src="js/config.js?v=65"></script>
+<script src="js/core.js?v=65"></script>
+<script src="js/plus.js?v=65"></script>
+<script src="js/plus-tools.js?v=65"></script>
+<script src="js/plus-games.js?v=65"></script>
+<script src="js/editor.js?v=65"></script>
+<script src="js/calls.js?v=65"></script>
+<script src="js/livebg.js?v=65"></script>
+<script src="js/room.js?v=65"></script>
+<script src="js/chatplus.js?v=65"></script>
 </body>
 </html>

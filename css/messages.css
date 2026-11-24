@@ -222,3 +222,20 @@
 .note-sheet-actions .btn, .note-sheet-actions .btn-outline{ flex:1; }
 
 /* Bot styling moved to css/bot.css — it is shared with the public room. */
+
+/* Global room: pinned card with a faint globe + star dust */
+.thread-row.pinned{ position:relative; overflow:hidden; isolation:isolate; border:1px solid color-mix(in srgb, var(--gold-deep) 45%, transparent);
+  background:radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--gold, #ffd700) 16%, var(--white)) 0%, transparent 55%),
+             linear-gradient(120deg, var(--white) 30%, color-mix(in srgb, var(--deep-royal) 9%, var(--white)) 100%);
+  box-shadow:0 1px 0 rgba(255,255,255,.7) inset, 0 8px 22px -16px rgba(74,20,140,.45); padding:13px 14px; }
+.thread-row.pinned::before{ content:""; position:absolute; z-index:-1; right:-18px; top:50%; width:118px; height:118px; transform:translateY(-50%) rotate(-12deg);
+  background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20120%20120%22%20fill%3D%22none%22%20stroke%3D%22%236a1b9a%22%20stroke-width%3D%221.2%22%3E%3Ccircle%20cx%3D%2260%22%20cy%3D%2260%22%20r%3D%2252%22%2F%3E%3Cellipse%20cx%3D%2260%22%20cy%3D%2260%22%20rx%3D%2222%22%20ry%3D%2252%22%2F%3E%3Cellipse%20cx%3D%2260%22%20cy%3D%2260%22%20rx%3D%2242%22%20ry%3D%2252%22%2F%3E%3Cpath%20d%3D%22M8%2060h104M14%2034h92M14%2086h92%22%2F%3E%3Ccircle%20cx%3D%2260%22%20cy%3D%2260%22%20r%3D%2258%22%20stroke-dasharray%3D%222%206%22%2F%3E%3C%2Fsvg%3E") center/contain no-repeat; opacity:.13; animation:pinGlobe 40s linear infinite; }
+@keyframes pinGlobe{ to{ transform:translateY(-50%) rotate(348deg); } }
+.thread-row.pinned::after{ content:""; position:absolute; z-index:-1; inset:0; background:url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22160%22%20height%3D%2270%22%20fill%3D%22%23c9a227%22%3E%3Cpath%20d%3D%22M20%2014l1.6%204%204%201.6-4%201.6L20%2025l-1.6-3.8L14.6%2019.6l3.8-1.6z%22%2F%3E%3Ccircle%20cx%3D%2264%22%20cy%3D%2252%22%20r%3D%221.4%22%2F%3E%3Ccircle%20cx%3D%22104%22%20cy%3D%2210%22%20r%3D%221.1%22%2F%3E%3Cpath%20d%3D%22M138%2044l1.1%202.7%202.7%201.1-2.7%201.1-1.1%202.7-1.1-2.7-2.7-1.1%202.7-1.1z%22%2F%3E%3Ccircle%20cx%3D%2246%22%20cy%3D%2230%22%20r%3D%22.9%22%2F%3E%3C%2Fsvg%3E") 70% 50%/160px 70px no-repeat; opacity:.55; pointer-events:none; }
+.thread-row.pinned .thread-avatar{ box-shadow:0 0 0 2px var(--white), 0 0 0 3.5px color-mix(in srgb, var(--gold-deep) 70%, transparent), 0 6px 14px -6px rgba(74,20,140,.5); }
+.thread-row.pinned .thread-text b{ display:flex; align-items:center; gap:6px; }
+.thread-row.pinned .thread-text b::after{ content:"GLOBAL"; flex:none; font:800 8.5px/1 var(--sans); letter-spacing:.12em; padding:3px 6px 3px 14px; border-radius:999px; color:var(--deep-royal);
+  background:radial-gradient(circle at 7px 50%, #2ecc71 0 2.6px, transparent 3.2px), color-mix(in srgb, var(--deep-royal) 9%, transparent); }
+.thread-row.pinned:hover{ background:radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--gold, #ffd700) 20%, var(--white)) 0%, transparent 55%), linear-gradient(120deg, var(--white) 30%, color-mix(in srgb, var(--deep-royal) 13%, var(--white)) 100%); }
+:root[data-theme="dark"] .thread-row.pinned::before{ filter:invert(1); opacity:.1; }
+@media (prefers-reduced-motion: reduce){ .thread-row.pinned::before{ animation:none; } }
