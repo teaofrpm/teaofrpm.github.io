@@ -1,7 +1,7 @@
 /* ============================================================
    teaofrpm service worker — v21.
 
-   DEPLOYING AN UPDATE: change ?v=53 → ?v=53 in every .html file AND in
+   DEPLOYING AN UPDATE: change ?v=59 → ?v=59 in every .html file AND in
    SHELL below, and bump VERSION. New pages then ask for new file names,
    so they can never be paired with an old cached CSS/JS.
 
@@ -20,7 +20,7 @@
    `self.registration.unregister();` and push.
    ============================================================ */
 
-const VERSION = "v53";
+const VERSION = "v59";
 const PAGES = `teaofrpm-pages-${VERSION}`;
 const ASSETS = `teaofrpm-assets-${VERSION}`;
 const LIBS = "teaofrpm-libs-v2";
@@ -28,10 +28,10 @@ const MAX_ENTRIES = 120;
 
 const SHELL = [
   "home.html", "messages.html", "room.html", "profile.html", "reels.html", "discover.html", "settings.html", "tools.html", "notifications.html", "edit-profile.html",
-  "css/app.css?v=53", "css/landing.css?v=53", "css/home.css?v=53", "css/messages.css?v=53", "css/chat-polish.css?v=53", "css/bot.css?v=53",
-  "css/social-extras.css?v=53", "css/reels.css?v=53", "css/discover.css?v=53", "css/settings.css?v=53", "css/plus.css?v=53",
-  "js/config.js?v=53", "js/core.js?v=53", "js/editor.js?v=53", "js/calls.js?v=53", "js/social.js?v=53", "js/notifications.js?v=53",
-  "js/home.js?v=53", "js/messages.js?v=53", "js/livebg.js?v=53", "js/room.js?v=53", "js/profile.js?v=53", "js/plus.js?v=53", "js/plus-tools.js?v=53", "js/plus-games.js?v=53", "js/chatplus.js?v=53",
+  "css/app.css?v=59", "css/landing.css?v=59", "css/home.css?v=59", "css/messages.css?v=59", "css/chat-polish.css?v=59", "css/bot.css?v=59",
+  "css/social-extras.css?v=59", "css/reels.css?v=59", "css/discover.css?v=59", "css/settings.css?v=59", "css/plus.css?v=59",
+  "js/config.js?v=59", "js/core.js?v=59", "js/editor.js?v=59", "js/calls.js?v=59", "js/social.js?v=59", "js/notifications.js?v=59",
+  "js/home.js?v=59", "js/messages.js?v=59", "js/livebg.js?v=59", "js/room.js?v=59", "js/profile.js?v=59", "js/plus.js?v=59", "js/plus-tools.js?v=59", "js/plus-games.js?v=59", "js/chatplus.js?v=59",
   "images/icon-192.png?v=2", "images/icon.svg?v=2", "images/bot.png",
 ];
 

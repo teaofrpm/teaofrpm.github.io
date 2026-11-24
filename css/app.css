@@ -738,6 +738,21 @@ button:active .icon-svg, a:active .icon-svg, label:active .icon-svg{ transform:s
   border-bottom:1px solid var(--border-soft);
 }
 .profile-topbar h2{ margin:0; font-family:var(--serif); font-size:19px; color:var(--deep-royal); }
+/* Profile page: the @username sits dead-centre no matter which buttons JS adds later
+   (back on the left; create / settings / share / ⋯ grouped on the right) — no jump on load. */
+:where(.profile-topbar:has(> #profileTopTitle)){ position:relative; }   /* zero specificity: the glass bar's position:absolute still wins */
+.profile-topbar:has(> #profileTopTitle){ justify-content:flex-start; gap:8px; }
+.profile-topbar > #profileTopTitle{
+  position:absolute; left:50%; top:50%; transform:translate(-50%, -50%);
+  margin-top:calc(env(safe-area-inset-top, 0px) / 2);
+  max-width:calc(100% - 210px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:center;
+}
+.profile-topbar > #profileTopTitle + *{ margin-left:auto; }
+/* Laptop: keep the profile in one centred column instead of stretching edge to edge */
+@media (min-width: 900px){
+  .profile-shell > .profile-topbar:has(> #profileTopTitle){ padding-left:max(20px, calc((100% - 935px) / 2)); padding-right:max(20px, calc((100% - 935px) / 2)); }
+  .profile-shell > .profile-scroll{ padding-left:max(16px, calc((100% - 935px) / 2)) !important; padding-right:max(16px, calc((100% - 935px) / 2)) !important; }
+}
 .profile-scroll{ flex:1; overflow-y:auto; padding:20px; min-height:0; }
 
 .profile-head{ display:flex; flex-direction:column; align-items:center; text-align:center; }
